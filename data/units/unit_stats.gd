@@ -14,6 +14,12 @@ const TYPE_ELEMENTAL := 1 << 5
 @export var unit_name: String = "Unit"
 @export var description: String = ""
 
+@export_category("Sprites")
+@export var sprite_idle: Texture2D
+@export var sprite_walk: Texture2D
+@export var sprite_attack: Texture2D
+@export var sprite_dead: Texture2D
+
 @export_category("UI")
 @export var icon_texture: Texture2D
 

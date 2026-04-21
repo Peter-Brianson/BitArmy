@@ -178,12 +178,14 @@ structure_manager = NodePath("../StructureSimulationManager")
 camera_pan_controller = NodePath("../../CameraRig")
 team_manager = NodePath("../TeamManager")
 
-[node name="StructureSimulationManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("structure_root", "unit_manager", "camera_pan_controller")]
+[node name="StructureSimulationManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("structure_root", "unit_manager", "camera_pan_controller", "team_manager", "ai_team_manager")]
 script = ExtResource("12_e1kf6")
 structure_root = NodePath("../../World/StructureRoot")
 default_structure_scene = ExtResource("8_cgoq0")
 unit_manager = NodePath("../UnitSimulationManager")
 camera_pan_controller = NodePath("../../CameraRig")
+team_manager = NodePath("../TeamManager")
+ai_team_manager = NodePath("../AITeamManager")
 
 [node name="CombatResolver" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager", "unit_manager", "structure_manager")]
 script = ExtResource("13_t2dt4")

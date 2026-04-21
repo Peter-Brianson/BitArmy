@@ -1,11 +1,19 @@
-[gd_resource type="Resource" script_class="UnitStats" load_steps=2 format=3 uid="uid://c8ehm6364nus1"]
+[gd_resource type="Resource" script_class="UnitStats" load_steps=5 format=3 uid="uid://c8ehm6364nus1"]
 
+[ext_resource type="Texture2D" uid="uid://dbtmjaw8ddqjk" path="res://sprites/basic soldier/attack.png" id="1_gmup5"]
 [ext_resource type="Script" path="res://data/units/unit_stats.gd" id="1_mnvo1"]
+[ext_resource type="Texture2D" uid="uid://b0yosmhxu5tx1" path="res://sprites/basic soldier/dead.png" id="3_6voii"]
+[ext_resource type="Texture2D" uid="uid://b53nrdixt864e" path="res://sprites/basic soldier/idle.png" id="4_ymo2f"]
 
 [resource]
 script = ExtResource("1_mnvo1")
 unit_name = "Soldier"
 description = "Basic Soldier"
+sprite_idle = ExtResource("4_ymo2f")
+sprite_walk = ExtResource("4_ymo2f")
+sprite_attack = ExtResource("1_gmup5")
+sprite_dead = ExtResource("3_6voii")
+icon_texture = ExtResource("1_gmup5")
 unit_type_tags = 1
 max_health = 1
 damage = 1

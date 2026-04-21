@@ -1,105 +1,163 @@
 class_name UnitPreview
 extends Node2D
 
-@export var stats: UnitStats
+@export var body_sprite: Sprite2D
 
-var runtime_id: int = -1
-var owner_team_id: int = -1
-var team_color: Color = Color.WHITE
-var current_health: int = 0
-var is_alive: bool = true
-var current_state: int = UnitRuntime.UnitState.IDLE
-var facing_dir: Vector2 = Vector2.RIGHT
+var unit_id: int = -1
+var stats: UnitStats
+var owner_team_id: int = 0
 
-var flash_color: Color = Color.WHITE
-var flash_strength: float = 0.0
-var flash_fade_speed: float = 10.0
+var _current_state: int = UnitRuntime.UnitState.IDLE
+var _facing_dir: Vector2 = Vector2.RIGHT
 
-func _physics_process(delta: float) -> void:
-	if flash_strength > 0.0:
-		flash_strength = max(flash_strength - flash_fade_speed * delta, 0.0)
-		queue_redraw()
+var _flash_tint: Color = Color.WHITE
+var _flash_timer: float = 0.0
 
-func apply_unit_runtime_setup(p_runtime_id: int, p_stats: UnitStats, p_team_id: int) -> void:
-	runtime_id = p_runtime_id
+
+func _ready() -> void:
+	if body_sprite == null:
+		body_sprite = get_node_or_null("BodySprite")
+
+	if body_sprite != null:
+		var shader := load("res://shaders/team_tint_bw.gdshader") as Shader
+		if shader != null:
+			var mat := ShaderMaterial.new()
+			mat.shader = shader
+			body_sprite.material = mat
+
+
+func _process(delta: float) -> void:
+	if _flash_timer > 0.0:
+		_flash_timer -= delta
+
+		if body_sprite != null:
+			body_sprite.modulate = _flash_tint
+
+		if _flash_timer <= 0.0 and body_sprite != null:
+			body_sprite.modulate = Color.WHITE
+
+
+func apply_unit_runtime_setup(p_unit_id: int, p_stats: UnitStats, p_owner_team_id: int) -> void:
+	unit_id = p_unit_id
 	stats = p_stats
-	owner_team_id = p_team_id
-	team_color = TeamPalette.get_team_color(owner_team_id)
-	current_health = stats.max_health
-	is_alive = true
-	current_state = UnitRuntime.UnitState.IDLE
-	facing_dir = Vector2.RIGHT
-	queue_redraw()
+	owner_team_id = p_owner_team_id
 
-func apply_unit_runtime_state(p_state: int, p_health: int, p_is_alive: bool, p_team_id: int, p_facing_dir: Vector2) -> void:
-	current_state = p_state
-	current_health = p_health
-	is_alive = p_is_alive
-	owner_team_id = p_team_id
-	team_color = TeamPalette.get_team_color(owner_team_id)
+	_apply_team_color()
+	_apply_visuals()
 
-	if p_facing_dir.length_squared() > 0.001:
-		facing_dir = p_facing_dir.normalized()
 
-	queue_redraw()
+func apply_unit_runtime_state(state: int, _current_health: int, _is_alive: bool, _owner_team_id: int, facing_dir: Vector2) -> void:
+	_current_state = state
+	_facing_dir = facing_dir
+	_apply_visuals()
+
 
 func play_attack_flash() -> void:
-	flash_color = Color("#FFF4A3")
-	flash_strength = 0.8
-	queue_redraw()
+	_start_flash(Color(1.2, 1.2, 0.8, 1.0), 0.08)
+
 
 func play_hit_flash() -> void:
-	flash_color = Color("#FFFFFF")
-	flash_strength = 1.0
-	queue_redraw()
+	_start_flash(Color(1.3, 0.8, 0.8, 1.0), 0.10)
+
 
 func play_death_flash() -> void:
-	flash_color = Color("#FF6B6B")
-	flash_strength = 1.0
+	_start_flash(Color(0.7, 0.7, 0.7, 1.0), 0.20)
+
+
+func _start_flash(tint: Color, duration: float) -> void:
+	_flash_tint = tint
+	_flash_timer = duration
+
+	if body_sprite != null:
+		body_sprite.modulate = tint
+
+
+func _apply_team_color() -> void:
+	if body_sprite == null:
+		return
+
+	var mat := body_sprite.material as ShaderMaterial
+	if mat == null:
+		return
+
+	mat.set_shader_parameter("team_color", TeamPalette.get_team_color(owner_team_id))
+
+
+func _apply_visuals() -> void:
+	if stats == null:
+		return
+
+	var texture_to_use: Texture2D = _get_texture_for_state(_current_state)
+
+	if body_sprite != null:
+		if texture_to_use != null:
+			body_sprite.visible = true
+			body_sprite.texture = texture_to_use
+			body_sprite.flip_h = _facing_dir.x < 0.0
+			_apply_team_color()
+		else:
+			body_sprite.visible = false
+
 	queue_redraw()
 
-func _get_state_tinted_color() -> Color:
-	var color: Color = team_color
 
-	match current_state:
-		UnitRuntime.UnitState.IDLE:
-			pass
+func _get_texture_for_state(state: int) -> Texture2D:
+	match state:
 		UnitRuntime.UnitState.WALK:
-			color = color.lightened(0.10)
+			if stats.sprite_walk != null:
+				return stats.sprite_walk
+			return stats.sprite_idle
+
 		UnitRuntime.UnitState.ATTACK:
-			color = color.lightened(0.22)
+			if stats.sprite_attack != null:
+				return stats.sprite_attack
+			if stats.sprite_idle != null:
+				return stats.sprite_idle
+			return null
+
 		UnitRuntime.UnitState.DEAD:
-			color = color.darkened(0.45)
+			if stats.sprite_dead != null:
+				return stats.sprite_dead
+			if stats.sprite_idle != null:
+				return stats.sprite_idle
+			return null
 
-	if not is_alive:
-		color = color.darkened(0.45)
+		_:
+			return stats.sprite_idle
 
-	return color
 
 func _draw() -> void:
 	if stats == null:
 		return
 
-	var base_color: Color = _get_state_tinted_color()
-	var final_color: Color = base_color.lerp(flash_color, flash_strength)
+	var texture_to_use: Texture2D = _get_texture_for_state(_current_state)
+	if texture_to_use != null:
+		return
 
-	var size := stats.body_size
-	var rect := Rect2(
-		Vector2(-size.x * 0.5, -size.y * 0.5),
-		size
+	# Fallback default shape
+	var team_color: Color = TeamPalette.get_team_color(owner_team_id)
+	var size: Vector2 = stats.body_size
+	var rect := Rect2(-size * 0.5, size)
+
+	draw_rect(rect, Color.BLACK, true)
+
+	var inner_margin: float = 2.0
+	var inner_rect := Rect2(
+		rect.position + Vector2(inner_margin, inner_margin),
+		rect.size - Vector2(inner_margin * 2.0, inner_margin * 2.0)
 	)
 
-	draw_rect(rect, final_color)
+	if inner_rect.size.x > 0.0 and inner_rect.size.y > 0.0:
+		draw_rect(inner_rect, team_color, true)
 
-# Front marker
-	var front_color: Color = Color.BLACK.lerp(Color.WHITE, flash_strength * 0.5)
-	var half_w: float = size.x * 0.5
-	var half_h: float = size.y * 0.5
-	var marker_length: float = half_w
-	if half_h > marker_length:
-		marker_length = half_h
+	if _current_state == UnitRuntime.UnitState.ATTACK:
+		draw_circle(Vector2(size.x * 0.5 + 2.0, -2.0), 2.0, Color.WHITE)
 
-	var marker_start: Vector2 = facing_dir * 4.0
-	var marker_end: Vector2 = facing_dir * marker_length
-
-	draw_line(marker_start, marker_end, front_color, 2.0)
+	if _current_state == UnitRuntime.UnitState.DEAD:
+		draw_line(rect.position, rect.position + rect.size, Color(0.4, 0.4, 0.4), 2.0)
+		draw_line(
+			Vector2(rect.position.x + rect.size.x, rect.position.y),
+			Vector2(rect.position.x, rect.position.y + rect.size.y),
+			Color(0.4, 0.4, 0.4),
+			2.0
+		)

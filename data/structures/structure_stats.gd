@@ -5,6 +5,10 @@ extends Resource
 @export var structure_name: String = "Structure"
 @export var description: String = ""
 
+@export_category("Sprites")
+@export var sprite_normal: Texture2D
+@export var sprite_destroyed: Texture2D
+
 @export_category("UI")
 @export var icon_texture: Texture2D
 

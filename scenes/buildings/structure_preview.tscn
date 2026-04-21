@@ -1,0 +1,17 @@
+[gd_scene load_steps=4 format=3 uid="uid://drdqas7wvyya7"]
+
+[ext_resource type="Script" path="res://scripts/sim/structure_preview.gd" id="1_ov3bd"]
+
+[sub_resource type="Gradient" id="Gradient_aoqea"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_yfed2"]
+gradient = SubResource("Gradient_aoqea")
+
+[node name="StructurePreview" type="Node2D" node_paths=PackedStringArray("body_sprite")]
+script = ExtResource("1_ov3bd")
+body_sprite = NodePath("BodySprite")
+
+[node name="BodySprite" type="Sprite2D" parent="."]
+visible = false
+texture = SubResource("GradientTexture2D_yfed2")

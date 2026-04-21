@@ -82,6 +82,9 @@ func setup(p_id: int, p_stats: UnitStats, p_team_id: int, p_position: Vector2) -
 	personal_keywords = 0
 	local_aura_keywords = 0
 	retarget_timer_left = 0.0
+	
+	has_attack_move_destination = false
+	attack_move_destination = p_position
 
 
 func reset_for_reuse(p_id: int, p_stats: UnitStats, p_team_id: int, p_position: Vector2) -> void:
@@ -138,11 +141,36 @@ func set_move_order(world_target: Vector2) -> void:
 	has_move_target = true
 	order_mode = OrderMode.MOVE
 
+	has_attack_move_destination = false
+	attack_move_destination = world_target
+
 	target_unit_id = -1
 	target_structure_id = -1
 
 	if state != UnitState.DEAD:
 		state = UnitState.WALK
+
+func set_attack_move_order(world_target: Vector2) -> void:
+	attack_move_destination = world_target
+	has_attack_move_destination = true
+
+	move_target = world_target
+	has_move_target = true
+
+	target_unit_id = -1
+	target_structure_id = -1
+	order_mode = OrderMode.ATTACK_MOVE
+
+	if state != UnitState.DEAD:
+		state = UnitState.WALK
+
+
+func clear_attack_move_order() -> void:
+	has_attack_move_destination = false
+	attack_move_destination = position
+
+	if order_mode == OrderMode.ATTACK_MOVE:
+		order_mode = OrderMode.NONE
 
 
 func set_attack_unit_order(p_target_unit_id: int) -> void:
