@@ -13,5 +13,4 @@ script = ExtResource("1_ov3bd")
 body_sprite = NodePath("BodySprite")
 
 [node name="BodySprite" type="Sprite2D" parent="."]
-visible = false
 texture = SubResource("GradientTexture2D_yfed2")

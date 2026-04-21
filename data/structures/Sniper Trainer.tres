@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="StructureStats" load_steps=3 format=3 uid="uid://hw1baduh04jk"]
+[gd_resource type="Resource" script_class="StructureStats" load_steps=4 format=3 uid="uid://hw1baduh04jk"]
 
+[ext_resource type="Texture2D" uid="uid://bd426c75awbgo" path="res://sprites/sniper trainer/sniper trainer.png" id="1_1g4mf"]
 [ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_vy6hx"]
 [ext_resource type="Resource" uid="uid://cwkfq10gwh1ek" path="res://data/units/sniper_soldier.tres" id="2_hwg2c"]
 
@@ -7,23 +8,29 @@
 script = ExtResource("1_vy6hx")
 structure_name = "Sniper Trainer"
 description = "Sniper Units"
-max_health = null
-radius = null
+sprite_normal = ExtResource("1_1g4mf")
+sprite_destroyed = ExtResource("1_1g4mf")
+icon_texture = ExtResource("1_1g4mf")
+max_health = 10
+radius = 16.0
 footprint_size = Vector2(20, 40)
-death_time = null
+death_time = 1.0
 cost = 15
 can_produce = true
 can_train_units = true
-can_place_structures = null
+can_place_structures = false
 trained_unit_stats = ExtResource("2_hwg2c")
-spawn_offset = null
-income_bonus_per_second = null
-teamwide_buff_unit_tags = null
-teamwide_bonus_damage = null
-teamwide_bonus_health = null
-can_attack = null
-damage = null
-attack_speed = null
-attack_range = null
-target_categories = null
-keywords = null
+spawn_offset = Vector2(0, 8)
+income_bonus_per_second = 0.0
+teamwide_buff_unit_tags = 0
+teamwide_bonus_damage = 0
+teamwide_bonus_health = 0
+can_attack = false
+damage = 0
+attack_speed = 1.0
+attack_range = 0.0
+target_categories = 0
+attack_damage = 0
+attack_cooldown = 1.0
+attack_windup = 0.0
+keywords = 32

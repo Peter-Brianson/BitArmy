@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="StructureStats" load_steps=3 format=3 uid="uid://ciuh15hld7ewv"]
+[gd_resource type="Resource" script_class="StructureStats" load_steps=4 format=3 uid="uid://ciuh15hld7ewv"]
 
+[ext_resource type="Texture2D" uid="uid://cofee85urgh4d" path="res://sprites/heavy trainer/heavy trainer.png" id="1_kbujm"]
 [ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_qdg3o"]
 [ext_resource type="Resource" uid="uid://i0yc37mfo0d4" path="res://data/units/heavy_soldier.tres" id="2_xbc78"]
 
@@ -7,23 +8,29 @@
 script = ExtResource("1_qdg3o")
 structure_name = "Heavy Trainer"
 description = "Heavy Units"
+sprite_normal = ExtResource("1_kbujm")
+sprite_destroyed = ExtResource("1_kbujm")
+icon_texture = ExtResource("1_kbujm")
 max_health = 30
-radius = null
+radius = 16.0
 footprint_size = Vector2(50, 30)
-death_time = null
+death_time = 1.0
 cost = 25
 can_produce = true
 can_train_units = true
-can_place_structures = null
+can_place_structures = false
 trained_unit_stats = ExtResource("2_xbc78")
-spawn_offset = null
-income_bonus_per_second = null
-teamwide_buff_unit_tags = null
-teamwide_bonus_damage = null
-teamwide_bonus_health = null
-can_attack = null
-damage = null
-attack_speed = null
-attack_range = null
-target_categories = null
-keywords = null
+spawn_offset = Vector2(0, 8)
+income_bonus_per_second = 0.0
+teamwide_buff_unit_tags = 0
+teamwide_bonus_damage = 0
+teamwide_bonus_health = 0
+can_attack = false
+damage = 0
+attack_speed = 1.0
+attack_range = 0.0
+target_categories = 0
+attack_damage = 0
+attack_cooldown = 1.0
+attack_windup = 0.0
+keywords = 32

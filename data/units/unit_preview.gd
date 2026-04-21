@@ -18,12 +18,8 @@ func _ready() -> void:
 	if body_sprite == null:
 		body_sprite = get_node_or_null("BodySprite")
 
-	if body_sprite != null:
-		var shader := load("res://shaders/team_tint_bw.gdshader") as Shader
-		if shader != null:
-			var mat := ShaderMaterial.new()
-			mat.shader = shader
-			body_sprite.material = mat
+	if body_sprite == null:
+		push_warning("UnitPreview: BodySprite node not found.")
 
 
 func _process(delta: float) -> void:
@@ -34,7 +30,7 @@ func _process(delta: float) -> void:
 			body_sprite.modulate = _flash_tint
 
 		if _flash_timer <= 0.0 and body_sprite != null:
-			body_sprite.modulate = Color.WHITE
+			_apply_team_color()
 
 
 func apply_unit_runtime_setup(p_unit_id: int, p_stats: UnitStats, p_owner_team_id: int) -> void:
@@ -42,7 +38,18 @@ func apply_unit_runtime_setup(p_unit_id: int, p_stats: UnitStats, p_owner_team_i
 	stats = p_stats
 	owner_team_id = p_owner_team_id
 
-	_apply_team_color()
+	_current_state = UnitRuntime.UnitState.IDLE
+	_facing_dir = Vector2.RIGHT
+
+	##print(
+		#"UnitPreview setup | unit=", p_unit_id,
+		#" body_sprite=", body_sprite,
+		#" idle=", stats.sprite_idle,
+		#" walk=", stats.sprite_walk,
+		#" attack=", stats.sprite_attack,
+		#" dead=", stats.sprite_dead
+	#)
+
 	_apply_visuals()
 
 
@@ -76,11 +83,7 @@ func _apply_team_color() -> void:
 	if body_sprite == null:
 		return
 
-	var mat := body_sprite.material as ShaderMaterial
-	if mat == null:
-		return
-
-	mat.set_shader_parameter("team_color", TeamPalette.get_team_color(owner_team_id))
+	body_sprite.modulate = TeamPalette.get_team_color(owner_team_id)
 
 
 func _apply_visuals() -> void:
@@ -89,10 +92,17 @@ func _apply_visuals() -> void:
 
 	var texture_to_use: Texture2D = _get_texture_for_state(_current_state)
 
+	#print(
+		#"UnitPreview visuals | unit=", unit_id,
+		#" state=", _current_state,
+		#" texture=", texture_to_use
+	#)
+
 	if body_sprite != null:
 		if texture_to_use != null:
 			body_sprite.visible = true
 			body_sprite.texture = texture_to_use
+			body_sprite.centered = true
 			body_sprite.flip_h = _facing_dir.x < 0.0
 			_apply_team_color()
 		else:
@@ -102,6 +112,9 @@ func _apply_visuals() -> void:
 
 
 func _get_texture_for_state(state: int) -> Texture2D:
+	if stats == null:
+		return null
+
 	match state:
 		UnitRuntime.UnitState.WALK:
 			if stats.sprite_walk != null:
@@ -111,16 +124,12 @@ func _get_texture_for_state(state: int) -> Texture2D:
 		UnitRuntime.UnitState.ATTACK:
 			if stats.sprite_attack != null:
 				return stats.sprite_attack
-			if stats.sprite_idle != null:
-				return stats.sprite_idle
-			return null
+			return stats.sprite_idle
 
 		UnitRuntime.UnitState.DEAD:
 			if stats.sprite_dead != null:
 				return stats.sprite_dead
-			if stats.sprite_idle != null:
-				return stats.sprite_idle
-			return null
+			return stats.sprite_idle
 
 		_:
 			return stats.sprite_idle
@@ -134,7 +143,6 @@ func _draw() -> void:
 	if texture_to_use != null:
 		return
 
-	# Fallback default shape
 	var team_color: Color = TeamPalette.get_team_color(owner_team_id)
 	var size: Vector2 = stats.body_size
 	var rect := Rect2(-size * 0.5, size)

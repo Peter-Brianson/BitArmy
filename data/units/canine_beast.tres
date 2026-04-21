@@ -1,11 +1,19 @@
-[gd_resource type="Resource" script_class="UnitStats" load_steps=2 format=3 uid="uid://bjpav1i0cmo5u"]
+[gd_resource type="Resource" script_class="UnitStats" load_steps=5 format=3 uid="uid://bjpav1i0cmo5u"]
 
+[ext_resource type="Texture2D" uid="uid://qyb31j87lrio" path="res://sprites/beast canine/idle.png" id="1_hblyc"]
 [ext_resource type="Script" path="res://data/units/unit_stats.gd" id="1_pwoaj"]
+[ext_resource type="Texture2D" uid="uid://cq12xy22dexxk" path="res://sprites/beast canine/attack.png" id="3_g87xu"]
+[ext_resource type="Texture2D" uid="uid://ihgfag2si1fu" path="res://sprites/beast canine/dead.png" id="4_fod86"]
 
 [resource]
 script = ExtResource("1_pwoaj")
 unit_name = "Canine"
 description = "Canine Unit"
+sprite_idle = ExtResource("1_hblyc")
+sprite_walk = ExtResource("1_hblyc")
+sprite_attack = ExtResource("3_g87xu")
+sprite_dead = ExtResource("4_fod86")
+icon_texture = ExtResource("1_hblyc")
 unit_type_tags = 4
 max_health = 1
 damage = 1

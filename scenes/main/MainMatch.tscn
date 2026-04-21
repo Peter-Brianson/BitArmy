@@ -1,4 +1,4 @@
-[gd_scene load_steps=40 format=3 uid="uid://cqum0hu0tuqy0"]
+[gd_scene load_steps=33 format=3 uid="uid://cqum0hu0tuqy0"]
 
 [ext_resource type="Script" path="res://scripts/input/CameraPanController.gd" id="1_m2t5q"]
 [ext_resource type="Script" path="res://data/structures/structure_placement_controller.gd" id="2_723eq"]
@@ -10,10 +10,10 @@
 [ext_resource type="Script" path="res://scenes/main/match_controller.gd" id="5_xvb1v"]
 [ext_resource type="Resource" uid="uid://c8ehm6364nus1" path="res://data/units/basic_soldier.tres" id="6_71p1s"]
 [ext_resource type="Resource" uid="uid://i01u6sx8dsme" path="res://data/structures/hq_basic.tres" id="7_hn723"]
-[ext_resource type="PackedScene" uid="uid://hf68367skxj" path="res://scenes/buildings/hq.tscn" id="8_cgoq0"]
 [ext_resource type="Script" path="res://scripts/ai/ai_team_manager.gd" id="9_levw5"]
 [ext_resource type="Script" path="res://scripts/sim/team_manager.gd" id="9_witlm"]
 [ext_resource type="Script" path="res://scripts/sim/unit_simulation_manager.gd" id="10_gvb8p"]
+[ext_resource type="PackedScene" uid="uid://drdqas7wvyya7" path="res://scenes/buildings/structure_preview.tscn" id="10_jwsqd"]
 [ext_resource type="PackedScene" uid="uid://gr37u0oewtun" path="res://data/units/unit_preview.tscn" id="11_50y2w"]
 [ext_resource type="Script" path="res://scripts/sim/structure_simulation_manager.gd" id="12_e1kf6"]
 [ext_resource type="Resource" uid="uid://cwkfq10gwh1ek" path="res://data/units/sniper_soldier.tres" id="13_jsb67"]
@@ -23,21 +23,14 @@
 [ext_resource type="PackedScene" uid="uid://kcnvorweio0v" path="res://scenes/ui/HUD.tscn" id="15_mksec"]
 [ext_resource type="PackedScene" uid="uid://6i181850aihr" path="res://scenes/ui/PauseMenu.tscn" id="16_mo52i"]
 [ext_resource type="Resource" uid="uid://hw1baduh04jk" path="res://data/structures/Sniper Trainer.tres" id="17_u6d7c"]
-[ext_resource type="PackedScene" uid="uid://d221oro1lafu3" path="res://scenes/buildings/Sniper Trainer.tscn" id="18_cujr2"]
 [ext_resource type="Resource" uid="uid://ciuh15hld7ewv" path="res://data/structures/Heavy Trainer.tres" id="19_1wux7"]
 [ext_resource type="PackedScene" uid="uid://dmvic5f48xipl" path="res://scenes/ui/MatchEndMenu.tscn" id="19_boffa"]
 [ext_resource type="Resource" uid="uid://dp5ffj6e6myue" path="res://data/structures/Soldier Trainer.tres" id="20_abcjn"]
-[ext_resource type="PackedScene" uid="uid://dnrat1itlbgpp" path="res://scenes/buildings/Heavy Trainer.tscn" id="20_vck0x"]
-[ext_resource type="PackedScene" uid="uid://qeaercv8n7q1" path="res://scenes/buildings/Soldier Trainer.tscn" id="21_m1h5l"]
 [ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="29_4b20o"]
 [ext_resource type="Resource" uid="uid://dx22f8gid4pg1" path="res://data/structures/Credit Relay.tres" id="30_lju2h"]
 [ext_resource type="Resource" uid="uid://jardanqrg5kq" path="res://data/structures/Canine Trainer.tres" id="31_g4nnb"]
 [ext_resource type="Resource" uid="uid://bfqn0ko6j2nkn" path="res://data/structures/Basic War Shrine.tres" id="31_t21mw"]
 [ext_resource type="Resource" uid="uid://c47ffjbt3l26j" path="res://data/structures/Turret Tower.tres" id="32_nc4th"]
-[ext_resource type="PackedScene" uid="uid://co2cypomp4ww" path="res://scenes/buildings/Credit Relay.tscn" id="32_s7jvs"]
-[ext_resource type="PackedScene" uid="uid://70u1nqofv5dm" path="res://scenes/buildings/Basic War Shrine.tscn" id="33_o4p61"]
-[ext_resource type="PackedScene" uid="uid://c06mtu0o4sn6q" path="res://scenes/buildings/Canine Trainer.tscn" id="34_rwrr6"]
-[ext_resource type="PackedScene" uid="uid://drexcj546onam" path="res://scenes/buildings/Turret Tower.tscn" id="36_0rqeb"]
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_cw01p"]
 load_path = "res://.godot/imported/unit_white_rect_8x16.png-0c232b06cf29c5acdbd79437206c3e7b.ctex"
@@ -109,6 +102,7 @@ structure_manager = NodePath("../../Simulation/StructureSimulationManager")
 [node name="UnitRenderRoot" type="Node2D" parent="MatchRoot/World"]
 
 [node name="UnitBatchRoot" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("team_manager", "camera_pan_controller", "unit_manager")]
+visible = false
 script = ExtResource("3_f6jbf")
 team_manager = NodePath("../../Simulation/TeamManager")
 camera_pan_controller = NodePath("../../CameraRig")
@@ -142,7 +136,7 @@ camera_pan_controller = NodePath("../../CameraRig")
 ai_team_manager = NodePath("../AITeamManager")
 game_manager = NodePath("../GameManager")
 hq_stats = ExtResource("7_hn723")
-hq_scene = ExtResource("8_cgoq0")
+hq_scene = ExtResource("10_jwsqd")
 starter_unit_stats = ExtResource("6_71p1s")
 queue_starter_unit_on_spawn = true
 team_spawn_markers = Array[NodePath]([NodePath("../../World/Ground/TeamSpawnPoints/TeamSpawn01"), NodePath("../../World/Ground/TeamSpawnPoints/TeamSpawn02"), NodePath("../../World/Ground/TeamSpawnPoints/TeamSpawn03"), NodePath("../../World/Ground/TeamSpawnPoints/TeamSpawn04"), NodePath("../../World/Ground/TeamSpawnPoints/TeamSpawn05"), NodePath("../../World/Ground/TeamSpawnPoints/TeamSpawn06"), NodePath("../../World/Ground/TeamSpawnPoints/TeamSpawn07"), NodePath("../../World/Ground/TeamSpawnPoints/TeamSpawn08")])
@@ -159,11 +153,11 @@ soldier_unit_stats = ExtResource("6_71p1s")
 sniper_unit_stats = ExtResource("13_jsb67")
 heavy_unit_stats = ExtResource("14_0qdqg")
 soldier_trainer_stats = ExtResource("20_abcjn")
-soldier_trainer_scene = ExtResource("21_m1h5l")
+soldier_trainer_scene = ExtResource("10_jwsqd")
 sniper_trainer_stats = ExtResource("17_u6d7c")
-sniper_trainer_scene = ExtResource("18_cujr2")
+sniper_trainer_scene = ExtResource("10_jwsqd")
 heavy_trainer_stats = ExtResource("19_1wux7")
-heavy_trainer_scene = ExtResource("20_vck0x")
+heavy_trainer_scene = ExtResource("10_jwsqd")
 
 [node name="TeamManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("structure_manager")]
 script = ExtResource("9_witlm")
@@ -181,7 +175,7 @@ team_manager = NodePath("../TeamManager")
 [node name="StructureSimulationManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("structure_root", "unit_manager", "camera_pan_controller", "team_manager", "ai_team_manager")]
 script = ExtResource("12_e1kf6")
 structure_root = NodePath("../../World/StructureRoot")
-default_structure_scene = ExtResource("8_cgoq0")
+default_structure_scene = ExtResource("10_jwsqd")
 unit_manager = NodePath("../UnitSimulationManager")
 camera_pan_controller = NodePath("../../CameraRig")
 team_manager = NodePath("../TeamManager")
@@ -202,15 +196,16 @@ selection_controller = NodePath("../../World/SelectionRoot")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "camera_pan_controller", "structure_placement_controller") instance=ExtResource("15_mksec")]
+[node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "match_controller", "camera_pan_controller", "structure_placement_controller") instance=ExtResource("15_mksec")]
 selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")
 unit_manager = NodePath("../../MatchRoot/Simulation/UnitSimulationManager")
 structure_manager = NodePath("../../MatchRoot/Simulation/StructureSimulationManager")
 game_manager = NodePath("../../MatchRoot/Simulation/GameManager")
+match_controller = NodePath("../../MatchRoot/Simulation/MatchController")
 camera_pan_controller = NodePath("../../MatchRoot/CameraRig")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
 buildable_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("19_1wux7"), ExtResource("17_u6d7c"), ExtResource("20_abcjn"), ExtResource("30_lju2h"), ExtResource("31_t21mw"), ExtResource("31_g4nnb"), ExtResource("32_nc4th")])
-buildable_structure_scenes = Array[PackedScene]([ExtResource("21_m1h5l"), ExtResource("18_cujr2"), ExtResource("20_vck0x"), ExtResource("32_s7jvs"), ExtResource("33_o4p61"), ExtResource("34_rwrr6"), ExtResource("36_0rqeb")])
+buildable_structure_scenes = Array[PackedScene]([ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd")])
 
 [node name="DebugOverlay" type="Control" parent="UI"]
 layout_mode = 3

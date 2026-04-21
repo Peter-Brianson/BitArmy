@@ -564,7 +564,7 @@ func _apply_layout() -> void:
 	var gap: float = round(16.0 * s)
 
 	var selection_size: Vector2 = Vector2(round(360.0 * s), round(260.0 * s))
-	var production_size: Vector2 = Vector2(round(360.0 * s), round(260.0 * s))
+	var production_size: Vector2 = Vector2(round(460.0 * s), round(260.0 * s))
 	var resource_size: Vector2 = Vector2(round(220.0 * s), round(88.0 * s))
 	var status_size: Vector2 = Vector2(round(220.0 * s), round(100.0 * s))
 

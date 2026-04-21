@@ -16,12 +16,8 @@ func _ready() -> void:
 	if body_sprite == null:
 		body_sprite = get_node_or_null("BodySprite")
 
-	if body_sprite != null:
-		var shader := load("res://shaders/team_tint_bw.gdshader") as Shader
-		if shader != null:
-			var mat := ShaderMaterial.new()
-			mat.shader = shader
-			body_sprite.material = mat
+	if body_sprite == null:
+		push_warning("StructurePreview: BodySprite node not found.")
 
 
 func _process(delta: float) -> void:
@@ -32,7 +28,7 @@ func _process(delta: float) -> void:
 			body_sprite.modulate = _flash_tint
 
 		if _flash_timer <= 0.0 and body_sprite != null:
-			body_sprite.modulate = Color.WHITE
+			_apply_team_color()
 
 
 func apply_structure_runtime_setup(p_structure_id: int, p_stats: StructureStats, p_owner_team_id: int) -> void:
@@ -40,7 +36,8 @@ func apply_structure_runtime_setup(p_structure_id: int, p_stats: StructureStats,
 	stats = p_stats
 	owner_team_id = p_owner_team_id
 
-	_apply_team_color()
+	_current_state = StructureRuntime.StructureState.ACTIVE
+
 	_apply_visuals()
 
 
@@ -73,11 +70,7 @@ func _apply_team_color() -> void:
 	if body_sprite == null:
 		return
 
-	var mat := body_sprite.material as ShaderMaterial
-	if mat == null:
-		return
-
-	mat.set_shader_parameter("team_color", TeamPalette.get_team_color(owner_team_id))
+	body_sprite.modulate = TeamPalette.get_team_color(owner_team_id)
 
 
 func _apply_visuals() -> void:
@@ -90,6 +83,7 @@ func _apply_visuals() -> void:
 		if texture_to_use != null:
 			body_sprite.visible = true
 			body_sprite.texture = texture_to_use
+			body_sprite.centered = true
 			_apply_team_color()
 		else:
 			body_sprite.visible = false
@@ -98,6 +92,9 @@ func _apply_visuals() -> void:
 
 
 func _get_texture_for_state(state: int) -> Texture2D:
+	if stats == null:
+		return null
+
 	if state == StructureRuntime.StructureState.DESTROYED:
 		if stats.sprite_destroyed != null:
 			return stats.sprite_destroyed
@@ -114,7 +111,6 @@ func _draw() -> void:
 	if texture_to_use != null:
 		return
 
-	# Fallback default structure shape
 	var team_color: Color = TeamPalette.get_team_color(owner_team_id)
 	var size: Vector2 = stats.footprint_size
 	var rect := Rect2(-size * 0.5, size)

@@ -1,11 +1,19 @@
-[gd_resource type="Resource" script_class="UnitStats" load_steps=2 format=3 uid="uid://i0yc37mfo0d4"]
+[gd_resource type="Resource" script_class="UnitStats" load_steps=5 format=3 uid="uid://i0yc37mfo0d4"]
 
 [ext_resource type="Script" path="res://data/units/unit_stats.gd" id="1_cykqe"]
+[ext_resource type="Texture2D" uid="uid://bigmfktf374xo" path="res://sprites/basic heavy/shoot.png" id="1_nsf8x"]
+[ext_resource type="Texture2D" uid="uid://dblsndlvks682" path="res://sprites/basic heavy/dead.png" id="3_32ony"]
+[ext_resource type="Texture2D" uid="uid://cqrpcyemm88dv" path="res://sprites/basic heavy/idle.png" id="4_k28g5"]
 
 [resource]
 script = ExtResource("1_cykqe")
 unit_name = "Heavy"
 description = "Basic Heavy"
+sprite_idle = ExtResource("4_k28g5")
+sprite_walk = ExtResource("1_nsf8x")
+sprite_attack = ExtResource("1_nsf8x")
+sprite_dead = ExtResource("3_32ony")
+icon_texture = ExtResource("1_nsf8x")
 unit_type_tags = 1
 max_health = 10
 damage = 1
