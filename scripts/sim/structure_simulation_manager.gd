@@ -4,23 +4,21 @@ extends Node
 @export var structure_root: Node2D
 @export var default_structure_scene: PackedScene
 @export var unit_manager: UnitSimulationManager
+@export var camera_pan_controller: CameraPanController
+@export var cull_margin: float = 192.0
+@export var cull_update_interval: float = 0.12
+@export var team_manager: TeamManager
+@export var ai_team_manager: AITeamManager
 
 var structures: Dictionary = {}
 var structure_views: Dictionary = {}
 var structure_death_flash_played: Dictionary = {}
-var next_structure_id: int = 1
-
-@export var camera_pan_controller: CameraPanController
-@export var cull_margin: float = 192.0
-@export var cull_update_interval: float = 0.12
-
-@export var team_manager: TeamManager
-@export var ai_team_manager: AITeamManager
-
 var structure_death_fx_played: Dictionary = {}
+var next_structure_id: int = 1
 
 var _cull_timer: float = 0.0
 var _current_cull_rect: Rect2 = Rect2(-1000000, -1000000, 2000000, 2000000)
+
 
 func _physics_process(delta: float) -> void:
 	_cull_timer -= delta
@@ -46,6 +44,7 @@ func _physics_process(delta: float) -> void:
 
 	for structure_id in remove_ids:
 		_remove_structure(structure_id)
+
 
 func _update_cull_rect() -> void:
 	if camera_pan_controller == null or camera_pan_controller.camera == null:
@@ -93,13 +92,11 @@ func _sync_view_with_culling(structure: StructureRuntime) -> void:
 		)
 
 
-
 func spawn_structure(
 	stats: StructureStats,
 	team_id: int,
 	spawn_position: Vector2,
 	scene_override: PackedScene = null
-	
 ) -> int:
 	var structure_id: int = next_structure_id
 	next_structure_id += 1
@@ -109,18 +106,14 @@ func spawn_structure(
 	structures[structure_id] = structure
 	structure_death_flash_played[structure_id] = false
 	structure_death_fx_played[structure_id] = false
-	structure.rally_point = _get_structure_spawn_position(structure)
 
+	structure.rally_point = _get_structure_spawn_position(structure)
 	_create_view(structure, scene_override)
 
 	return structure_id
 
 
-func register_existing_structure(
-	view: Node2D,
-	stats: StructureStats,
-	team_id: int
-) -> int:
+func register_existing_structure(view: Node2D, stats: StructureStats, team_id: int) -> int:
 	if view == null:
 		return -1
 
@@ -132,6 +125,7 @@ func register_existing_structure(
 	structures[structure_id] = structure
 	structure_views[structure_id] = view
 	structure_death_flash_played[structure_id] = false
+	structure_death_fx_played[structure_id] = false
 	structure.rally_point = _get_structure_spawn_position(structure)
 
 	if view.has_method("apply_structure_runtime_setup"):
@@ -157,7 +151,7 @@ func queue_unit_production(structure_id: int, unit_stats: UnitStats) -> void:
 
 
 func damage_structure(structure_id: int, amount: int) -> void:
-	var structure := get_structure(structure_id)
+	var structure: StructureRuntime = get_structure(structure_id)
 	if structure == null:
 		return
 
@@ -165,7 +159,7 @@ func damage_structure(structure_id: int, amount: int) -> void:
 
 
 func destroy_structure(structure_id: int) -> void:
-	var structure := get_structure(structure_id)
+	var structure: StructureRuntime = get_structure(structure_id)
 	if structure == null:
 		return
 
@@ -181,8 +175,8 @@ func clear_all_structures() -> void:
 	structures.clear()
 	structure_views.clear()
 	structure_death_flash_played.clear()
-	next_structure_id = 1
 	structure_death_fx_played.clear()
+	next_structure_id = 1
 
 
 func notify_attack_flash(structure_id: int) -> void:
@@ -216,12 +210,15 @@ func _update_active_structure(structure: StructureRuntime, delta: float) -> void
 	_update_production(structure, delta)
 	_update_structure_combat(structure, delta)
 
+
 func _update_structure_combat(structure: StructureRuntime, delta: float) -> void:
-	if unit_manager == null or team_manager == null:
+	if unit_manager == null:
 		return
-	if not structure.can_attack():
+	if team_manager == null:
 		return
 	if not structure.is_alive:
+		return
+	if not structure.can_attack():
 		return
 
 	if structure.attack_cooldown_left > 0.0:
@@ -254,21 +251,23 @@ func _update_structure_combat(structure: StructureRuntime, delta: float) -> void
 		target.apply_damage(structure.get_attack_damage())
 		structure.attack_has_landed = true
 
-		if has_method("notify_attack_flash"):
-			notify_attack_flash(structure.id)
-
-		notify_hit_flash(target.id)
+		notify_attack_flash(structure.id)
+		unit_manager.notify_hit_flash(target.id)
 
 		if AudioHub != null:
 			AudioHub.play_unit_shoot(structure.position, self)
 
 
 func _is_valid_structure_target(structure: StructureRuntime, target: UnitRuntime) -> bool:
-	if structure == null or target == null:
+	if structure == null:
+		return false
+	if target == null:
 		return false
 	if not structure.can_target_units():
 		return false
-	if not structure.is_alive or not target.is_alive:
+	if not structure.is_alive:
+		return false
+	if not target.is_alive:
 		return false
 	if not team_manager.is_enemy(structure.owner_team_id, target.owner_team_id):
 		return false
@@ -281,7 +280,6 @@ func _find_best_structure_target(structure: StructureRuntime) -> int:
 	var best_distance_sq: float = INF
 
 	var search_radius: float = structure.get_radius() + structure.get_attack_range()
-
 	var nearby_ids: Array[int] = unit_manager.spatial_hash.query_unit_ids_in_radius(structure.position, search_radius)
 
 	for unit_id in nearby_ids:
@@ -300,11 +298,14 @@ func _find_best_structure_target(structure: StructureRuntime) -> int:
 
 
 func _is_structure_target_in_range(structure: StructureRuntime, target: UnitRuntime) -> bool:
-	if structure == null or target == null:
+	if structure == null:
+		return false
+	if target == null:
 		return false
 
 	var total_range: float = structure.get_radius() + structure.get_attack_range() + target.get_radius()
 	return structure.position.distance_squared_to(target.position) <= total_range * total_range
+
 
 func _update_production(structure: StructureRuntime, delta: float) -> void:
 	if unit_manager == null:
@@ -321,16 +322,9 @@ func _update_production(structure: StructureRuntime, delta: float) -> void:
 
 	if structure.production_progress >= structure.current_production.build_time:
 		var finished_unit: UnitStats = structure.finish_current_production()
+
 		if finished_unit != null:
 			var spawn_position: Vector2 = _get_structure_spawn_position(structure)
-			#print(
-				#"Spawning from structure ", structure.id,
-				#" at ", spawn_position,
-				#" center=", structure.position,
-				#" footprint=", structure.stats.footprint_size,
-				#" offset=", structure.stats.spawn_offset
-			#)
-
 			var spawned_unit_id: int = unit_manager.spawn_unit(finished_unit, structure.owner_team_id, spawn_position)
 
 			if structure.rally_point.distance_squared_to(spawn_position) > 1.0:
@@ -338,14 +332,11 @@ func _update_production(structure: StructureRuntime, delta: float) -> void:
 					unit_manager.issue_attack_move_order(spawned_unit_id, structure.rally_point)
 				else:
 					unit_manager.issue_move_order(spawned_unit_id, structure.rally_point)
-			
+
 
 func _get_structure_spawn_position(structure: StructureRuntime) -> Vector2:
 	var half_size: Vector2 = structure.stats.footprint_size * 0.5
 
-	# Default spawn is bottom-center just outside the structure footprint.
-	# spawn_offset.x shifts left/right from center.
-	# spawn_offset.y adds extra distance below the structure.
 	var base_spawn := Vector2(
 		structure.position.x,
 		structure.position.y + half_size.y
@@ -374,7 +365,6 @@ func _update_destroyed_structure(structure: StructureRuntime, delta: float) -> v
 
 func _create_view(structure: StructureRuntime, scene_override: PackedScene = null) -> void:
 	var scene_to_use: PackedScene = scene_override if scene_override != null else default_structure_scene
-
 	if scene_to_use == null:
 		return
 	if structure_root == null:
@@ -392,25 +382,6 @@ func _create_view(structure: StructureRuntime, scene_override: PackedScene = nul
 		view.call("apply_structure_runtime_setup", structure.id, structure.stats, structure.owner_team_id)
 
 
-func _sync_view(structure: StructureRuntime) -> void:
-	if not structure_views.has(structure.id):
-		return
-
-	var view: Node2D = structure_views[structure.id]
-	if not is_instance_valid(view):
-		return
-
-	view.global_position = structure.position
-
-	if view.has_method("apply_structure_runtime_state"):
-		view.call(
-			"apply_structure_runtime_state",
-			structure.state,
-			structure.current_health,
-			structure.is_alive
-		)
-
-
 func _remove_structure(structure_id: int) -> void:
 	if structure_views.has(structure_id):
 		var view: Node = structure_views[structure_id]
@@ -421,7 +392,8 @@ func _remove_structure(structure_id: int) -> void:
 	if structure_death_flash_played.has(structure_id):
 		structure_death_flash_played.erase(structure_id)
 
-	if structures.has(structure_id):
-		structures.erase(structure_id)
 	if structure_death_fx_played.has(structure_id):
 		structure_death_fx_played.erase(structure_id)
+
+	if structures.has(structure_id):
+		structures.erase(structure_id)
