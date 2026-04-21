@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=2 format=3 uid="uid://c8ehm6364nus1"]
+
+[ext_resource type="Script" path="res://data/units/unit_stats.gd" id="1_mnvo1"]
+
+[resource]
+script = ExtResource("1_mnvo1")
+unit_name = "Soldier"
+description = "Basic Soldier"
+unit_type_tags = 1
+max_health = 1
+damage = 1
+move_speed = 50.0
+radius = 8.0
+body_size = Vector2(8, 16)
+build_time = 1.0
+cost = 1
+attack_speed = 0.5
+attack_range = 50.0
+damage_type = 0
+keywords = 0
+target_categories = 3
+aggro_range = 150.0
+death_time = 0.25
+body_color = Color(1, 1, 1, 1)
+attack_flash_color = Color(1, 1, 1, 1)
+hit_flash_color = Color(1, 1, 1, 1)

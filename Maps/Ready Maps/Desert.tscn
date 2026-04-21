@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3 uid="uid://bnl5otydrtl4m"]
+
+[ext_resource type="Texture2D" uid="uid://dv6vcri1p0rto" path="res://Maps/Desert_pixel.png" id="1_fey8q"]
+
+[node name="Desert" type="Node2D"]
+
+[node name="Map" type="Sprite2D" parent="."]
+texture_filter = 1
+texture_repeat = 1
+scale = Vector2(10000, 10000)
+texture = ExtResource("1_fey8q")
+
+[node name="Decorations" type="Node2D" parent="."]
+
+[node name="SpawnPoints" type="Node2D" parent="."]

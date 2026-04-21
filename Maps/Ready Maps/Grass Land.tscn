@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3 uid="uid://dnsugg256osen"]
+
+[ext_resource type="Texture2D" uid="uid://d0e0ovfl0wcsp" path="res://Maps/Grass_pixel.png" id="1_0i471"]
+
+[node name="Grass Land" type="Node2D"]
+
+[node name="Map" type="Sprite2D" parent="."]
+texture_filter = 1
+texture_repeat = 1
+scale = Vector2(10000, 10000)
+texture = ExtResource("1_0i471")
+
+[node name="Decorations" type="Node2D" parent="."]
+
+[node name="SpawnPoints" type="Node2D" parent="."]

@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="StructureStats" load_steps=2 format=3 uid="uid://bfqn0ko6j2nkn"]
+
+[ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_cttt4"]
+
+[resource]
+script = ExtResource("1_cttt4")
+structure_name = "Basic War Shrine"
+description = "+1 to basic unit health and damage"
+max_health = 20
+radius = null
+footprint_size = Vector2(12, 16)
+death_time = null
+cost = 50
+can_produce = null
+can_train_units = null
+can_place_structures = null
+spawn_offset = null
+income_bonus_per_second = null
+teamwide_buff_unit_tags = 1
+teamwide_bonus_damage = 1
+teamwide_bonus_health = 1
+can_attack = null
+damage = null
+attack_speed = null
+attack_range = null
+target_categories = null
+keywords = null

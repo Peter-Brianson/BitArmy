@@ -1,0 +1,123 @@
+[gd_scene load_steps=19 format=3 uid="uid://cqum0hu0tuqy0"]
+
+[ext_resource type="Script" path="res://scripts/input/CameraPanController.gd" id="1_7cc0f"]
+[ext_resource type="PackedScene" uid="uid://hf68367skxj" path="res://scenes/buildings/hq.tscn" id="1_58mjm"]
+[ext_resource type="Script" path="res://scripts/sim/selection_root.gd" id="1_symhk"]
+[ext_resource type="PackedScene" uid="uid://gr37u0oewtun" path="res://data/units/unit_preview.tscn" id="2_i1rd2"]
+[ext_resource type="Script" path="res://scripts/sim/selection_underlay.gd" id="2_k6kfu"]
+[ext_resource type="Script" path="res://scenes/main/match_controller.gd" id="2_m40qb"]
+[ext_resource type="Script" path="res://scenes/main/selection_overlay.gd" id="3_86mvm"]
+[ext_resource type="Script" path="res://scripts/sim/team_manager.gd" id="3_pc7r2"]
+[ext_resource type="Resource" uid="uid://c8ehm6364nus1" path="res://data/units/basic_soldier.tres" id="3_tax4r"]
+[ext_resource type="Script" path="res://scripts/sim/unit_simulation_manager.gd" id="3_ujqpy"]
+[ext_resource type="Resource" uid="uid://i01u6sx8dsme" path="res://data/structures/hq_basic.tres" id="4_o2fsc"]
+[ext_resource type="Script" path="res://scripts/sim/structure_simulation_manager.gd" id="5_nl0y5"]
+[ext_resource type="Script" path="res://scripts/sim/combat_resolver.gd" id="5_v0y5v"]
+[ext_resource type="PackedScene" uid="uid://kcnvorweio0v" path="res://scenes/ui/HUD.tscn" id="13_vubic"]
+[ext_resource type="Script" path="res://scripts/input/match_input_bridge.gd" id="14_0wpu2"]
+[ext_resource type="PackedScene" uid="uid://6i181850aihr" path="res://scenes/ui/PauseMenu.tscn" id="14_uelqq"]
+
+[sub_resource type="Gradient" id="Gradient_w1qmp"]
+colors = PackedColorArray(0, 1, 0.545098, 1, 0, 1, 0.509804, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_1qehs"]
+gradient = SubResource("Gradient_w1qmp")
+
+[node name="Main" type="Node2D"]
+
+[node name="MatchRoot" type="Node2D" parent="."]
+
+[node name="CameraRig" type="Node2D" parent="MatchRoot"]
+script = ExtResource("1_7cc0f")
+
+[node name="Camera2D" type="Camera2D" parent="MatchRoot/CameraRig"]
+position = Vector2(636, 313)
+
+[node name="World" type="Node2D" parent="MatchRoot"]
+
+[node name="Ground" type="Node2D" parent="MatchRoot/World"]
+
+[node name="Sprite2D" type="Sprite2D" parent="MatchRoot/World/Ground"]
+scale = Vector2(1000, 1000)
+texture = SubResource("GradientTexture2D_1qehs")
+
+[node name="SelectionUnderlay" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager")]
+script = ExtResource("2_k6kfu")
+selection_controller = NodePath("../SelectionRoot")
+unit_manager = NodePath("../../Simulation/UnitSimulationManager")
+structure_manager = NodePath("../../Simulation/StructureSimulationManager")
+
+[node name="StructureRoot" type="Node2D" parent="MatchRoot/World"]
+
+[node name="UnitRenderRoot" type="Node2D" parent="MatchRoot/World"]
+
+[node name="EffectsRoot" type="Node2D" parent="MatchRoot/World"]
+
+[node name="SelectionRoot" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("unit_manager", "structure_manager", "team_manager")]
+script = ExtResource("1_symhk")
+unit_manager = NodePath("../../Simulation/UnitSimulationManager")
+structure_manager = NodePath("../../Simulation/StructureSimulationManager")
+team_manager = NodePath("../../Simulation/TeamManager")
+
+[node name="SelectionOverlay" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller")]
+script = ExtResource("3_86mvm")
+selection_controller = NodePath("../SelectionRoot")
+
+[node name="Simulation" type="Node" parent="MatchRoot"]
+
+[node name="MatchController" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager", "unit_manager", "structure_manager")]
+script = ExtResource("2_m40qb")
+team_manager = NodePath("../TeamManager")
+unit_manager = NodePath("../UnitSimulationManager")
+structure_manager = NodePath("../StructureSimulationManager")
+soldier_stats = ExtResource("3_tax4r")
+hq_stats = ExtResource("4_o2fsc")
+hq_scene = ExtResource("1_58mjm")
+
+[node name="TeamManager" type="Node" parent="MatchRoot/Simulation"]
+script = ExtResource("3_pc7r2")
+team_count = 2
+
+[node name="UnitSimulationManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("render_root", "combat_resolver", "structure_manager")]
+script = ExtResource("3_ujqpy")
+render_root = NodePath("../../World/UnitRenderRoot")
+unit_preview_scene = ExtResource("2_i1rd2")
+combat_resolver = NodePath("../CombatResolver")
+structure_manager = NodePath("../StructureSimulationManager")
+
+[node name="StructureSimulationManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("structure_root", "unit_manager")]
+script = ExtResource("5_nl0y5")
+structure_root = NodePath("../../World/StructureRoot")
+default_structure_scene = ExtResource("1_58mjm")
+unit_manager = NodePath("../UnitSimulationManager")
+
+[node name="CombatResolver" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager", "unit_manager", "structure_manager")]
+script = ExtResource("5_v0y5v")
+team_manager = NodePath("../TeamManager")
+unit_manager = NodePath("../UnitSimulationManager")
+structure_manager = NodePath("../StructureSimulationManager")
+default_attack_windup = 0.0
+
+[node name="MatchInputBridge" type="Node" parent="MatchRoot/Simulation"]
+script = ExtResource("14_0wpu2")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager") instance=ExtResource("13_vubic")]
+selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")
+unit_manager = NodePath("../../MatchRoot/Simulation/UnitSimulationManager")
+structure_manager = NodePath("../../MatchRoot/Simulation/StructureSimulationManager")
+
+[node name="DebugOverlay" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PauseMenu" parent="UI" node_paths=PackedStringArray("hud_controller") instance=ExtResource("14_uelqq")]
+hud_controller = NodePath("../HUD")
+
+[node name="Audio" type="Node" parent="."]

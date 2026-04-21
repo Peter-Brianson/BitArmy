@@ -1,0 +1,201 @@
+[gd_scene load_steps=10 format=3 uid="uid://kcnvorweio0v"]
+
+[ext_resource type="Script" path="res://scripts/ui/hud_controller.gd" id="1_0plnf"]
+[ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="3_bacd1"]
+[ext_resource type="Resource" uid="uid://ciuh15hld7ewv" path="res://data/structures/Heavy Trainer.tres" id="4_fca3t"]
+[ext_resource type="Resource" uid="uid://hw1baduh04jk" path="res://data/structures/Sniper Trainer.tres" id="5_7otwa"]
+[ext_resource type="Resource" uid="uid://dp5ffj6e6myue" path="res://data/structures/Soldier Trainer.tres" id="6_lrmow"]
+[ext_resource type="PackedScene" uid="uid://dnrat1itlbgpp" path="res://scenes/buildings/Heavy Trainer.tscn" id="7_mfaj7"]
+[ext_resource type="PackedScene" uid="uid://d221oro1lafu3" path="res://scenes/buildings/Sniper Trainer.tscn" id="8_3omc7"]
+[ext_resource type="PackedScene" uid="uid://qeaercv8n7q1" path="res://scenes/buildings/Soldier Trainer.tscn" id="9_db7fg"]
+[ext_resource type="Texture2D" uid="uid://d0e0ovfl0wcsp" path="res://Maps/Grass_pixel.png" id="9_kaxag"]
+
+[node name="HUD" type="Control" node_paths=PackedStringArray("selection_panel", "production_panel", "resource_panel", "status_panel", "selection_icon", "type_label", "name_label", "description_label", "health_label", "stat_summary_label", "unit_count_label", "structure_count_label", "production_scroll", "production_grid", "queue_label", "progress_label", "credits_label", "income_label", "location_label", "match_timer_label", "fps_label", "teams_alive_label")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -1.0
+offset_bottom = -1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+script = ExtResource("1_0plnf")
+selection_panel = NodePath("SelectionPanel")
+production_panel = NodePath("ProductionPanel")
+resource_panel = NodePath("ResourcePanel")
+status_panel = NodePath("StatusPanel")
+selection_icon = NodePath("SelectionPanel/VBoxContainer/SelectionIcon")
+type_label = NodePath("SelectionPanel/VBoxContainer/TypeLabel")
+name_label = NodePath("SelectionPanel/VBoxContainer/NameLabel")
+description_label = NodePath("SelectionPanel/VBoxContainer/DescriptionLabel")
+health_label = NodePath("SelectionPanel/VBoxContainer/HealthLabel")
+stat_summary_label = NodePath("SelectionPanel/VBoxContainer/StatSummaryLabel")
+unit_count_label = NodePath("SelectionPanel/VBoxContainer/UnitCountLabel")
+structure_count_label = NodePath("SelectionPanel/VBoxContainer/StructureCountLabel")
+production_scroll = NodePath("ProductionPanel/VBoxContainer/ProductionScroll")
+production_grid = NodePath("ProductionPanel/VBoxContainer/ProductionScroll/ProductionGrid")
+queue_label = NodePath("ProductionPanel/VBoxContainer/QueueLabel")
+progress_label = NodePath("ProductionPanel/VBoxContainer/ProgressLabel")
+credits_label = NodePath("ResourcePanel/VBoxContainer/CreditsLabel")
+income_label = NodePath("ResourcePanel/VBoxContainer/IncomeLabel")
+location_label = NodePath("ResourcePanel/VBoxContainer/LocationLabel")
+match_timer_label = NodePath("StatusPanel/VBoxContainer/MatchTimerLabel")
+fps_label = NodePath("StatusPanel/VBoxContainer/FPSLabel")
+teams_alive_label = NodePath("StatusPanel/VBoxContainer/TeamsAliveLabel")
+buildable_structure_stats = Array[ExtResource("3_bacd1")]([ExtResource("4_fca3t"), ExtResource("5_7otwa"), ExtResource("6_lrmow")])
+buildable_structure_scenes = Array[PackedScene]([ExtResource("9_db7fg"), ExtResource("8_3omc7"), ExtResource("7_mfaj7")])
+
+[node name="SelectionPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -180.0
+offset_right = 260.0
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="SelectionPanel"]
+layout_mode = 2
+mouse_filter = 2
+alignment = 1
+
+[node name="SelectionIcon" type="TextureRect" parent="SelectionPanel/VBoxContainer"]
+layout_mode = 2
+texture = ExtResource("9_kaxag")
+
+[node name="TypeLabel" type="Label" parent="SelectionPanel/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="NameLabel" type="Label" parent="SelectionPanel/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="DescriptionLabel" type="Label" parent="SelectionPanel/VBoxContainer"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="HealthLabel" type="Label" parent="SelectionPanel/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="StatSummaryLabel" type="Label" parent="SelectionPanel/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="UnitCountLabel" type="Label" parent="SelectionPanel/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="StructureCountLabel" type="Label" parent="SelectionPanel/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="ProductionPanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(500, 180)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -180.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_force_pass_scroll_events = false
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ProductionPanel"]
+layout_mode = 2
+mouse_filter = 0
+mouse_force_pass_scroll_events = false
+
+[node name="ProductionScroll" type="ScrollContainer" parent="ProductionPanel/VBoxContainer"]
+custom_minimum_size = Vector2(300, 100)
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 0
+mouse_force_pass_scroll_events = false
+horizontal_scroll_mode = 0
+
+[node name="ProductionGrid" type="GridContainer" parent="ProductionPanel/VBoxContainer/ProductionScroll"]
+layout_mode = 2
+size_flags_horizontal = 6
+size_flags_vertical = 6
+mouse_filter = 0
+mouse_force_pass_scroll_events = false
+columns = 2
+
+[node name="QueueLabel" type="Label" parent="ProductionPanel/VBoxContainer"]
+layout_mode = 2
+text = "Queue"
+horizontal_alignment = 1
+
+[node name="ProgressLabel" type="Label" parent="ProductionPanel/VBoxContainer"]
+layout_mode = 2
+text = "Progress"
+horizontal_alignment = 1
+
+[node name="ResourcePanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -90.0
+offset_right = 90.0
+offset_bottom = 56.0
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ResourcePanel"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+mouse_filter = 2
+alignment = 1
+
+[node name="CreditsLabel" type="Label" parent="ResourcePanel/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="IncomeLabel" type="Label" parent="ResourcePanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="LocationLabel" type="Label" parent="ResourcePanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="StatusPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -40.0
+offset_bottom = 40.0
+grow_horizontal = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="StatusPanel"]
+layout_mode = 2
+alignment = 1
+
+[node name="MatchTimerLabel" type="Label" parent="StatusPanel/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="FPSLabel" type="Label" parent="StatusPanel/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TeamsAliveLabel" type="Label" parent="StatusPanel/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1

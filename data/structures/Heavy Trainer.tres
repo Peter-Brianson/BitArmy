@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="StructureStats" load_steps=3 format=3 uid="uid://ciuh15hld7ewv"]
+
+[ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_qdg3o"]
+[ext_resource type="Resource" uid="uid://i0yc37mfo0d4" path="res://data/units/heavy_soldier.tres" id="2_xbc78"]
+
+[resource]
+script = ExtResource("1_qdg3o")
+structure_name = "Heavy Trainer"
+description = "Heavy Units"
+max_health = 30
+radius = null
+footprint_size = Vector2(50, 30)
+death_time = null
+cost = 25
+can_produce = true
+can_train_units = true
+can_place_structures = null
+trained_unit_stats = ExtResource("2_xbc78")
+spawn_offset = null
+income_bonus_per_second = null
+teamwide_buff_unit_tags = null
+teamwide_bonus_damage = null
+teamwide_bonus_health = null
+can_attack = null
+damage = null
+attack_speed = null
+attack_range = null
+target_categories = null
+keywords = null

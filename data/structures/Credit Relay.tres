@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="StructureStats" load_steps=2 format=3 uid="uid://dx22f8gid4pg1"]
+
+[ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_rm0yy"]
+
+[resource]
+script = ExtResource("1_rm0yy")
+structure_name = "Credit Relay"
+description = "+1 to income"
+max_health = 20
+radius = null
+footprint_size = Vector2(5, 50)
+death_time = null
+cost = 50
+can_produce = null
+can_train_units = null
+can_place_structures = null
+spawn_offset = null
+income_bonus_per_second = 1.0
+teamwide_buff_unit_tags = null
+teamwide_bonus_damage = null
+teamwide_bonus_health = null
+can_attack = null
+damage = null
+attack_speed = null
+attack_range = null
+target_categories = null
+keywords = null

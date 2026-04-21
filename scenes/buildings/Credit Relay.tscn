@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3 uid="uid://co2cypomp4ww"]
+
+[ext_resource type="Script" path="res://scripts/sim/structure_preview.gd" id="1_s16kp"]
+
+[sub_resource type="Gradient" id="Gradient_lytao"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_opo1d"]
+gradient = SubResource("Gradient_lytao")
+
+[node name="Soldier Trainer" type="Node2D"]
+script = ExtResource("1_s16kp")
+
+[node name="Visuals2" type="Sprite2D" parent="."]
+visible = false
+texture = SubResource("GradientTexture2D_opo1d")
+
+[node name="SpawnPoint" type="Marker2D" parent="."]
+
+[node name="RallyPoint" type="Marker2D" parent="."]

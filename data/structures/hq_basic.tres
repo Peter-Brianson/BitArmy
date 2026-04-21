@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="StructureStats" load_steps=2 format=3 uid="uid://i01u6sx8dsme"]
+
+[ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_angxo"]
+
+[resource]
+script = ExtResource("1_angxo")
+structure_name = "HQ"
+description = "Head Quarters"
+max_health = 100
+radius = null
+footprint_size = null
+death_time = null
+cost = null
+can_produce = true
+can_train_units = null
+can_place_structures = true
+spawn_offset = Vector2(0, 20)
+income_bonus_per_second = null
+teamwide_buff_unit_tags = null
+teamwide_bonus_damage = null
+teamwide_bonus_health = null
+can_attack = null
+damage = null
+attack_speed = null
+attack_range = null
+target_categories = null
+keywords = null

@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="StructureStats" load_steps=3 format=3 uid="uid://hw1baduh04jk"]
+
+[ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_vy6hx"]
+[ext_resource type="Resource" uid="uid://cwkfq10gwh1ek" path="res://data/units/sniper_soldier.tres" id="2_hwg2c"]
+
+[resource]
+script = ExtResource("1_vy6hx")
+structure_name = "Sniper Trainer"
+description = "Sniper Units"
+max_health = null
+radius = null
+footprint_size = Vector2(20, 40)
+death_time = null
+cost = 15
+can_produce = true
+can_train_units = true
+can_place_structures = null
+trained_unit_stats = ExtResource("2_hwg2c")
+spawn_offset = null
+income_bonus_per_second = null
+teamwide_buff_unit_tags = null
+teamwide_bonus_damage = null
+teamwide_bonus_health = null
+can_attack = null
+damage = null
+attack_speed = null
+attack_range = null
+target_categories = null
+keywords = null

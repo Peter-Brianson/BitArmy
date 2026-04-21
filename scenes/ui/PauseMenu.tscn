@@ -1,0 +1,72 @@
+[gd_scene load_steps=3 format=3 uid="uid://6i181850aihr"]
+
+[ext_resource type="Script" path="res://scripts/ui/pause_menu_controller.gd" id="1_xtlgr"]
+[ext_resource type="PackedScene" uid="uid://cxlq05ocsi0rt" path="res://scenes/ui/OptionsPanel.tscn" id="2_sqhdk"]
+
+[node name="PauseMenu" type="Control" node_paths=PackedStringArray("dimmer", "panel", "options_host", "resume_button", "options_button", "reset_button", "quit_button") groups=["pause_menu"]]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_xtlgr")
+options_panel_scene = ExtResource("2_sqhdk")
+dimmer = NodePath("Dimmer")
+panel = NodePath("PanelContainer")
+options_host = NodePath("OptionsHost")
+resume_button = NodePath("PanelContainer/VBoxContainer/ResumeButton")
+options_button = NodePath("PanelContainer/VBoxContainer/OptionsButton")
+reset_button = NodePath("PanelContainer/VBoxContainer/ResetButton")
+quit_button = NodePath("PanelContainer/VBoxContainer/QuitButton")
+
+[node name="Dimmer" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(1, 1, 1, 0.317647)
+
+[node name="PanelContainer" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "TitleLabel "
+horizontal_alignment = 1
+
+[node name="ResumeButton" type="Button" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "Resume"
+
+[node name="OptionsButton" type="Button" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "Options"
+
+[node name="ResetButton" type="Button" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "Reset"
+
+[node name="QuitButton" type="Button" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "Quit"
+
+[node name="OptionsHost" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2

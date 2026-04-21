@@ -1,0 +1,110 @@
+[gd_scene load_steps=3 format=3 uid="uid://cxlq05ocsi0rt"]
+
+[ext_resource type="Script" path="res://scripts/ui/options_panel_controller.gd" id="1_w0mkm"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bir08"]
+
+[node name="OptionsPanel" type="PanelContainer" node_paths=PackedStringArray("title_label", "ui_scale_label", "ui_scale_slider", "value_label", "close_button", "master_slider", "music_slider", "sfx_slider")]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_right = 176.0
+offset_bottom = 112.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bir08")
+script = ExtResource("1_w0mkm")
+title_label = NodePath("VBoxContainer/TitleLabel")
+ui_scale_label = NodePath("VBoxContainer/UIScaleLabel")
+ui_scale_slider = NodePath("VBoxContainer/ScaleRow/UIScaleSlider")
+value_label = NodePath("VBoxContainer/ScaleRow/ValueLabel")
+close_button = NodePath("VBoxContainer/ButtonCloseButton")
+master_slider = NodePath("VBoxContainer/MasteRow/MasterSlider")
+music_slider = NodePath("VBoxContainer/MusicRow/MusicSlider")
+sfx_slider = NodePath("VBoxContainer/SFXRow/SFXSlider")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "OPTIONS"
+horizontal_alignment = 1
+
+[node name="VolumeLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Volume"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MasteRow" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="MasterLabel" type="Label" parent="VBoxContainer/MasteRow"]
+layout_mode = 2
+text = "Master"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MasterSlider" type="HSlider" parent="VBoxContainer/MasteRow"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="MusicRow" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="MusicLabel" type="Label" parent="VBoxContainer/MusicRow"]
+layout_mode = 2
+text = "Music  "
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MusicSlider" type="HSlider" parent="VBoxContainer/MusicRow"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+
+[node name="SFXRow" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="SFXLabel" type="Label" parent="VBoxContainer/SFXRow"]
+layout_mode = 2
+text = "SFX      "
+vertical_alignment = 1
+
+[node name="SFXSlider" type="HSlider" parent="VBoxContainer/SFXRow"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+
+[node name="UIScaleLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "UIScale"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ScaleRow" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="MinLabel" type="Label" parent="VBoxContainer/ScaleRow"]
+layout_mode = 2
+text = "Size"
+
+[node name="UIScaleSlider" type="HSlider" parent="VBoxContainer/ScaleRow"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+step = 0.0
+
+[node name="ValueLabel" type="Label" parent="VBoxContainer/ScaleRow"]
+layout_mode = 2
+text = "ValueLabel "
+
+[node name="ButtonCloseButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Close"

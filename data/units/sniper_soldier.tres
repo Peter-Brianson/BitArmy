@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=2 format=3 uid="uid://cwkfq10gwh1ek"]
+
+[ext_resource type="Script" path="res://data/units/unit_stats.gd" id="1_5401l"]
+
+[resource]
+script = ExtResource("1_5401l")
+unit_name = "Sniper"
+description = "Basic Sniper"
+unit_type_tags = 1
+max_health = 1
+damage = 2
+move_speed = 45.0
+radius = 8.0
+body_size = Vector2(6, 16)
+build_time = 5.0
+cost = 3
+attack_speed = 0.5
+attack_range = 250.0
+damage_type = 0
+keywords = 0
+target_categories = 3
+aggro_range = 500.0
+death_time = 0.25
+body_color = Color(1, 1, 1, 1)
+attack_flash_color = Color(1, 1, 1, 1)
+hit_flash_color = Color(1, 1, 1, 1)

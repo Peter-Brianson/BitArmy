@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="StructureStats" load_steps=3 format=3 uid="uid://dp5ffj6e6myue"]
+
+[ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_wlrr8"]
+[ext_resource type="Resource" uid="uid://c8ehm6364nus1" path="res://data/units/basic_soldier.tres" id="2_h7lmg"]
+
+[resource]
+script = ExtResource("1_wlrr8")
+structure_name = "Soldier Trainer"
+description = "Soldier Units"
+max_health = 30
+radius = null
+footprint_size = Vector2(40, 20)
+death_time = null
+cost = null
+can_produce = true
+can_train_units = true
+can_place_structures = null
+trained_unit_stats = ExtResource("2_h7lmg")
+spawn_offset = null
+income_bonus_per_second = null
+teamwide_buff_unit_tags = null
+teamwide_bonus_damage = null
+teamwide_bonus_health = null
+can_attack = null
+damage = null
+attack_speed = null
+attack_range = null
+target_categories = null
+keywords = null

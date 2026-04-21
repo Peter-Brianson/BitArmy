@@ -1,0 +1,8 @@
+[gd_scene load_steps=3 format=3 uid="uid://gr37u0oewtun"]
+
+[ext_resource type="Script" path="res://data/units/unit_preview.gd" id="1_i2p5x"]
+[ext_resource type="Resource" uid="uid://c8ehm6364nus1" path="res://data/units/basic_soldier.tres" id="2_ny24x"]
+
+[node name="UnitPreview" type="Node2D"]
+script = ExtResource("1_i2p5x")
+stats = ExtResource("2_ny24x")
