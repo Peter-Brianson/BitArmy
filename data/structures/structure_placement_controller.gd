@@ -1,66 +1,52 @@
 class_name StructurePlacementController
 extends Node2D
 
+@export_group("References")
+@export var selection_controller: SelectionController
 @export var structure_manager: StructureSimulationManager
 @export var game_manager: GameManager
-@export var selection_controller: SelectionController
 @export var camera_pan_controller: CameraPanController
+@export var match_net_controller: MatchNetController
 
-@export_group("Placement")
+@export_group("Preview")
+@export var preview_root: Node2D
+@export var valid_color: Color = Color(0.4, 1.0, 0.4, 0.65)
+@export var invalid_color: Color = Color(1.0, 0.35, 0.35, 0.65)
+@export var grid_snap_enabled: bool = false
+@export var grid_size: float = 8.0
 @export var placement_padding: float = 8.0
-@export var valid_fill_color: Color = Color(0.3, 1.0, 0.3, 0.18)
-@export var valid_outline_color: Color = Color(0.7, 1.0, 0.7, 0.95)
-@export var invalid_fill_color: Color = Color(1.0, 0.2, 0.2, 0.18)
-@export var invalid_outline_color: Color = Color(1.0, 0.5, 0.5, 0.95)
 
-var is_active: bool = false
-var pending_stats: StructureStats = null
-var pending_scene: PackedScene = null
-var pending_team_id: int = -1
+var is_placing: bool = false
+var placement_owner_team_id: int = -1
+var placement_builder_structure_id: int = -1
+var placement_stats: StructureStats = null
+var placement_scene: PackedScene = null
+
+var preview_instance: Node2D = null
+var preview_is_valid: bool = false
+var preview_world_pos: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
-	z_as_relative = true
-	z_index = 50
+	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
 func _process(_delta: float) -> void:
-	if is_active:
-		queue_redraw()
+	if not is_placing:
+		return
+
+	preview_world_pos = _get_snapped_world_position(get_global_mouse_position())
+	preview_is_valid = _can_place_at(preview_world_pos)
+	_update_preview_visual()
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not is_active:
-		return
-
-	if event.is_action_pressed("ui_cancel"):
-		cancel_placement()
-		get_viewport().set_input_as_handled()
+	if not is_placing:
 		return
 
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			var world_pos: Vector2 = get_global_mouse_position()
-
-			if _can_place_at(world_pos):
-				if pending_stats != null and game_manager != null:
-					if not game_manager.spend_credits(pending_team_id, pending_stats.cost):
-						get_viewport().set_input_as_handled()
-						return
-
-				var new_structure_id: int = structure_manager.spawn_structure(
-					pending_stats,
-					pending_team_id,
-					world_pos,
-					pending_scene
-				)
-
-				if selection_controller != null:
-					selection_controller.selected_unit_ids.clear()
-					selection_controller.selected_structure_id = new_structure_id
-
-				cancel_placement()
-
+			_confirm_placement()
 			get_viewport().set_input_as_handled()
 			return
 
@@ -69,72 +55,150 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_ESCAPE:
+			cancel_placement()
+			get_viewport().set_input_as_handled()
 
-func begin_placement(team_id: int, stats: StructureStats, scene_to_spawn: PackedScene) -> void:
-	if stats == null:
-		return
-	if scene_to_spawn == null:
+
+func begin_placement(owner_team_id: int, build_stats: StructureStats, build_scene: PackedScene) -> void:
+	if build_stats == null or build_scene == null:
 		return
 
-	pending_team_id = team_id
-	pending_stats = stats
-	pending_scene = scene_to_spawn
-	is_active = true
-	queue_redraw()
+	placement_owner_team_id = owner_team_id
+	placement_stats = build_stats
+	placement_scene = build_scene
+	placement_builder_structure_id = -1
+
+	if selection_controller != null:
+		placement_builder_structure_id = selection_controller.selected_structure_id
+
+	is_placing = true
+	preview_world_pos = _get_snapped_world_position(get_global_mouse_position())
+	preview_is_valid = _can_place_at(preview_world_pos)
+
+	_create_preview()
 
 
 func cancel_placement() -> void:
-	is_active = false
-	pending_team_id = -1
-	pending_stats = null
-	pending_scene = null
-	queue_redraw()
+	is_placing = false
+	placement_owner_team_id = -1
+	placement_builder_structure_id = -1
+	placement_stats = null
+	placement_scene = null
+	preview_is_valid = false
+	preview_world_pos = Vector2.ZERO
+
+	if preview_instance != null and is_instance_valid(preview_instance):
+		preview_instance.queue_free()
+	preview_instance = null
 
 
-func _draw() -> void:
-	if not is_active or pending_stats == null:
+func _confirm_placement() -> void:
+	if not is_placing:
+		return
+	if placement_stats == null:
+		cancel_placement()
+		return
+	if placement_scene == null:
+		cancel_placement()
+		return
+	if not preview_is_valid:
 		return
 
-	var world_pos: Vector2 = get_global_mouse_position()
-	var rect_world: Rect2 = _get_pending_rect(world_pos)
-	var rect_local := Rect2(to_local(rect_world.position), rect_world.size)
+	if _should_use_network_commands():
+		if placement_builder_structure_id == -1:
+			return
 
-	var is_valid: bool = _can_place_at(world_pos)
+		match_net_controller.request_place_structure(
+			placement_builder_structure_id,
+			placement_stats,
+			preview_world_pos
+		)
 
-	var fill_color: Color = valid_fill_color if is_valid else invalid_fill_color
-	var outline_color: Color = valid_outline_color if is_valid else invalid_outline_color
+		cancel_placement()
+		return
 
-	draw_rect(rect_local, fill_color, true)
-	draw_rect(rect_local, outline_color, false, 2.0)
+	# Offline/local placement.
+	if game_manager != null:
+		if not game_manager.spend_credits(placement_owner_team_id, placement_stats.cost):
+			return
+
+	structure_manager.spawn_structure(
+		placement_stats,
+		placement_owner_team_id,
+		preview_world_pos,
+		placement_scene
+	)
+
+	cancel_placement()
+
+
+func _create_preview() -> void:
+	if preview_instance != null and is_instance_valid(preview_instance):
+		preview_instance.queue_free()
+
+	var parent_node: Node = preview_root if preview_root != null else self
+	var instance := placement_scene.instantiate() as Node2D
+	if instance == null:
+		return
+
+	parent_node.add_child(instance)
+	instance.global_position = preview_world_pos
+	preview_instance = instance
+
+	_apply_preview_tint(valid_color)
+
+
+func _update_preview_visual() -> void:
+	if preview_instance == null or not is_instance_valid(preview_instance):
+		return
+
+	preview_instance.global_position = preview_world_pos
+
+	if preview_is_valid:
+		_apply_preview_tint(valid_color)
+	else:
+		_apply_preview_tint(invalid_color)
+
+
+func _apply_preview_tint(tint: Color) -> void:
+	if preview_instance == null or not is_instance_valid(preview_instance):
+		return
+
+	_apply_tint_recursive(preview_instance, tint)
+
+
+func _apply_tint_recursive(node: Node, tint: Color) -> void:
+	if node is CanvasItem:
+		(node as CanvasItem).modulate = tint
+
+	for child in node.get_children():
+		_apply_tint_recursive(child, tint)
+
+
+func _get_snapped_world_position(world_pos: Vector2) -> Vector2:
+	if not grid_snap_enabled or grid_size <= 0.0:
+		return world_pos
+
+	return Vector2(
+		round(world_pos.x / grid_size) * grid_size,
+		round(world_pos.y / grid_size) * grid_size
+	)
 
 
 func _can_place_at(world_pos: Vector2) -> bool:
+	if placement_stats == null:
+		return false
 	if structure_manager == null:
 		return false
-	if pending_stats == null:
-		return false
 
-	if not _is_inside_world_bounds(world_pos):
-		return false
+	if camera_pan_controller != null:
+		var half: Vector2 = placement_stats.footprint_size * 0.5
+		var placement_rect := Rect2(world_pos - half, placement_stats.footprint_size)
 
-	if _overlaps_existing_structures(world_pos):
-		return false
-
-	return true
-
-
-func _is_inside_world_bounds(world_pos: Vector2) -> bool:
-	if camera_pan_controller == null:
-		return true
-
-	var world_rect: Rect2 = camera_pan_controller.world_rect
-	var placement_rect: Rect2 = _get_pending_rect(world_pos)
-
-	return world_rect.encloses(placement_rect)
-
-
-func _overlaps_existing_structures(world_pos: Vector2) -> bool:
-	var pending_rect: Rect2 = _get_pending_rect(world_pos)
+		if not camera_pan_controller.world_rect.encloses(placement_rect):
+			return false
 
 	for structure in structure_manager.structures.values():
 		var s: StructureRuntime = structure
@@ -143,21 +207,25 @@ func _overlaps_existing_structures(world_pos: Vector2) -> bool:
 		if not s.is_alive:
 			continue
 
-		var existing_half: Vector2 = s.stats.footprint_size * 0.5
 		var existing_rect := Rect2(
-			s.position - existing_half - Vector2(placement_padding, placement_padding),
+			s.position - s.stats.footprint_size * 0.5 - Vector2(placement_padding, placement_padding),
 			s.stats.footprint_size + Vector2(placement_padding * 2.0, placement_padding * 2.0)
 		)
 
-		if pending_rect.intersects(existing_rect):
-			return true
+		var candidate_rect := Rect2(
+			world_pos - placement_stats.footprint_size * 0.5,
+			placement_stats.footprint_size
+		)
 
-	return false
+		if candidate_rect.intersects(existing_rect):
+			return false
+
+	return true
 
 
-func _get_pending_rect(world_pos: Vector2) -> Rect2:
-	var half: Vector2 = pending_stats.footprint_size * 0.5
-	return Rect2(
-		world_pos - half,
-		pending_stats.footprint_size
+func _should_use_network_commands() -> bool:
+	return (
+		GameSession.match_mode == GameSession.MatchMode.ONLINE_PTP
+		and match_net_controller != null
+		and match_net_controller.online_enabled
 	)

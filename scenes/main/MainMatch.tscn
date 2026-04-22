@@ -85,12 +85,13 @@ position = Vector2(500, -500)
 [node name="TeamSpawn08" type="Marker2D" parent="MatchRoot/World/Ground/TeamSpawnPoints"]
 position = Vector2(-500, -500)
 
-[node name="StructurePlacementController" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("structure_manager", "game_manager", "selection_controller", "camera_pan_controller")]
+[node name="StructurePlacementController" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller", "structure_manager", "game_manager", "camera_pan_controller", "match_net_controller")]
 script = ExtResource("2_723eq")
+selection_controller = NodePath("../SelectionRoot")
 structure_manager = NodePath("../../Simulation/StructureSimulationManager")
 game_manager = NodePath("../../Simulation/GameManager")
-selection_controller = NodePath("../SelectionRoot")
 camera_pan_controller = NodePath("../../CameraRig")
+match_net_controller = NodePath("../../Simulation/MatchNetController")
 
 [node name="SelectionUnderlay" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager")]
 script = ExtResource("2_xldib")
@@ -112,10 +113,11 @@ unit_texture = SubResource("CompressedTexture2D_cw01p")
 
 [node name="EffectsRoot" type="Node2D" parent="MatchRoot/World"]
 
-[node name="SelectionRoot" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("unit_manager", "structure_manager")]
+[node name="SelectionRoot" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("unit_manager", "structure_manager", "match_net_controller")]
 script = ExtResource("3_l51oj")
 unit_manager = NodePath("../../Simulation/UnitSimulationManager")
 structure_manager = NodePath("../../Simulation/StructureSimulationManager")
+match_net_controller = NodePath("../../Simulation/MatchNetController")
 
 [node name="SelectionOverlay" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller")]
 script = ExtResource("4_jukhm")
@@ -208,12 +210,13 @@ structure_scene_scenes = Array[PackedScene]([ExtResource("10_jwsqd")])
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "match_controller", "camera_pan_controller", "structure_placement_controller") instance=ExtResource("15_mksec")]
+[node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "match_controller", "match_net_controller", "camera_pan_controller", "structure_placement_controller") instance=ExtResource("15_mksec")]
 selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")
 unit_manager = NodePath("../../MatchRoot/Simulation/UnitSimulationManager")
 structure_manager = NodePath("../../MatchRoot/Simulation/StructureSimulationManager")
 game_manager = NodePath("../../MatchRoot/Simulation/GameManager")
 match_controller = NodePath("../../MatchRoot/Simulation/MatchController")
+match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 camera_pan_controller = NodePath("../../MatchRoot/CameraRig")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
 buildable_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("19_1wux7"), ExtResource("17_u6d7c"), ExtResource("20_abcjn"), ExtResource("30_lju2h"), ExtResource("31_t21mw"), ExtResource("31_g4nnb"), ExtResource("32_nc4th")])
