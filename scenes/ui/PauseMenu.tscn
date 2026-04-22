@@ -10,16 +10,16 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
+size_flags_horizontal = 4
+size_flags_vertical = 4
 script = ExtResource("1_xtlgr")
 options_panel_scene = ExtResource("2_sqhdk")
-main_panel = NodePath(".")
+main_panel = NodePath("MainPanel")
 options_host = NodePath("OptionsHost")
-resume_button = NodePath("PanelContainer/VBoxContainer/ResumeButton")
-options_button = NodePath("PanelContainer/VBoxContainer/OptionsButton")
-reset_button = NodePath("PanelContainer/VBoxContainer/ResetButton")
-back_button = NodePath("PanelContainer/VBoxContainer/QuitButton")
+resume_button = NodePath("MainPanel/VBoxContainer/ResumeButton")
+options_button = NodePath("MainPanel/VBoxContainer/OptionsButton")
+reset_button = NodePath("MainPanel/VBoxContainer/ResetButton")
+back_button = NodePath("MainPanel/VBoxContainer/QuitButton")
 
 [node name="Dimmer" type="ColorRect" parent="."]
 layout_mode = 1
@@ -30,37 +30,41 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(1, 1, 1, 0.317647)
 
-[node name="PanelContainer" type="PanelContainer" parent="."]
+[node name="MainPanel" type="PanelContainer" parent="."]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
+offset_left = -47.5
+offset_top = -81.5
+offset_right = 47.5
+offset_bottom = 81.5
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="MainPanel"]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="PanelContainer/VBoxContainer"]
+[node name="TitleLabel" type="Label" parent="MainPanel/VBoxContainer"]
 layout_mode = 2
 text = "Pause Menu"
 horizontal_alignment = 1
 
-[node name="ResumeButton" type="Button" parent="PanelContainer/VBoxContainer"]
+[node name="ResumeButton" type="Button" parent="MainPanel/VBoxContainer"]
 layout_mode = 2
 text = "Resume"
 
-[node name="OptionsButton" type="Button" parent="PanelContainer/VBoxContainer"]
+[node name="OptionsButton" type="Button" parent="MainPanel/VBoxContainer"]
 layout_mode = 2
 text = "Options"
 
-[node name="ResetButton" type="Button" parent="PanelContainer/VBoxContainer"]
+[node name="ResetButton" type="Button" parent="MainPanel/VBoxContainer"]
 layout_mode = 2
 text = "Reset"
 
-[node name="QuitButton" type="Button" parent="PanelContainer/VBoxContainer"]
+[node name="QuitButton" type="Button" parent="MainPanel/VBoxContainer"]
 layout_mode = 2
 text = "Quit"
 

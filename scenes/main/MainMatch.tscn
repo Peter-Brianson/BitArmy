@@ -85,14 +85,14 @@ position = Vector2(500, -500)
 [node name="TeamSpawn08" type="Marker2D" parent="MatchRoot/World/Ground/TeamSpawnPoints"]
 position = Vector2(-500, -500)
 
-[node name="StructurePlacementController" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller", "structure_manager", "game_manager", "camera_pan_controller", "match_net_controller", "preview_root")]
+[node name="StructurePlacementController" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller", "structure_manager", "game_manager", "camera_pan_controller", "match_net_controller")]
 script = ExtResource("2_723eq")
 selection_controller = NodePath("../SelectionRoot")
 structure_manager = NodePath("../../Simulation/StructureSimulationManager")
 game_manager = NodePath("../../Simulation/GameManager")
 camera_pan_controller = NodePath("../../CameraRig")
 match_net_controller = NodePath("../../Simulation/MatchNetController")
-preview_root = NodePath("../SelectionRoot")
+preview_root = NodePath("")
 
 [node name="SelectionUnderlay" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager")]
 script = ExtResource("2_xldib")
