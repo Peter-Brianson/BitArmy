@@ -1,6 +1,8 @@
 class_name PauseMenuController
 extends Control
 
+@export var pause_menu_group_name: String = "pause_menu"
+
 @export var skirmish_scene_path: String = "res://scenes/ui/SkirmishMenu.tscn"
 @export var versus_scene_path: String = "res://scenes/ui/P2PVersusMenu.tscn"
 @export var options_panel_scene: PackedScene
@@ -19,6 +21,10 @@ var options_panel_instance: OptionsPanelController = null
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = false
+
+	# Ensure MatchInputBridge can always find this node.
+	if pause_menu_group_name != "":
+		add_to_group(pause_menu_group_name)
 
 	_apply_mouse_filter_fail_safe(self)
 
@@ -115,7 +121,6 @@ func _close_options() -> void:
 
 
 func _on_reset_pressed() -> void:
-	# Do not allow local reset in online P2P.
 	if GameSession.match_mode == GameSession.MatchMode.ONLINE_PTP:
 		return
 
@@ -142,13 +147,11 @@ func _on_back_pressed() -> void:
 
 
 func _get_return_scene_path() -> String:
-	# Preferred: menu scene stored before entering the match.
 	if GameSession.has_meta("last_menu_scene_path"):
 		var stored_path: String = str(GameSession.get_meta("last_menu_scene_path", ""))
 		if stored_path != "":
 			return stored_path
 
-	# Fallback by mode.
 	if GameSession.match_mode == GameSession.MatchMode.ONLINE_PTP:
 		return versus_scene_path
 
