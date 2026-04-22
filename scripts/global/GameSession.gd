@@ -12,21 +12,25 @@ enum MatchMode {
 }
 
 const MAX_TEAMS := 8
-const MAX_ONLINE_SEATS := 2
+const MAX_SEATS := 8
 
 var match_mode: int = MatchMode.SKIRMISH
 
-# Backward-compatible skirmish data.
+# Team-centric runtime data used by the match builder.
 var team_count: int = 2
 var team_setups: Array[Dictionary] = []
 
+# Seat-centric lobby data used by online and future unified menu flow.
+var seat_setups: Array[Dictionary] = []
+
 # Shared match settings.
-var starting_credits: int = 10
-var base_credit_income_per_second: float = 1.0
+var starting_credits: int = 500
+var base_credit_income_per_second: float = 5.0
 var selected_map_path: String = ""
 var selected_map_name: String = "No Map"
 
-# Online/PTP data.
+# Online/PTP session state.
+var local_peer_id: int = 1
 var local_player_team_id: int = 0
 var online_is_host: bool = false
 
@@ -37,8 +41,9 @@ func _ready() -> void:
 
 func reset_skirmish_defaults() -> void:
 	match_mode = MatchMode.SKIRMISH
-	online_is_host = false
+	local_peer_id = 1
 	local_player_team_id = 0
+	online_is_host = false
 
 	team_count = 2
 	starting_credits = 10
@@ -46,51 +51,71 @@ func reset_skirmish_defaults() -> void:
 	clear_selected_map()
 
 	team_setups.clear()
-
 	for i in range(MAX_TEAMS):
 		team_setups.append({
 			"team_id": i,
 			"name": "Team %d" % (i + 1),
 			"control_type": ControlType.CLOSED,
-			"seat_id": -1,
-			"peer_id": 0
+			"seat_ids": []
 		})
 
 	team_setups[0]["control_type"] = ControlType.PLAYER
-	team_setups[0]["team_id"] = 0
-
 	team_setups[1]["control_type"] = ControlType.AI
-	team_setups[1]["team_id"] = 1
+
+	seat_setups.clear()
+	for i in range(MAX_SEATS):
+		seat_setups.append({
+			"seat_id": i,
+			"peer_id": 0,
+			"display_name": "Open",
+			"team_id": i,
+			"control_type": ControlType.CLOSED
+		})
+
+	seat_setups[0]["control_type"] = ControlType.PLAYER
+	seat_setups[0]["team_id"] = 0
+	seat_setups[1]["control_type"] = ControlType.AI
+	seat_setups[1]["team_id"] = 1
 
 
 func reset_online_defaults() -> void:
 	match_mode = MatchMode.ONLINE_PTP
-	online_is_host = false
+	local_peer_id = 1
 	local_player_team_id = 0
+	online_is_host = false
 
-	# Keep all 8 team slots available so online players can choose any team index.
-	team_count = MAX_TEAMS
+	team_count = 2
 	starting_credits = 10
 	base_credit_income_per_second = 1.0
 	clear_selected_map()
 
 	team_setups.clear()
-
 	for i in range(MAX_TEAMS):
 		team_setups.append({
 			"team_id": i,
 			"name": "Team %d" % (i + 1),
 			"control_type": ControlType.CLOSED,
-			"seat_id": -1,
-			"peer_id": 0
+			"seat_ids": []
+		})
+
+	seat_setups.clear()
+	for i in range(MAX_SEATS):
+		seat_setups.append({
+			"seat_id": i,
+			"peer_id": 0,
+			"display_name": "Open",
+			"team_id": i,
+			"control_type": ControlType.CLOSED
 		})
 
 
-func apply_online_lobby_state(lobby_state: Dictionary, local_peer_id: int) -> void:
+func apply_online_lobby_state(lobby_state: Dictionary, p_local_peer_id: int) -> void:
 	reset_online_defaults()
 
 	match_mode = MatchMode.ONLINE_PTP
+	local_peer_id = p_local_peer_id
 
+	team_count = clamp(int(lobby_state.get("team_count", 2)), 2, MAX_TEAMS)
 	selected_map_path = str(lobby_state.get("map_path", ""))
 	selected_map_name = str(lobby_state.get("map_name", "No Map"))
 	starting_credits = int(lobby_state.get("starting_credits", 10))
@@ -99,24 +124,54 @@ func apply_online_lobby_state(lobby_state: Dictionary, local_peer_id: int) -> vo
 	var host_peer_id: int = int(lobby_state.get("host_peer_id", 1))
 	online_is_host = local_peer_id == host_peer_id
 
-	var seats: Array = lobby_state.get("seats", [])
-	for seat_data in seats:
-		var seat: Dictionary = seat_data
+	var incoming_seats: Array = lobby_state.get("seats", [])
+	for i in range(min(incoming_seats.size(), MAX_SEATS)):
+		var incoming: Dictionary = incoming_seats[i]
+		seat_setups[i] = {
+			"seat_id": int(incoming.get("seat_id", i)),
+			"peer_id": int(incoming.get("peer_id", 0)),
+			"display_name": str(incoming.get("display_name", "Open")),
+			"team_id": int(incoming.get("team_id", i)),
+			"control_type": int(incoming.get("control_type", ControlType.CLOSED))
+		}
+
+	_rebuild_team_setups_from_seats()
+
+
+func _rebuild_team_setups_from_seats() -> void:
+	for i in range(MAX_TEAMS):
+		team_setups[i]["team_id"] = i
+		team_setups[i]["name"] = "Team %d" % (i + 1)
+		team_setups[i]["control_type"] = ControlType.CLOSED
+		team_setups[i]["seat_ids"] = []
+
+	local_player_team_id = 0
+
+	for i in range(MAX_SEATS):
+		var seat: Dictionary = seat_setups[i]
+		var control_type: int = int(seat.get("control_type", ControlType.CLOSED))
+
+		if control_type == ControlType.CLOSED:
+			continue
+
+		var assigned_team_id: int = clamp(int(seat.get("team_id", 0)), 0, MAX_TEAMS - 1)
 		var peer_id: int = int(seat.get("peer_id", 0))
-		var team_id: int = int(seat.get("team_id", -1))
 
-		if peer_id == 0:
-			continue
-		if team_id < 0 or team_id >= MAX_TEAMS:
-			continue
+		var team_entry: Dictionary = team_setups[assigned_team_id]
+		var seat_ids: Array = team_entry.get("seat_ids", [])
 
-		team_setups[team_id]["control_type"] = ControlType.PLAYER
-		team_setups[team_id]["team_id"] = team_id
-		team_setups[team_id]["seat_id"] = int(seat.get("seat_id", -1))
-		team_setups[team_id]["peer_id"] = peer_id
+		seat_ids.append(i)
+		team_entry["seat_ids"] = seat_ids
 
-		if peer_id == local_peer_id:
-			local_player_team_id = team_id
+		if control_type == ControlType.PLAYER:
+			team_entry["control_type"] = ControlType.PLAYER
+		elif int(team_entry["control_type"]) != ControlType.PLAYER:
+			team_entry["control_type"] = ControlType.AI
+
+		team_setups[assigned_team_id] = team_entry
+
+		if peer_id == local_peer_id and control_type == ControlType.PLAYER:
+			local_player_team_id = assigned_team_id
 
 
 func set_selected_map(path: String, display_name: String) -> void:
@@ -154,13 +209,6 @@ func set_team_assignment(team_id: int, assigned_team_id: int) -> void:
 	team_setups[team_id]["team_id"] = clamp(assigned_team_id, 0, MAX_TEAMS - 1)
 
 
-func get_team_assignment(team_id: int) -> int:
-	if team_id < 0 or team_id >= team_setups.size():
-		return team_id
-
-	return int(team_setups[team_id].get("team_id", team_id))
-
-
 func set_starting_credits(value: int) -> void:
 	starting_credits = max(value, 0)
 
@@ -184,7 +232,6 @@ func has_at_least_one_player() -> bool:
 	for i in range(team_count):
 		if int(team_setups[i]["control_type"]) == ControlType.PLAYER:
 			return true
-
 	return false
 
 
@@ -199,14 +246,22 @@ func can_start_skirmish() -> bool:
 
 
 func can_start_online_match() -> bool:
-	var active_players: Array[int] = []
+	var active_team_ids: Array[int] = []
+	var player_count: int = 0
 
-	for i in range(MAX_TEAMS):
-		var setup: Dictionary = team_setups[i]
-		if int(setup["control_type"]) == ControlType.PLAYER:
-			active_players.append(int(setup["team_id"]))
+	for i in range(MAX_SEATS):
+		var seat: Dictionary = seat_setups[i]
+		var control_type: int = int(seat.get("control_type", ControlType.CLOSED))
 
-	if active_players.size() != 2:
-		return false
+		if control_type == ControlType.CLOSED:
+			continue
 
-	return active_players[0] != active_players[1]
+		var team_id: int = clamp(int(seat.get("team_id", 0)), 0, MAX_TEAMS - 1)
+
+		if team_id not in active_team_ids:
+			active_team_ids.append(team_id)
+
+		if control_type == ControlType.PLAYER:
+			player_count += 1
+
+	return player_count >= 2 and active_team_ids.size() >= 2

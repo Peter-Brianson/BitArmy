@@ -82,6 +82,14 @@ func set_lobby_team_count(value: int) -> void:
 		return
 
 	lobby_team_count = clamp(value, 2, GameSession.MAX_TEAMS)
+
+	# Extra seats above team count are forced closed.
+	for i in range(lobby_team_count, lobby_seats.size()):
+		if i == 0:
+			continue
+		if int(lobby_seats[i]["peer_id"]) == 0:
+			lobby_seats[i]["control_type"] = GameSession.ControlType.CLOSED
+
 	_broadcast_lobby_state()
 
 
@@ -175,7 +183,7 @@ func _reset_local_lobby() -> void:
 	lobby_income_per_second = 1.0
 
 	lobby_seats.clear()
-	for i in range(GameSession.MAX_TEAMS):
+	for i in range(GameSession.MAX_SEATS):
 		lobby_seats.append({
 			"seat_id": i,
 			"peer_id": 0,
@@ -188,24 +196,17 @@ func _reset_local_lobby() -> void:
 func _reset_host_lobby() -> void:
 	_reset_local_lobby()
 
-	# Seat 1 = host player
+	# Host player seat.
 	lobby_seats[0]["peer_id"] = multiplayer.get_unique_id()
 	lobby_seats[0]["display_name"] = "Host"
 	lobby_seats[0]["team_id"] = 0
 	lobby_seats[0]["control_type"] = GameSession.ControlType.PLAYER
 
-	# Seat 2 = open remote player slot
+	# Client player seat.
 	lobby_seats[1]["peer_id"] = 0
 	lobby_seats[1]["display_name"] = "Open"
 	lobby_seats[1]["team_id"] = 1
 	lobby_seats[1]["control_type"] = GameSession.ControlType.CLOSED
-
-	# Seats 3..8 default closed
-	for i in range(2, lobby_seats.size()):
-		lobby_seats[i]["peer_id"] = 0
-		lobby_seats[i]["display_name"] = "Open"
-		lobby_seats[i]["team_id"] = i
-		lobby_seats[i]["control_type"] = GameSession.ControlType.CLOSED
 
 
 func _on_peer_connected(id: int) -> void:
@@ -229,13 +230,10 @@ func _on_peer_disconnected(id: int) -> void:
 			lobby_seats[seat_id]["peer_id"] = 0
 			lobby_seats[seat_id]["display_name"] = "Open"
 
-			# Seat 2 stays as the reserved joinable player seat.
 			if seat_id == 1:
 				lobby_seats[seat_id]["control_type"] = GameSession.ControlType.CLOSED
-			else:
-				# AI seats remain whatever the host set them to if no peer was occupying them.
-				if int(lobby_seats[seat_id]["control_type"]) == GameSession.ControlType.PLAYER:
-					lobby_seats[seat_id]["control_type"] = GameSession.ControlType.CLOSED
+			elif int(lobby_seats[seat_id]["control_type"]) == GameSession.ControlType.PLAYER:
+				lobby_seats[seat_id]["control_type"] = GameSession.ControlType.CLOSED
 
 			_broadcast_lobby_state()
 	else:
@@ -262,16 +260,13 @@ func _find_seat_for_peer(peer_id: int) -> int:
 	for i in range(lobby_seats.size()):
 		if int(lobby_seats[i]["peer_id"]) == peer_id:
 			return i
-
 	return -1
 
 
 func _find_empty_remote_player_seat() -> int:
-	# First try the dedicated second seat.
 	if lobby_seats.size() > 1 and int(lobby_seats[1]["peer_id"]) == 0:
 		return 1
 
-	# Fallback: find any closed/open player-eligible seat.
 	for i in range(1, min(lobby_team_count, lobby_seats.size())):
 		if int(lobby_seats[i]["peer_id"]) == 0 and int(lobby_seats[i]["control_type"]) != GameSession.ControlType.AI:
 			return i
@@ -298,7 +293,7 @@ func _set_seat_control_type_internal(seat_id: int, control_type: int) -> void:
 
 	var safe_type: int = clamp(control_type, GameSession.ControlType.CLOSED, GameSession.ControlType.AI)
 
-	# If a remote peer occupies the seat, it must remain PLAYER.
+	# Occupied remote seats must remain Player.
 	if int(lobby_seats[seat_id]["peer_id"]) != 0:
 		lobby_seats[seat_id]["control_type"] = GameSession.ControlType.PLAYER
 		return
