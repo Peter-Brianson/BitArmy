@@ -93,6 +93,9 @@ game_manager = NodePath("../../Simulation/GameManager")
 camera_pan_controller = NodePath("../../CameraRig")
 match_net_controller = NodePath("../../Simulation/MatchNetController")
 preview_root = NodePath("")
+grid_snap_enabled = true
+grid_size = 4.0
+placement_padding = 4.0
 
 [node name="SelectionUnderlay" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager")]
 script = ExtResource("2_xldib")
