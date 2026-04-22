@@ -37,6 +37,10 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_apply_mouse_filter_fail_safe(self)
 
+	# Always enter this menu in a disconnected state.
+	if multiplayer.multiplayer_peer != null:
+		NetworkHub.disconnect_from_session()
+
 	GameSession.reset_online_defaults()
 
 	_collect_seat_rows()
@@ -191,10 +195,14 @@ func _refresh_from_lobby_state() -> void:
 
 	var lobby_state: Dictionary = NetworkHub.get_lobby_state()
 	var is_host: bool = NetworkHub.is_host
-	var local_peer_id: int = multiplayer.get_unique_id()
+	var has_peer: bool = multiplayer.multiplayer_peer != null
+	var local_peer_id: int = 1
+
+	if has_peer:
+		local_peer_id = multiplayer.get_unique_id()
 
 	if connection_status_label != null:
-		if multiplayer.multiplayer_peer == null:
+		if not has_peer:
 			connection_status_label.text = "Offline"
 		elif is_host:
 			connection_status_label.text = "Hosting on port %d" % int(port_spinbox.value if port_spinbox != null else NetworkHub.DEFAULT_PORT)
@@ -270,7 +278,10 @@ func _refresh_from_lobby_state() -> void:
 
 		if occupancy_label != null:
 			if peer_id == 0:
-				occupancy_label.text = display_name if display_name != "" else "Open"
+				if control_type == GameSession.ControlType.AI:
+					occupancy_label.text = "AI"
+				else:
+					occupancy_label.text = display_name if display_name != "" else "Open"
 			elif peer_id == local_peer_id:
 				occupancy_label.text = "You"
 			elif peer_id == int(lobby_state.get("host_peer_id", 1)):
@@ -491,7 +502,8 @@ func _on_start_match_pressed() -> void:
 
 
 func _on_back_pressed() -> void:
-	NetworkHub.disconnect_from_session()
+	if multiplayer.multiplayer_peer != null:
+		NetworkHub.disconnect_from_session()
 	get_tree().change_scene_to_file("res://scenes/ui/StartMenu.tscn")
 
 
