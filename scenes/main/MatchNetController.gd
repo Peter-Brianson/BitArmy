@@ -207,8 +207,9 @@ func _build_economy_snapshot() -> Dictionary:
 	for team_id in game_manager.credits_by_team.keys():
 		credits[int(team_id)] = float(game_manager.credits_by_team[team_id])
 
-	for runtime_team_id in match_controller.runtime_team_to_hq_id.keys():
-		income[int(runtime_team_id)] = game_manager.get_team_income_per_second(int(runtime_team_id))
+	if match_controller != null:
+		for runtime_team_id in match_controller.runtime_team_to_hq_id.keys():
+			income[int(runtime_team_id)] = game_manager.get_team_income_per_second(int(runtime_team_id))
 
 	return {
 		"credits_by_team": credits,
@@ -303,40 +304,6 @@ func _get_structure_scene_for_stats_path(stats_path: String) -> PackedScene:
 	return null
 
 
-func _can_place_structure_at(stats: StructureStats, world_pos: Vector2) -> bool:
-	if stats == null or structure_manager == null:
-		return false
-
-	if match_controller != null and match_controller.camera_pan_controller != null:
-		var world_rect: Rect2 = match_controller.camera_pan_controller.world_rect
-		var half: Vector2 = stats.footprint_size * 0.5
-		var placement_rect := Rect2(world_pos - half, stats.footprint_size)
-
-		if not world_rect.encloses(placement_rect):
-			return false
-
-	for structure in structure_manager.structures.values():
-		var s: StructureRuntime = structure
-		if s == null:
-			continue
-		if not s.is_alive:
-			continue
-
-		var existing_half: Vector2 = s.stats.footprint_size * 0.5
-		var existing_rect := Rect2(
-			s.position - existing_half - Vector2(8.0, 8.0),
-			s.stats.footprint_size + Vector2(16.0, 16.0)
-		)
-
-		var new_half: Vector2 = stats.footprint_size * 0.5
-		var new_rect := Rect2(world_pos - new_half, stats.footprint_size)
-
-		if new_rect.intersects(existing_rect):
-			return false
-
-	return true
-
-
 func _spawn_client_unit_from_snapshot(data: Dictionary) -> void:
 	if unit_manager == null:
 		return
@@ -427,6 +394,8 @@ func _apply_units_snapshot(items: Array) -> void:
 		unit.has_move_target = false
 		unit.has_attack_move_destination = false
 
+		_sync_unit_view(unit)
+
 	for unit_id in unit_manager.units.keys():
 		if not seen_ids.has(unit_id):
 			unit_manager._remove_unit(int(unit_id))
@@ -461,9 +430,61 @@ func _apply_structures_snapshot(items: Array) -> void:
 		structure.rally_point = Vector2(float(data.get("rally_x", structure.rally_point.x)), float(data.get("rally_y", structure.rally_point.y)))
 		structure.death_timer_left = float(data.get("death_timer_left", structure.death_timer_left))
 
+		_sync_structure_view(structure)
+
 	for structure_id in structure_manager.structures.keys():
 		if not seen_ids.has(structure_id):
 			structure_manager._remove_structure(int(structure_id))
+
+
+func _sync_unit_view(unit: UnitRuntime) -> void:
+	if unit_manager == null:
+		return
+	if not unit_manager.unit_views.has(unit.id):
+		return
+
+	var view: Node2D = unit_manager.unit_views[unit.id]
+	if view == null or not is_instance_valid(view):
+		return
+
+	view.global_position = unit.position
+
+	if view is CanvasItem:
+		(view as CanvasItem).visible = true
+
+	if view.has_method("apply_unit_runtime_state"):
+		view.call(
+			"apply_unit_runtime_state",
+			unit.state,
+			unit.current_health,
+			unit.is_alive,
+			unit.owner_team_id,
+			unit.facing_dir
+		)
+
+
+func _sync_structure_view(structure: StructureRuntime) -> void:
+	if structure_manager == null:
+		return
+	if not structure_manager.structure_views.has(structure.id):
+		return
+
+	var view: Node2D = structure_manager.structure_views[structure.id]
+	if view == null or not is_instance_valid(view):
+		return
+
+	view.global_position = structure.position
+
+	if view is CanvasItem:
+		(view as CanvasItem).visible = true
+
+	if view.has_method("apply_structure_runtime_state"):
+		view.call(
+			"apply_structure_runtime_state",
+			structure.state,
+			structure.current_health,
+			structure.is_alive
+		)
 
 
 func _apply_economy_snapshot(data: Dictionary) -> void:
@@ -711,6 +732,40 @@ func _server_apply_place_structure(sender_id: int, builder_structure_id: int, st
 		world_pos,
 		scene_override
 	)
+
+
+func _can_place_structure_at(stats: StructureStats, world_pos: Vector2) -> bool:
+	if stats == null or structure_manager == null:
+		return false
+
+	if match_controller != null and match_controller.camera_pan_controller != null:
+		var world_rect: Rect2 = match_controller.camera_pan_controller.world_rect
+		var half: Vector2 = stats.footprint_size * 0.5
+		var placement_rect := Rect2(world_pos - half, stats.footprint_size)
+
+		if not world_rect.encloses(placement_rect):
+			return false
+
+	for structure in structure_manager.structures.values():
+		var s: StructureRuntime = structure
+		if s == null:
+			continue
+		if not s.is_alive:
+			continue
+
+		var existing_half: Vector2 = s.stats.footprint_size * 0.5
+		var existing_rect := Rect2(
+			s.position - existing_half - Vector2(8.0, 8.0),
+			s.stats.footprint_size + Vector2(16.0, 16.0)
+		)
+
+		var new_half: Vector2 = stats.footprint_size * 0.5
+		var new_rect := Rect2(world_pos - new_half, stats.footprint_size)
+
+		if new_rect.intersects(existing_rect):
+			return false
+
+	return true
 
 
 @rpc("authority", "call_remote", "unreliable")

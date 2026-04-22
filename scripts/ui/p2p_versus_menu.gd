@@ -476,14 +476,32 @@ func _on_seat_control_selected(_selected_index: int, option: OptionButton) -> vo
 		GameSession.team_setups[seat_id]["control_type"] = control_type
 		_refresh_from_lobby_state()
 
-
 func _on_seat_team_selected(_selected_index: int, seat_id: int, option: OptionButton) -> void:
 	if _is_refreshing_ui:
 		return
 
 	var team_id: int = option.get_selected_id()
-	NetworkHub.set_seat_team(seat_id, team_id)
 
+	# Temporary rule:
+	# do not allow two PLAYER seats to use the same team yet,
+	# because the current match architecture spawns one HQ per team.
+	var lobby_state: Dictionary = NetworkHub.get_lobby_state()
+	var seats: Array = lobby_state.get("seats", [])
+
+	for i in range(seats.size()):
+		if i == seat_id:
+			continue
+
+		var seat: Dictionary = seats[i]
+		var control_type: int = int(seat.get("control_type", GameSession.ControlType.CLOSED))
+		var peer_id: int = int(seat.get("peer_id", 0))
+		var other_team_id: int = int(seat.get("team_id", -1))
+
+		if control_type == GameSession.ControlType.PLAYER and peer_id != 0 and other_team_id == team_id:
+			_refresh_from_lobby_state()
+			return
+
+	NetworkHub.set_seat_team(seat_id, team_id)
 
 func _find_seat_id_for_control_option(option: OptionButton) -> int:
 	for i in range(_seat_rows.size()):
