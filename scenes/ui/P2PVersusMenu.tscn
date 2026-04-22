@@ -1,0 +1,373 @@
+[gd_scene load_steps=4 format=3 uid="uid://bv52lyexw1yts"]
+
+[ext_resource type="Script" path="res://scripts/ui/p2p_versus_menu.gd" id="1_ov1cc"]
+[ext_resource type="PackedScene" uid="uid://dnsugg256osen" path="res://Maps/Ready Maps/Grass Land.tscn" id="2_famib"]
+[ext_resource type="PackedScene" uid="uid://bnl5otydrtl4m" path="res://Maps/Ready Maps/Desert.tscn" id="3_lfjff"]
+
+[node name="P2PVersusMenu" type="Control" node_paths=PackedStringArray("main_panel", "host_button", "join_button", "disconnect_button", "ip_line_edit", "port_spinbox", "connection_status_label", "map_option", "team_count_option", "starting_credits_spinbox", "income_spinbox", "help_label", "seat_rows_container", "start_match_button", "back_button")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ov1cc")
+main_panel = NodePath("RootMargin")
+host_button = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow/HostButton")
+join_button = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow/JoinButton")
+disconnect_button = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow/DisconnectButton")
+ip_line_edit = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/AddressRow/IpLineEdit")
+port_spinbox = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/AddressRow/PortSpinBox")
+connection_status_label = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/ConnectionStatusLabel")
+map_option = NodePath("RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/MapRow/MapOptionButton")
+available_maps = Array[PackedScene]([ExtResource("2_famib"), ExtResource("3_lfjff")])
+team_count_option = NodePath("RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/TeamCountRow/TeamCountOptionButton")
+starting_credits_spinbox = NodePath("RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/CreditsRow/StartingCreditsSpinBox")
+income_spinbox = NodePath("RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/IncomeRow/IncomeSpinBox")
+help_label = NodePath("RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/HelpLabel")
+seat_rows_container = NodePath("RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer")
+start_match_button = NodePath("RootMargin/MainVBox/BottomButtonsRow/StartMatchButton")
+back_button = NodePath("RootMargin/MainVBox/BottomButtonsRow/BackButton")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.462291, 0.462291, 0.462291, 1)
+
+[node name="RootMargin" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -38.0
+offset_top = -11.5
+offset_right = 38.0
+offset_bottom = 11.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainVBox" type="VBoxContainer" parent="RootMargin"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="RootMargin/MainVBox"]
+layout_mode = 2
+text = "Versus"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="NetworkPanel" type="PanelContainer" parent="RootMargin/MainVBox"]
+layout_mode = 2
+
+[node name="NetworkVBox" type="VBoxContainer" parent="RootMargin/MainVBox/NetworkPanel"]
+layout_mode = 2
+
+[node name="ModeLabel" type="Label" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
+layout_mode = 2
+text = "Mode"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HostJoinRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="HostButton" type="Button" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow"]
+layout_mode = 2
+text = "Host"
+
+[node name="JoinButton" type="Button" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow"]
+layout_mode = 2
+text = "Join"
+
+[node name="DisconnectButton" type="Button" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow"]
+layout_mode = 2
+text = "Disconnect"
+
+[node name="AddressRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="IpLabel" type="Label" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/AddressRow"]
+layout_mode = 2
+text = "IP"
+
+[node name="IpLineEdit" type="LineEdit" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/AddressRow"]
+custom_minimum_size = Vector2(100, 20)
+layout_mode = 2
+placeholder_text = "192.168.1.1"
+alignment = 1
+max_length = 16
+expand_to_text_length = true
+
+[node name="PortLabel" type="Label" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/AddressRow"]
+layout_mode = 2
+text = "Port"
+
+[node name="PortSpinBox" type="SpinBox" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/AddressRow"]
+layout_mode = 2
+max_value = 9999.0
+value = 1337.0
+
+[node name="ConnectionStatusLabel" type="Label" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
+layout_mode = 2
+text = "Status"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MatchSettingsPanel" type="PanelContainer" parent="RootMargin/MainVBox"]
+layout_mode = 2
+
+[node name="MatchSettingsVBox" type="VBoxContainer" parent="RootMargin/MainVBox/MatchSettingsPanel"]
+layout_mode = 2
+
+[node name="SettingsTitleLabel" type="Label" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox"]
+layout_mode = 2
+text = "Match Settings"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MapRow" type="HBoxContainer" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox"]
+layout_mode = 2
+
+[node name="MapLabel" type="Label" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/MapRow"]
+layout_mode = 2
+text = "Map"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MapOptionButton" type="OptionButton" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/MapRow"]
+layout_mode = 2
+
+[node name="TeamCountRow" type="HBoxContainer" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox"]
+layout_mode = 2
+
+[node name="TeamCountLabel" type="Label" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/TeamCountRow"]
+layout_mode = 2
+text = "Team Count"
+
+[node name="TeamCountOptionButton" type="OptionButton" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/TeamCountRow"]
+layout_mode = 2
+
+[node name="CreditsRow" type="HBoxContainer" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox"]
+layout_mode = 2
+
+[node name="StartingCreditsLabel" type="Label" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/CreditsRow"]
+layout_mode = 2
+text = "Credits"
+
+[node name="StartingCreditsSpinBox" type="SpinBox" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/CreditsRow"]
+layout_mode = 2
+value = 10.0
+
+[node name="IncomeRow" type="HBoxContainer" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox"]
+layout_mode = 2
+
+[node name="IncomeLabel" type="Label" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/IncomeRow"]
+layout_mode = 2
+text = "Income"
+
+[node name="IncomeSpinBox" type="SpinBox" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox/IncomeRow"]
+layout_mode = 2
+
+[node name="HelpLabel" type="Label" parent="RootMargin/MainVBox/MatchSettingsPanel/MatchSettingsVBox"]
+layout_mode = 2
+text = "Help"
+
+[node name="SeatsPanel" type="PanelContainer" parent="RootMargin/MainVBox"]
+layout_mode = 2
+
+[node name="SeatsVBox" type="VBoxContainer" parent="RootMargin/MainVBox/SeatsPanel"]
+layout_mode = 2
+
+[node name="SeatsTitleLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox"]
+layout_mode = 2
+text = "Seats"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SeatHeaderRow" type="HBoxContainer" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox"]
+layout_mode = 2
+
+[node name="SeatHeaderLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatHeaderRow"]
+layout_mode = 2
+text = "Seat"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="OccupancyHeaderLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatHeaderRow"]
+layout_mode = 2
+text = "Occupancy"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ControlHeaderLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatHeaderRow"]
+layout_mode = 2
+text = "Control"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TeamHeaderLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatHeaderRow"]
+layout_mode = 2
+text = "Team"
+
+[node name="SeatRowsContainer" type="VBoxContainer" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox"]
+layout_mode = 2
+
+[node name="SeatRow1" type="HBoxContainer" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer"]
+layout_mode = 2
+
+[node name="SeatLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow1"]
+layout_mode = 2
+text = "Seat 1"
+
+[node name="OccupancyLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow1"]
+layout_mode = 2
+text = "Occupancy"
+
+[node name="ControlTypeOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow1"]
+layout_mode = 2
+
+[node name="TeamOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow1"]
+layout_mode = 2
+
+[node name="SeatRow2" type="HBoxContainer" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer"]
+layout_mode = 2
+
+[node name="SeatLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow2"]
+layout_mode = 2
+text = "Seat 2"
+
+[node name="OccupancyLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow2"]
+layout_mode = 2
+text = "Occupancy"
+
+[node name="ControlTypeOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow2"]
+layout_mode = 2
+
+[node name="TeamOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow2"]
+layout_mode = 2
+
+[node name="SeatRow3" type="HBoxContainer" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer"]
+layout_mode = 2
+
+[node name="SeatLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow3"]
+layout_mode = 2
+text = "Seat 3"
+
+[node name="OccupancyLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow3"]
+layout_mode = 2
+text = "Occupancy"
+
+[node name="ControlTypeOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow3"]
+layout_mode = 2
+
+[node name="TeamOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow3"]
+layout_mode = 2
+
+[node name="SeatRow4" type="HBoxContainer" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer"]
+layout_mode = 2
+
+[node name="SeatLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow4"]
+layout_mode = 2
+text = "Seat 4"
+
+[node name="OccupancyLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow4"]
+layout_mode = 2
+text = "Occupancy"
+
+[node name="ControlTypeOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow4"]
+layout_mode = 2
+
+[node name="TeamOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow4"]
+layout_mode = 2
+
+[node name="SeatRow5" type="HBoxContainer" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer"]
+layout_mode = 2
+
+[node name="SeatLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow5"]
+layout_mode = 2
+text = "Seat 5"
+
+[node name="OccupancyLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow5"]
+layout_mode = 2
+text = "Occupancy"
+
+[node name="ControlTypeOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow5"]
+layout_mode = 2
+
+[node name="TeamOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow5"]
+layout_mode = 2
+
+[node name="SeatRow6" type="HBoxContainer" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer"]
+layout_mode = 2
+
+[node name="SeatLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow6"]
+layout_mode = 2
+text = "Seat 6"
+
+[node name="OccupancyLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow6"]
+layout_mode = 2
+text = "Occupancy"
+
+[node name="ControlTypeOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow6"]
+layout_mode = 2
+
+[node name="TeamOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow6"]
+layout_mode = 2
+
+[node name="SeatRow7" type="HBoxContainer" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer"]
+layout_mode = 2
+
+[node name="SeatLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow7"]
+layout_mode = 2
+text = "Seat 7"
+
+[node name="OccupancyLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow7"]
+layout_mode = 2
+text = "Occupancy"
+
+[node name="ControlTypeOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow7"]
+layout_mode = 2
+
+[node name="TeamOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow7"]
+layout_mode = 2
+
+[node name="SeatRow8" type="HBoxContainer" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer"]
+layout_mode = 2
+
+[node name="SeatLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow8"]
+layout_mode = 2
+text = "Seat 8"
+
+[node name="OccupancyLabel" type="Label" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow8"]
+layout_mode = 2
+text = "Occupancy"
+
+[node name="ControlTypeOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow8"]
+layout_mode = 2
+
+[node name="TeamOption" type="OptionButton" parent="RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRowsContainer/SeatRow8"]
+layout_mode = 2
+
+[node name="BottomButtonsRow" type="HBoxContainer" parent="RootMargin/MainVBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="BackButton" type="Button" parent="RootMargin/MainVBox/BottomButtonsRow"]
+layout_mode = 2
+text = "Back"
+
+[node name="Spacer" type="Control" parent="RootMargin/MainVBox/BottomButtonsRow"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+
+[node name="StartMatchButton" type="Button" parent="RootMargin/MainVBox/BottomButtonsRow"]
+layout_mode = 2
+text = "Start
+"

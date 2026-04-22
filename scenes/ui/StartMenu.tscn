@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/ui/start_menu_controller.gd" id="1_3a4qe"]
 [ext_resource type="PackedScene" uid="uid://cxlq05ocsi0rt" path="res://scenes/ui/OptionsPanel.tscn" id="2_tebxw"]
 
-[node name="StartMenu" type="Control" node_paths=PackedStringArray("center_panel", "options_host", "skirmish_button", "options_button", "quit_button")]
+[node name="StartMenu" type="Control" node_paths=PackedStringArray("center_panel", "options_host", "skirmish_button", "versus_button", "options_button", "quit_button")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -15,6 +15,7 @@ options_panel_scene = ExtResource("2_tebxw")
 center_panel = NodePath("CenterPanel")
 options_host = NodePath("OptionsHost")
 skirmish_button = NodePath("CenterPanel/VBoxContainer/SkirmishButton")
+versus_button = NodePath("CenterPanel/VBoxContainer/OnlineVersusButton")
 options_button = NodePath("CenterPanel/VBoxContainer/OptionsButton")
 quit_button = NodePath("CenterPanel/VBoxContainer/QuitButton")
 
@@ -52,6 +53,10 @@ horizontal_alignment = 1
 [node name="SkirmishButton" type="Button" parent="CenterPanel/VBoxContainer"]
 layout_mode = 2
 text = "Skirmish"
+
+[node name="OnlineVersusButton" type="Button" parent="CenterPanel/VBoxContainer"]
+layout_mode = 2
+text = "Online Versus"
 
 [node name="OptionsButton" type="Button" parent="CenterPanel/VBoxContainer"]
 layout_mode = 2

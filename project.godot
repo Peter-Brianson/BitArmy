@@ -29,6 +29,7 @@ buses/default_bus_layout="res://Audio/Bus/default_bus_layout.tres"
 InputHub="*res://scripts/global/input_router.gd"
 GameSession="*res://scripts/global/GameSession.gd"
 AudioHub="*res://scenes/global/audio_manager.tscn"
+NetworkHub="*res://scripts/global/NetworkSession.gd"
 
 [display]
 

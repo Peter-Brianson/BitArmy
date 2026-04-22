@@ -2,12 +2,14 @@ class_name StartMenuController
 extends Control
 
 @export var skirmish_scene_path: String = "res://scenes/ui/SkirmishMenu.tscn"
+@export var versus_scene_path: String = "res://scenes/ui/P2PVersusMenu.tscn"
 @export var options_panel_scene: PackedScene
 
 @export var center_panel: Control
 @export var options_host: Control
 
 @export var skirmish_button: Button
+@export var versus_button: Button
 @export var options_button: Button
 @export var quit_button: Button
 
@@ -20,8 +22,13 @@ func _ready() -> void:
 
 	if skirmish_button != null:
 		skirmish_button.pressed.connect(_on_skirmish_pressed)
+
+	if versus_button != null:
+		versus_button.pressed.connect(_on_versus_pressed)
+
 	if options_button != null:
 		options_button.pressed.connect(_on_options_pressed)
+
 	if quit_button != null:
 		quit_button.pressed.connect(_on_quit_pressed)
 
@@ -29,7 +36,7 @@ func _ready() -> void:
 
 	if skirmish_button != null:
 		skirmish_button.grab_focus()
-	
+
 	AudioHub.play_menu_music()
 
 
@@ -41,6 +48,11 @@ func _notification(what: int) -> void:
 func _on_skirmish_pressed() -> void:
 	GameSession.reset_skirmish_defaults()
 	get_tree().change_scene_to_file(skirmish_scene_path)
+
+
+func _on_versus_pressed() -> void:
+	GameSession.reset_online_defaults()
+	get_tree().change_scene_to_file(versus_scene_path)
 
 
 func _on_options_pressed() -> void:
@@ -82,7 +94,7 @@ func _on_quit_pressed() -> void:
 
 func _apply_layout() -> void:
 	if center_panel != null:
-		var panel_size := Vector2(360.0, 260.0)
+		var panel_size := Vector2(360.0, 320.0)
 		center_panel.position = (size - panel_size) * 0.5
 		center_panel.custom_minimum_size = panel_size
 
