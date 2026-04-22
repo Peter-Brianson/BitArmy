@@ -170,7 +170,17 @@ func _refresh_button_states() -> void:
 func _apply_layout() -> void:
 	if main_panel != null:
 		var panel_size := Vector2(360.0, 320.0)
-		main_panel.position = (size - panel_size) * 0.5
+
+		main_panel.anchor_left = 0.5
+		main_panel.anchor_right = 0.5
+		main_panel.anchor_top = 0.5
+		main_panel.anchor_bottom = 0.5
+
+		main_panel.offset_left = -panel_size.x * 0.5
+		main_panel.offset_right = panel_size.x * 0.5
+		main_panel.offset_top = -panel_size.y * 0.5
+		main_panel.offset_bottom = panel_size.y * 0.5
+
 		main_panel.custom_minimum_size = panel_size
 
 	if options_host != null:

@@ -8,6 +8,8 @@ extends Node
 @export var pause_menu_group_name: String = "pause_menu"
 @export var consume_router_transients: bool = true
 
+var _direct_pause_latch: bool = false
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -16,6 +18,9 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	var player = InputHub.get_player(primary_player_index)
 	if player == null:
+		# Still allow direct keyboard pause fallback even if router player lookup fails.
+		_apply_direct_pause_fallback()
+
 		if consume_router_transients:
 			InputHub.begin_frame()
 		return
@@ -24,6 +29,7 @@ func _process(_delta: float) -> void:
 	_apply_pointer_inputs(player)
 	_apply_pause_input(player)
 	_apply_qol_actions(player)
+	_apply_direct_pause_fallback()
 
 	if consume_router_transients:
 		InputHub.begin_frame()
@@ -61,6 +67,21 @@ func _apply_pause_input(player) -> void:
 	if not player.pause_just_pressed:
 		return
 
+	_toggle_pause_menu()
+
+
+func _apply_direct_pause_fallback() -> void:
+	# Keyboard fallback for cases where router transients are missed.
+	var pressed_now: bool = Input.is_action_pressed("pause_game")
+
+	if pressed_now and not _direct_pause_latch:
+		_direct_pause_latch = true
+		_toggle_pause_menu()
+	elif not pressed_now:
+		_direct_pause_latch = false
+
+
+func _toggle_pause_menu() -> void:
 	var pause_menu := get_tree().get_first_node_in_group(pause_menu_group_name)
 	if pause_menu != null and pause_menu.has_method("toggle_pause_menu"):
 		pause_menu.toggle_pause_menu()
