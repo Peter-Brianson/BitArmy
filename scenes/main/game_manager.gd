@@ -10,13 +10,18 @@ var base_credit_income_per_second: float = 0.0
 # team_id -> float credits
 var credits_by_team: Dictionary = {}
 
+# Client-side replicated values for online matches.
+var remote_income_per_team: Dictionary = {}
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
-	AudioHub.play_battle_music()
 
 
 func _process(delta: float) -> void:
+	if _should_use_remote_economy():
+		return
+
 	if credits_by_team.is_empty():
 		return
 
@@ -41,6 +46,7 @@ func configure_from_game_session(active_runtime_team_ids: Array[int]) -> void:
 	base_credit_income_per_second = GameSession.base_credit_income_per_second
 
 	credits_by_team.clear()
+	remote_income_per_team.clear()
 
 	for team_id in active_runtime_team_ids:
 		credits_by_team[team_id] = float(starting_credits)
@@ -56,6 +62,10 @@ func configure_from_game_session(active_runtime_team_ids: Array[int]) -> void:
 
 
 func get_team_income_per_second(team_id: int) -> float:
+	if _should_use_remote_economy():
+		if remote_income_per_team.has(team_id):
+			return float(remote_income_per_team[team_id])
+
 	var bonus: float = 0.0
 
 	if team_manager != null:
@@ -90,3 +100,23 @@ func add_credits(team_id: int, amount: float) -> void:
 		return
 
 	credits_by_team[team_id] = float(credits_by_team[team_id]) + amount
+
+
+func apply_remote_economy_snapshot(credits_snapshot: Dictionary, income_snapshot: Dictionary) -> void:
+	credits_by_team.clear()
+	for key in credits_snapshot.keys():
+		var team_id: int = int(key)
+		credits_by_team[team_id] = float(credits_snapshot[key])
+
+	remote_income_per_team.clear()
+	for key in income_snapshot.keys():
+		var team_id: int = int(key)
+		remote_income_per_team[team_id] = float(income_snapshot[key])
+
+
+func _should_use_remote_economy() -> bool:
+	return (
+		GameSession.match_mode == GameSession.MatchMode.ONLINE_PTP
+		and multiplayer.multiplayer_peer != null
+		and not multiplayer.is_server()
+	)

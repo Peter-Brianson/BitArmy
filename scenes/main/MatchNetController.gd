@@ -84,7 +84,6 @@ func _enable_host_mode() -> void:
 
 
 func _enable_client_proxy_mode() -> void:
-	# Clear any locally-built sim state, then wait for host snapshot.
 	if unit_manager != null:
 		unit_manager.clear_all_units()
 		unit_manager.set_physics_process(false)
@@ -109,6 +108,7 @@ func _enable_client_proxy_mode() -> void:
 func _request_full_sync_from_host() -> void:
 	if is_host_authority:
 		return
+
 	server_request_full_sync.rpc_id(1)
 
 
@@ -132,6 +132,7 @@ func _build_snapshot() -> Dictionary:
 	return {
 		"units": _build_units_snapshot(),
 		"structures": _build_structures_snapshot(),
+		"economy": _build_economy_snapshot(),
 		"match_over": _is_match_over_on_host(),
 		"winner_team_id": _get_winner_team_id_on_host()
 	}
@@ -191,6 +192,28 @@ func _build_structures_snapshot() -> Array:
 		})
 
 	return result
+
+
+func _build_economy_snapshot() -> Dictionary:
+	var credits: Dictionary = {}
+	var income: Dictionary = {}
+
+	if game_manager == null:
+		return {
+			"credits_by_team": credits,
+			"income_by_team": income
+		}
+
+	for team_id in game_manager.credits_by_team.keys():
+		credits[int(team_id)] = float(game_manager.credits_by_team[team_id])
+
+	for runtime_team_id in match_controller.runtime_team_to_hq_id.keys():
+		income[int(runtime_team_id)] = game_manager.get_team_income_per_second(int(runtime_team_id))
+
+	return {
+		"credits_by_team": credits,
+		"income_by_team": income
+	}
 
 
 func _is_match_over_on_host() -> bool:
@@ -284,7 +307,6 @@ func _can_place_structure_at(stats: StructureStats, world_pos: Vector2) -> bool:
 	if stats == null or structure_manager == null:
 		return false
 
-	# Optional world-bounds check using camera world rect if available.
 	if match_controller != null and match_controller.camera_pan_controller != null:
 		var world_rect: Rect2 = match_controller.camera_pan_controller.world_rect
 		var half: Vector2 = stats.footprint_size * 0.5
@@ -307,10 +329,7 @@ func _can_place_structure_at(stats: StructureStats, world_pos: Vector2) -> bool:
 		)
 
 		var new_half: Vector2 = stats.footprint_size * 0.5
-		var new_rect := Rect2(
-			world_pos - new_half,
-			stats.footprint_size
-		)
+		var new_rect := Rect2(world_pos - new_half, stats.footprint_size)
 
 		if new_rect.intersects(existing_rect):
 			return false
@@ -445,6 +464,15 @@ func _apply_structures_snapshot(items: Array) -> void:
 	for structure_id in structure_manager.structures.keys():
 		if not seen_ids.has(structure_id):
 			structure_manager._remove_structure(int(structure_id))
+
+
+func _apply_economy_snapshot(data: Dictionary) -> void:
+	if game_manager == null:
+		return
+
+	var credits_snapshot: Dictionary = data.get("credits_by_team", {})
+	var income_snapshot: Dictionary = data.get("income_by_team", {})
+	game_manager.apply_remote_economy_snapshot(credits_snapshot, income_snapshot)
 
 
 func _apply_remote_match_end(winner_team_id: int) -> void:
@@ -692,6 +720,7 @@ func client_apply_snapshot(snapshot: Dictionary) -> void:
 
 	_apply_units_snapshot(snapshot.get("units", []))
 	_apply_structures_snapshot(snapshot.get("structures", []))
+	_apply_economy_snapshot(snapshot.get("economy", {}))
 
 	if bool(snapshot.get("match_over", false)):
 		_apply_remote_match_end(int(snapshot.get("winner_team_id", -1)))
