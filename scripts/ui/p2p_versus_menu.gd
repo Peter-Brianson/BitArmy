@@ -550,6 +550,7 @@ func _on_lobby_state_changed() -> void:
 
 func _on_start_match_requested() -> void:
 	NetworkHub.apply_lobby_to_game_session()
+	GameSession.set_meta("last_menu_scene_path", scene_file_path)
 	get_tree().change_scene_to_file(match_scene_path)
 
 

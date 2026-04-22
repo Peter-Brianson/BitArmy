@@ -183,7 +183,7 @@ func _on_team_control_selected(_index: int, team_id: int, option: OptionButton) 
 func _on_start_pressed() -> void:
 	if not GameSession.can_start_skirmish():
 		return
-
+	GameSession.set_meta("last_menu_scene_path", scene_file_path)
 	get_tree().change_scene_to_file(match_scene_path)
 
 

@@ -234,8 +234,7 @@ mouse_filter = 2
 
 [node name="MatchEndMenu" parent="UI" instance=ExtResource("19_boffa")]
 
-[node name="PauseMenu" parent="UI" node_paths=PackedStringArray("hud_controller") instance=ExtResource("16_mo52i")]
-hud_controller = NodePath("../HUD")
+[node name="PauseMenu" parent="UI" instance=ExtResource("16_mo52i")]
 
 [node name="Audio" type="Node" parent="."]
 
