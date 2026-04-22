@@ -7,6 +7,7 @@ extends Control
 @export var structure_manager: StructureSimulationManager
 @export var game_manager: GameManager
 @export var match_controller: MatchController
+@export var match_net_controller: MatchNetController
 @export var camera_pan_controller: CameraPanController
 @export var structure_placement_controller: StructurePlacementController
 
@@ -421,6 +422,10 @@ func _on_train_current_structure_pressed() -> void:
 	if trained_unit == null:
 		return
 
+	if _should_use_network_commands():
+		match_net_controller.request_queue_unit(selected_structure_id, trained_unit)
+		return
+
 	if game_manager != null:
 		if not game_manager.spend_credits(structure.owner_team_id, trained_unit.cost):
 			return
@@ -463,6 +468,8 @@ func _on_build_structure_option_pressed(structure_index: int) -> void:
 		if not game_manager.can_afford(structure.owner_team_id, build_stats.cost):
 			return
 
+	# Placement confirmation is still handled by StructurePlacementController.
+	# That controller should also be patched to call MatchNetController for online placement.
 	structure_placement_controller.begin_placement(
 		structure.owner_team_id,
 		build_stats,
@@ -563,8 +570,8 @@ func _apply_layout() -> void:
 	var margin: float = round(16.0 * s)
 	var gap: float = round(16.0 * s)
 
-	var selection_size: Vector2 = Vector2(round(360.0 * s), round(260.0 * s))
-	var production_size: Vector2 = Vector2(round(460.0 * s), round(260.0 * s))
+	var selection_size: Vector2 = Vector2(round(260.0 * s), round(260.0 * s))
+	var production_size: Vector2 = Vector2(round(360.0 * s), round(240.0 * s))
 	var resource_size: Vector2 = Vector2(round(220.0 * s), round(88.0 * s))
 	var status_size: Vector2 = Vector2(round(220.0 * s), round(100.0 * s))
 
@@ -636,7 +643,7 @@ func _apply_widget_sizes(s: float) -> void:
 		description_label.custom_minimum_size = Vector2(0.0, round(44.0 * s))
 
 	if stat_summary_label != null:
-		stat_summary_label.custom_minimum_size = Vector2(0.0, round(20.0 * s))
+		stat_summary_label.custom_minimum_size = Vector2(0.0, round(24.0 * s))
 
 	if production_scroll != null:
 		production_scroll.custom_minimum_size = Vector2(round(320.0 * s), round(120.0 * s))
@@ -760,3 +767,11 @@ func _update_camera_ui_block_rect() -> void:
 		return
 
 	camera_pan_controller.set_ui_mouse_block_rect(production_panel.get_global_rect())
+
+
+func _should_use_network_commands() -> bool:
+	return (
+		GameSession.match_mode == GameSession.MatchMode.ONLINE_PTP
+		and match_net_controller != null
+		and match_net_controller.online_enabled
+	)

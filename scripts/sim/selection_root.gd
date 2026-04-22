@@ -3,6 +3,7 @@ extends Node2D
 
 @export var unit_manager: UnitSimulationManager
 @export var structure_manager: StructureSimulationManager
+@export var match_net_controller: MatchNetController
 
 @export_group("Selection")
 @export var player_team_id: int = 0
@@ -130,22 +131,40 @@ func _issue_context_command(world_pos: Vector2) -> void:
 
 	match str(target_info.get("kind", "")):
 		"enemy_unit":
-			unit_manager.issue_attack_unit_order_many(selected_unit_ids, int(target_info.get("id", -1)))
+			var target_unit_id: int = int(target_info.get("id", -1))
+			if _should_use_network_commands():
+				match_net_controller.request_attack_unit(selected_unit_ids, target_unit_id)
+			else:
+				unit_manager.issue_attack_unit_order_many(selected_unit_ids, target_unit_id)
 
 		"enemy_structure":
-			unit_manager.issue_attack_structure_order_many(selected_unit_ids, int(target_info.get("id", -1)))
+			var target_structure_id: int = int(target_info.get("id", -1))
+			if _should_use_network_commands():
+				match_net_controller.request_attack_structure(selected_unit_ids, target_structure_id)
+			else:
+				unit_manager.issue_attack_structure_order_many(selected_unit_ids, target_structure_id)
 
 		_:
 			if attack_move_held:
-				unit_manager.issue_attack_move_order_many(selected_unit_ids, world_pos)
+				if _should_use_network_commands():
+					match_net_controller.request_attack_move_units(selected_unit_ids, world_pos)
+				else:
+					unit_manager.issue_attack_move_order_many(selected_unit_ids, world_pos)
 			else:
-				unit_manager.issue_move_order_many(selected_unit_ids, world_pos)
+				if _should_use_network_commands():
+					match_net_controller.request_move_units(selected_unit_ids, world_pos)
+				else:
+					unit_manager.issue_move_order_many(selected_unit_ids, world_pos)
 
 
 func _issue_structure_rally_command(world_pos: Vector2) -> void:
 	if selected_structure_id == -1:
 		return
 	if structure_manager == null:
+		return
+
+	if _should_use_network_commands():
+		match_net_controller.request_set_rally(selected_structure_id, world_pos)
 		return
 
 	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
@@ -303,3 +322,11 @@ func select_all_player_units() -> void:
 			continue
 
 		selected_unit_ids.append(u.id)
+
+
+func _should_use_network_commands() -> bool:
+	return (
+		GameSession.match_mode == GameSession.MatchMode.ONLINE_PTP
+		and match_net_controller != null
+		and match_net_controller.online_enabled
+	)
