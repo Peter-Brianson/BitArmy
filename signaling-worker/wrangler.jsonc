@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "bitarmy",
+  "main": "src/index.js",
+  "compatibility_date": "2026-04-23",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SIGNAL_ROOMS",
+        "class_name": "SignalRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["SignalRoom"]
+    }
+  ]
+}
