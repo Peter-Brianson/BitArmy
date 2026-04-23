@@ -39,6 +39,10 @@ window/size/mode=2
 
 pause_menu="for pause menu access"
 
+[gui]
+
+theme/custom_font="res://fonts/Vaticanus-G3yVG.ttf"
+
 [input]
 
 "primary press"={
