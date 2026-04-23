@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://dnsugg256osen" path="res://Maps/Ready Maps/Grass Land.tscn" id="2_famib"]
 [ext_resource type="PackedScene" uid="uid://bnl5otydrtl4m" path="res://Maps/Ready Maps/Desert.tscn" id="3_lfjff"]
 
-[node name="P2PVersusMenu" type="Control" node_paths=PackedStringArray("main_panel", "host_button", "join_button", "disconnect_button", "ip_line_edit", "port_spinbox", "connection_status_label", "map_option", "team_count_option", "starting_credits_spinbox", "income_spinbox", "help_label", "seat_rows_container", "start_match_button", "back_button")]
+[node name="P2PVersusMenu" type="Control" node_paths=PackedStringArray("main_panel", "transport_option", "signaling_url_line_edit", "room_code_line_edit", "host_button", "join_button", "disconnect_button", "ip_line_edit", "port_spinbox", "connection_status_label", "map_option", "team_count_option", "starting_credits_spinbox", "income_spinbox", "help_label", "seat_rows_container", "start_match_button", "back_button")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -13,6 +13,9 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_ov1cc")
 main_panel = NodePath("RootMargin")
+transport_option = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/TransportRow/TransportOption")
+signaling_url_line_edit = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/SignalingRow/SignalingUrlLineEdit")
+room_code_line_edit = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/RoomRow/RoomCodeLineEdit")
 host_button = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow/HostButton")
 join_button = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow/JoinButton")
 disconnect_button = NodePath("RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow/DisconnectButton")
@@ -73,21 +76,35 @@ text = "Mode"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="HostJoinRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
+[node name="TransportRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
 layout_mode = 2
-alignment = 1
 
-[node name="HostButton" type="Button" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow"]
+[node name="TransportLabel" type="Label" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/TransportRow"]
 layout_mode = 2
-text = "Host"
+text = "Transport"
 
-[node name="JoinButton" type="Button" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow"]
+[node name="TransportOption" type="OptionButton" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/TransportRow"]
 layout_mode = 2
-text = "Join"
 
-[node name="DisconnectButton" type="Button" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow"]
+[node name="SignalingRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
 layout_mode = 2
-text = "Disconnect"
+
+[node name="SignalingLabel" type="Label" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/SignalingRow"]
+layout_mode = 2
+text = "Signal URL"
+
+[node name="SignalingUrlLineEdit" type="LineEdit" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/SignalingRow"]
+layout_mode = 2
+
+[node name="RoomRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
+layout_mode = 2
+
+[node name="RoomLabel" type="Label" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/RoomRow"]
+layout_mode = 2
+text = "Room Code"
+
+[node name="RoomCodeLineEdit" type="LineEdit" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/RoomRow"]
+layout_mode = 2
 
 [node name="AddressRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
 layout_mode = 2
@@ -113,6 +130,22 @@ text = "Port"
 layout_mode = 2
 max_value = 9999.0
 value = 1337.0
+
+[node name="HostJoinRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="HostButton" type="Button" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow"]
+layout_mode = 2
+text = "Host"
+
+[node name="JoinButton" type="Button" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow"]
+layout_mode = 2
+text = "Join"
+
+[node name="DisconnectButton" type="Button" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/HostJoinRow"]
+layout_mode = 2
+text = "Disconnect"
 
 [node name="ConnectionStatusLabel" type="Label" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
 layout_mode = 2

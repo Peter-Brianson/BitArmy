@@ -7,6 +7,9 @@ extends Control
 @export var main_panel: Control
 
 @export_group("Network")
+@export var transport_option: OptionButton
+@export var signaling_url_line_edit: LineEdit
+@export var room_code_line_edit: LineEdit
 @export var host_button: Button
 @export var join_button: Button
 @export var disconnect_button: Button
@@ -37,7 +40,6 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_apply_mouse_filter_fail_safe(self)
 
-	# Always enter this menu in a disconnected state.
 	if multiplayer.multiplayer_peer != null:
 		NetworkHub.disconnect_from_session()
 
@@ -75,7 +77,6 @@ func _collect_seat_rows() -> void:
 			continue
 
 		var row_box: HBoxContainer = row
-
 		var seat_label: Label = row_box.get_node_or_null("SeatLabel")
 		var occupancy_label: Label = row_box.get_node_or_null("OccupancyLabel")
 		var control_option: OptionButton = row_box.get_node_or_null("ControlTypeOption")
@@ -91,6 +92,20 @@ func _collect_seat_rows() -> void:
 
 
 func _setup_network_controls() -> void:
+	if transport_option != null:
+		transport_option.clear()
+		transport_option.add_item("Direct IP (ENet)", NetworkHub.TransportMode.ENET)
+		transport_option.add_item("Browser P2P (WebRTC)", NetworkHub.TransportMode.WEBRTC)
+		transport_option.item_selected.connect(_on_transport_selected)
+
+	if signaling_url_line_edit != null:
+		signaling_url_line_edit.text = NetworkHub.webrtc_signaling_url
+		signaling_url_line_edit.text_changed.connect(_on_signaling_url_changed)
+
+	if room_code_line_edit != null:
+		room_code_line_edit.text = NetworkHub.webrtc_room_code
+		room_code_line_edit.text_changed.connect(_on_room_code_changed)
+
 	if port_spinbox != null:
 		port_spinbox.min_value = 1
 		port_spinbox.max_value = 65535
@@ -138,7 +153,7 @@ func _setup_match_settings_controls() -> void:
 		back_button.pressed.connect(_on_back_pressed)
 
 	if help_label != null:
-		help_label.text = "Host can configure map and economy. Connected players can choose their team."
+		help_label.text = "Choose ENet for direct IP. Choose WebRTC for browser-friendly play using your signaling server."
 
 
 func _bind_network_signals() -> void:
@@ -194,20 +209,30 @@ func _refresh_from_lobby_state() -> void:
 	_is_refreshing_ui = true
 
 	var lobby_state: Dictionary = NetworkHub.get_lobby_state()
-	var is_host: bool = NetworkHub.is_host
+	var is_host_now: bool = NetworkHub.is_host
 	var has_peer: bool = multiplayer.multiplayer_peer != null
 	var local_peer_id: int = 1
 
 	if has_peer:
 		local_peer_id = multiplayer.get_unique_id()
 
+	if transport_option != null:
+		var desired_mode: int = int(lobby_state.get("transport_mode", NetworkHub.transport_mode))
+		transport_option.select(_get_transport_option_index(desired_mode))
+
+	if signaling_url_line_edit != null:
+		signaling_url_line_edit.text = str(lobby_state.get("webrtc_signaling_url", NetworkHub.webrtc_signaling_url))
+
+	if room_code_line_edit != null:
+		room_code_line_edit.text = str(lobby_state.get("webrtc_room_code", NetworkHub.webrtc_room_code))
+
 	if connection_status_label != null:
 		if not has_peer:
-			connection_status_label.text = "Offline"
-		elif is_host:
-			connection_status_label.text = "Hosting on port %d" % int(port_spinbox.value if port_spinbox != null else NetworkHub.DEFAULT_PORT)
+			connection_status_label.text = "Offline [%s]" % NetworkHub.get_transport_display_name()
+		elif is_host_now:
+			connection_status_label.text = "Hosting [%s]" % NetworkHub.get_transport_display_name()
 		else:
-			connection_status_label.text = "Connected to host"
+			connection_status_label.text = "Connected [%s]" % NetworkHub.get_transport_display_name()
 
 	var lobby_team_count: int = int(lobby_state.get("team_count", GameSession.team_count))
 	GameSession.set_team_count(lobby_team_count)
@@ -268,10 +293,7 @@ func _refresh_from_lobby_state() -> void:
 		if seat.has("control_type"):
 			control_type = int(seat.get("control_type", GameSession.ControlType.CLOSED))
 		else:
-			if peer_id != 0:
-				control_type = GameSession.ControlType.PLAYER
-			else:
-				control_type = GameSession.ControlType.CLOSED
+			control_type = GameSession.ControlType.PLAYER if peer_id != 0 else GameSession.ControlType.CLOSED
 
 		if seat_label != null:
 			seat_label.text = "Seat %d" % (i + 1)
@@ -293,7 +315,7 @@ func _refresh_from_lobby_state() -> void:
 			_setup_control_option(control_option, control_type)
 
 			var can_edit_control: bool = false
-			if is_host:
+			if is_host_now:
 				if i == 0:
 					can_edit_control = false
 				elif peer_id != 0:
@@ -307,7 +329,7 @@ func _refresh_from_lobby_state() -> void:
 			_setup_team_option(team_option, lobby_team_count, team_id)
 
 			var can_edit_team: bool = false
-			if is_host:
+			if is_host_now:
 				can_edit_team = true
 			else:
 				can_edit_team = peer_id == local_peer_id and peer_id != 0
@@ -380,9 +402,35 @@ func _select_map_option_by_path(map_path: String) -> void:
 					return
 
 
+func _get_transport_option_index(mode: int) -> int:
+	if mode == NetworkHub.TransportMode.WEBRTC:
+		return 1
+	return 0
+
+
+func _on_transport_selected(index: int) -> void:
+	if _is_refreshing_ui:
+		return
+
+	var mode: int = transport_option.get_item_id(index)
+	NetworkHub.set_transport_mode(mode)
+	_refresh_button_states()
+
+
+func _on_signaling_url_changed(value: String) -> void:
+	if _is_refreshing_ui:
+		return
+	NetworkHub.set_webrtc_signaling_url(value)
+
+
+func _on_room_code_changed(value: String) -> void:
+	if _is_refreshing_ui:
+		return
+	NetworkHub.set_webrtc_room_code(value)
+
+
 func _on_host_pressed() -> void:
 	var port: int = int(NetworkHub.DEFAULT_PORT)
-
 	if port_spinbox != null:
 		port = int(round(port_spinbox.value))
 
@@ -476,15 +524,13 @@ func _on_seat_control_selected(_selected_index: int, option: OptionButton) -> vo
 		GameSession.team_setups[seat_id]["control_type"] = control_type
 		_refresh_from_lobby_state()
 
+
 func _on_seat_team_selected(_selected_index: int, seat_id: int, option: OptionButton) -> void:
 	if _is_refreshing_ui:
 		return
 
 	var team_id: int = option.get_selected_id()
 
-	# Temporary rule:
-	# do not allow two PLAYER seats to use the same team yet,
-	# because the current match architecture spawns one HQ per team.
 	var lobby_state: Dictionary = NetworkHub.get_lobby_state()
 	var seats: Array = lobby_state.get("seats", [])
 
@@ -502,6 +548,7 @@ func _on_seat_team_selected(_selected_index: int, seat_id: int, option: OptionBu
 			return
 
 	NetworkHub.set_seat_team(seat_id, team_id)
+
 
 func _find_seat_id_for_control_option(option: OptionButton) -> int:
 	for i in range(_seat_rows.size()):
@@ -549,13 +596,14 @@ func _on_lobby_state_changed() -> void:
 
 
 func _on_start_match_requested() -> void:
-	NetworkHub.apply_lobby_to_game_session()
 	GameSession.set_meta("last_menu_scene_path", scene_file_path)
+	NetworkHub.apply_lobby_to_game_session()
 	get_tree().change_scene_to_file(match_scene_path)
 
 
 func _refresh_button_states() -> void:
 	var online_active: bool = multiplayer.multiplayer_peer != null
+	var using_webrtc: bool = NetworkHub.transport_mode == NetworkHub.TransportMode.WEBRTC
 
 	if host_button != null:
 		host_button.disabled = online_active
@@ -565,6 +613,21 @@ func _refresh_button_states() -> void:
 
 	if disconnect_button != null:
 		disconnect_button.disabled = not online_active
+
+	if transport_option != null:
+		transport_option.disabled = online_active
+
+	if signaling_url_line_edit != null:
+		signaling_url_line_edit.editable = not online_active and using_webrtc
+
+	if room_code_line_edit != null:
+		room_code_line_edit.editable = not online_active and using_webrtc
+
+	if ip_line_edit != null:
+		ip_line_edit.editable = not online_active and not using_webrtc
+
+	if port_spinbox != null:
+		port_spinbox.editable = not online_active and not using_webrtc
 
 	var host_can_edit: bool = NetworkHub.is_host
 
@@ -601,10 +664,7 @@ func _can_start_online_match() -> bool:
 		if seat.has("control_type"):
 			control_type = int(seat.get("control_type", GameSession.ControlType.CLOSED))
 		else:
-			if peer_id != 0:
-				control_type = GameSession.ControlType.PLAYER
-			else:
-				control_type = GameSession.ControlType.CLOSED
+			control_type = GameSession.ControlType.PLAYER if peer_id != 0 else GameSession.ControlType.CLOSED
 
 		if control_type == GameSession.ControlType.CLOSED:
 			continue
@@ -637,7 +697,7 @@ func _get_map_display_name(map_scene: PackedScene) -> String:
 
 func _apply_layout() -> void:
 	if main_panel != null:
-		var panel_size := Vector2(880.0, 700.0)
+		var panel_size := Vector2(880.0, 760.0)
 		main_panel.position = (size - panel_size) * 0.5
 		main_panel.custom_minimum_size = panel_size
 
