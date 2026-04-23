@@ -185,10 +185,10 @@ ai_team_manager = NodePath("../AITeamManager")
 
 [node name="CombatResolver" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager", "unit_manager", "structure_manager")]
 script = ExtResource("13_t2dt4")
-default_attack_windup = 0.0
 team_manager = NodePath("../TeamManager")
 unit_manager = NodePath("../UnitSimulationManager")
 structure_manager = NodePath("../StructureSimulationManager")
+default_attack_windup = 0.0
 
 [node name="MatchInputBridge" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("camera_pan_controller", "match_controller", "selection_controller")]
 script = ExtResource("14_mfb8g")
