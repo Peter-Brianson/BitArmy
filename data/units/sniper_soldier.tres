@@ -1,9 +1,12 @@
-[gd_resource type="Resource" script_class="UnitStats" load_steps=5 format=3 uid="uid://cwkfq10gwh1ek"]
+[gd_resource type="Resource" script_class="UnitStats" load_steps=8 format=3 uid="uid://cwkfq10gwh1ek"]
 
-[ext_resource type="Texture2D" uid="uid://4sikct0hri86" path="res://sprites/basic Sniper/shoot.png" id="1_1txim"]
+[ext_resource type="Texture2D" uid="uid://fqhaj6c7b7o3" path="res://sprites/basic Sniper/shoot.png" id="1_1txim"]
 [ext_resource type="Script" path="res://data/units/unit_stats.gd" id="1_5401l"]
-[ext_resource type="Texture2D" uid="uid://bpxyej3ladu0e" path="res://sprites/basic Sniper/dead.png" id="3_v60bx"]
-[ext_resource type="Texture2D" uid="uid://b5s8xrvfmtujf" path="res://sprites/basic Sniper/idle.png" id="4_051t4"]
+[ext_resource type="Texture2D" uid="uid://2fxil8j6p66x" path="res://sprites/select ring/select ring.png" id="3_h647t"]
+[ext_resource type="Texture2D" uid="uid://dh0dcqe4shiw1" path="res://sprites/basic Sniper/dead.png" id="3_v60bx"]
+[ext_resource type="Texture2D" uid="uid://bv0or838nlbg0" path="res://sprites/basic Sniper/idle.png" id="4_051t4"]
+[ext_resource type="Texture2D" uid="uid://bt75istijl7v5" path="res://sprites/basic Sniper/walk 1.png" id="6_h3wvg"]
+[ext_resource type="Texture2D" uid="uid://ddm6pa8siau0r" path="res://sprites/basic Sniper/walk 2.png" id="7_4yl0o"]
 
 [resource]
 script = ExtResource("1_5401l")
@@ -11,9 +14,16 @@ unit_name = "Sniper"
 description = "Basic Sniper"
 sprite_idle = ExtResource("4_051t4")
 sprite_walk = ExtResource("4_051t4")
+sprite_walk_a = ExtResource("6_h3wvg")
+sprite_walk_b = ExtResource("7_4yl0o")
+walk_anim_fps = 8.0
 sprite_attack = ExtResource("1_1txim")
 sprite_dead = ExtResource("3_v60bx")
 icon_texture = ExtResource("1_1txim")
+selection_ring_texture = ExtResource("3_h647t")
+selection_ring_scale = 1.0
+selection_ring_offset = Vector2(0, 0)
+selection_ring_color = Color(1, 1, 1, 1)
 unit_type_tags = 1
 max_health = 1
 damage = 2

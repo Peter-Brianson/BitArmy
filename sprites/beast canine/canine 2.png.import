@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://7yiuy2tj114a"
-path="res://.godot/imported/mystic mage2.png-f3527b861b65790b54bd2bc05af3d80e.ctex"
+uid="uid://bfyk0aj3vsukj"
+path="res://.godot/imported/canine 2.png-e832d2af5f4ad1032427ab16385db4f0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://sprites/mystic caster/mystic mage2.png"
-dest_files=["res://.godot/imported/mystic mage2.png-f3527b861b65790b54bd2bc05af3d80e.ctex"]
+source_file="res://sprites/beast canine/canine 2.png"
+dest_files=["res://.godot/imported/canine 2.png-e832d2af5f4ad1032427ab16385db4f0.ctex"]
 
 [params]
 

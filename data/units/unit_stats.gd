@@ -14,12 +14,27 @@ const TYPE_ELEMENTAL := 1 << 5
 
 @export_category("Sprites")
 @export var sprite_idle: Texture2D
+
+# Backward-compatible single walk sprite.
 @export var sprite_walk: Texture2D
+
+# Optional 2-frame walk animation.
+@export var sprite_walk_a: Texture2D
+@export var sprite_walk_b: Texture2D
+@export var walk_anim_fps: float = 8.0
+
 @export var sprite_attack: Texture2D
 @export var sprite_dead: Texture2D
 
 @export_category("UI")
 @export var icon_texture: Texture2D
+
+@export_category("Selection Ring")
+@export var selection_ring_texture: Texture2D
+@export var selection_ring_scale: float = 1.0
+@export var selection_ring_offset: Vector2 = Vector2.ZERO
+@export var selection_ring_color: Color = Color.WHITE
+
 @export_flags("Basic", "Mystic", "Beast", "Machine", "Alien", "Elemental")
 var unit_type_tags: int = TYPE_BASIC
 
@@ -32,7 +47,6 @@ var unit_type_tags: int = TYPE_BASIC
 @export var build_time: float = 1.0
 @export var cost: int = 10
 
-# Keep old values stable. Append EXPLOSIVE at the end.
 enum DamageType {
 	PHYSICAL,
 	MAGICAL,
@@ -111,3 +125,28 @@ func can_target_units() -> bool:
 
 func can_target_structures() -> bool:
 	return (target_categories & TARGET_STRUCTURES) != 0
+
+
+func has_walk_animation() -> bool:
+	return sprite_walk_a != null or sprite_walk_b != null
+
+
+func get_walk_frame(frame_index: int) -> Texture2D:
+	if frame_index % 2 == 0:
+		if sprite_walk_a != null:
+			return sprite_walk_a
+		if sprite_walk != null:
+			return sprite_walk
+		if sprite_idle != null:
+			return sprite_idle
+		return null
+
+	if sprite_walk_b != null:
+		return sprite_walk_b
+	if sprite_walk_a != null:
+		return sprite_walk_a
+	if sprite_walk != null:
+		return sprite_walk
+	if sprite_idle != null:
+		return sprite_idle
+	return null

@@ -1,8 +1,9 @@
-[gd_resource type="Resource" script_class="StructureStats" load_steps=4 format=3 uid="uid://hw1baduh04jk"]
+[gd_resource type="Resource" script_class="StructureStats" load_steps=5 format=3 uid="uid://hw1baduh04jk"]
 
 [ext_resource type="Texture2D" uid="uid://bd426c75awbgo" path="res://sprites/sniper trainer/sniper trainer.png" id="1_1g4mf"]
 [ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_vy6hx"]
 [ext_resource type="Resource" uid="uid://cwkfq10gwh1ek" path="res://data/units/sniper_soldier.tres" id="2_hwg2c"]
+[ext_resource type="Texture2D" uid="uid://2fxil8j6p66x" path="res://sprites/select ring/select ring.png" id="3_x2pwd"]
 
 [resource]
 script = ExtResource("1_vy6hx")
@@ -11,6 +12,11 @@ description = "Sniper Units"
 sprite_normal = ExtResource("1_1g4mf")
 sprite_destroyed = ExtResource("1_1g4mf")
 icon_texture = ExtResource("1_1g4mf")
+selection_ring_texture = ExtResource("3_x2pwd")
+selection_ring_scale = 2.0
+selection_ring_offset = Vector2(0, 14)
+selection_ring_color = Color(1, 1, 1, 1)
+show_rally_marker = true
 max_health = 10
 radius = 20.0
 footprint_size = Vector2(20, 36)

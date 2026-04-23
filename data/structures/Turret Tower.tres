@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="StructureStats" load_steps=3 format=3 uid="uid://c47ffjbt3l26j"]
+[gd_resource type="Resource" script_class="StructureStats" load_steps=4 format=3 uid="uid://c47ffjbt3l26j"]
 
 [ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_3f6us"]
 [ext_resource type="Texture2D" uid="uid://dbl85pcdomo47" path="res://sprites/turret tower/turret tower.png" id="1_d3j8j"]
+[ext_resource type="Texture2D" uid="uid://2fxil8j6p66x" path="res://sprites/select ring/select ring.png" id="3_sxwfh"]
 
 [resource]
 script = ExtResource("1_3f6us")
@@ -10,6 +11,11 @@ description = "Can target Units"
 sprite_normal = ExtResource("1_d3j8j")
 sprite_destroyed = ExtResource("1_d3j8j")
 icon_texture = ExtResource("1_d3j8j")
+selection_ring_texture = ExtResource("3_sxwfh")
+selection_ring_scale = 1.0
+selection_ring_offset = Vector2(0, 4)
+selection_ring_color = Color(1, 1, 1, 1)
+show_rally_marker = false
 max_health = 10
 radius = 10.0
 footprint_size = Vector2(10, 14)

@@ -1,9 +1,12 @@
-[gd_resource type="Resource" script_class="UnitStats" load_steps=5 format=3 uid="uid://bjpav1i0cmo5u"]
+[gd_resource type="Resource" script_class="UnitStats" load_steps=8 format=3 uid="uid://bjpav1i0cmo5u"]
 
 [ext_resource type="Texture2D" uid="uid://qyb31j87lrio" path="res://sprites/beast canine/idle.png" id="1_hblyc"]
 [ext_resource type="Script" path="res://data/units/unit_stats.gd" id="1_pwoaj"]
+[ext_resource type="Texture2D" uid="uid://2fxil8j6p66x" path="res://sprites/select ring/select ring.png" id="3_bcdu1"]
 [ext_resource type="Texture2D" uid="uid://cq12xy22dexxk" path="res://sprites/beast canine/attack.png" id="3_g87xu"]
 [ext_resource type="Texture2D" uid="uid://ihgfag2si1fu" path="res://sprites/beast canine/dead.png" id="4_fod86"]
+[ext_resource type="Texture2D" uid="uid://rndoy1i52yog" path="res://sprites/beast canine/walk 1.png" id="5_pg2bi"]
+[ext_resource type="Texture2D" uid="uid://csvxq53lm6pcn" path="res://sprites/beast canine/walk 2.png" id="6_ak83i"]
 
 [resource]
 script = ExtResource("1_pwoaj")
@@ -11,9 +14,16 @@ unit_name = "Canine"
 description = "Canine Unit"
 sprite_idle = ExtResource("1_hblyc")
 sprite_walk = ExtResource("1_hblyc")
+sprite_walk_a = ExtResource("5_pg2bi")
+sprite_walk_b = ExtResource("6_ak83i")
+walk_anim_fps = 12.0
 sprite_attack = ExtResource("3_g87xu")
 sprite_dead = ExtResource("4_fod86")
 icon_texture = ExtResource("1_hblyc")
+selection_ring_texture = ExtResource("3_bcdu1")
+selection_ring_scale = 1.0
+selection_ring_offset = Vector2(0, 0)
+selection_ring_color = Color(1, 1, 1, 1)
 unit_type_tags = 4
 max_health = 1
 damage = 1

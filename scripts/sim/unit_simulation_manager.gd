@@ -16,6 +16,10 @@ extends Node
 @export var spatial_hash_cell_size: float = 128.0
 @export var retarget_interval: float = 0.20
 
+@export_group("Formation")
+@export var formation_spacing: float = 18.0
+@export var formation_row_width: int = 6
+
 var units: Dictionary = {}
 var unit_views: Dictionary = {}
 var unit_death_flash_played: Dictionary = {}
@@ -96,9 +100,60 @@ func issue_move_order(unit_id: int, target_position: Vector2) -> void:
 
 
 func issue_move_order_many(unit_ids: Array[int], target_position: Vector2) -> void:
-	for unit_id in unit_ids:
-		issue_move_order(unit_id, target_position)
+	var formation_targets: Dictionary = _build_formation_targets(unit_ids, target_position)
 
+	for unit_id in unit_ids:
+		var final_target: Vector2 = target_position
+		if formation_targets.has(unit_id):
+			final_target = formation_targets[unit_id]
+
+		issue_move_order(unit_id, final_target)
+
+func _build_formation_targets(unit_ids: Array[int], target_position: Vector2) -> Dictionary:
+	var result: Dictionary = {}
+	var valid_units: Array[UnitRuntime] = []
+
+	for unit_id in unit_ids:
+		var unit: UnitRuntime = get_unit(unit_id)
+		if unit == null:
+			continue
+		if unit.state == UnitRuntime.UnitState.DEAD:
+			continue
+
+		valid_units.append(unit)
+
+	if valid_units.is_empty():
+		return result
+
+	valid_units.sort_custom(func(a: UnitRuntime, b: UnitRuntime) -> bool:
+		return a.position.x < b.position.x
+	)
+
+	var row_size: int = max(formation_row_width, 1)
+	var spacing: float = max(formation_spacing, 1.0)
+
+	var row_count: int = int(ceil(float(valid_units.size()) / float(row_size)))
+	var center_row: float = (float(row_count - 1)) * 0.5
+
+	for i in range(valid_units.size()):
+		var unit: UnitRuntime = valid_units[i]
+
+		var row: int = i / row_size
+		var col: int = i % row_size
+
+		var units_in_this_row: int = min(row_size, valid_units.size() - row * row_size)
+		var center_col: float = (float(units_in_this_row - 1)) * 0.5
+
+		var x_offset: float = (float(col) - center_col) * spacing
+		var y_offset: float = (float(row) - center_row) * spacing
+
+		result[unit.id] = target_position + Vector2(x_offset, y_offset)
+
+	return result
+
+func issue_attack_move_order_many(unit_ids: Array[int], target_position: Vector2) -> void:
+	for unit_id in unit_ids:
+		issue_attack_move_order(unit_id, target_position)
 
 func issue_attack_move_order(unit_id: int, target_position: Vector2) -> void:
 	var unit: UnitRuntime = get_unit(unit_id)
@@ -108,11 +163,6 @@ func issue_attack_move_order(unit_id: int, target_position: Vector2) -> void:
 		return
 
 	unit.set_attack_move_order(target_position)
-
-
-func issue_attack_move_order_many(unit_ids: Array[int], target_position: Vector2) -> void:
-	for unit_id in unit_ids:
-		issue_attack_move_order(unit_id, target_position)
 
 
 func issue_attack_unit_order(unit_id: int, target_unit_id: int) -> void:

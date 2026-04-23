@@ -12,6 +12,15 @@ extends Resource
 @export_category("UI")
 @export var icon_texture: Texture2D
 
+@export_category("Selection Ring")
+@export var selection_ring_texture: Texture2D
+@export var selection_ring_scale: float = 1.0
+@export var selection_ring_offset: Vector2 = Vector2.ZERO
+@export var selection_ring_color: Color = Color.WHITE
+
+@export_category("UI / Markers")
+@export var show_rally_marker: bool = true
+
 @export_category("Core")
 @export var max_health: int = 10
 @export var radius: float = 16.0
@@ -35,8 +44,6 @@ var teamwide_buff_unit_tags: int = 0
 @export var teamwide_bonus_damage: int = 0
 @export var teamwide_bonus_health: int = 0
 
-# keep any existing combat / keyword fields you already had
-
 const KW_FLYING := 1
 const KW_PHYSICAL_IMMUNITY := 2
 const KW_MAGICAL_IMMUNITY := 4
@@ -52,6 +59,7 @@ const TARGET_STRUCTURES := 2
 @export var damage: int = 0
 @export var attack_speed: float = 1.0
 @export var attack_range: float = 0.0
+
 @export_flags("Units:1", "Structures:2")
 var target_categories: int = 0
 
@@ -59,7 +67,6 @@ var target_categories: int = 0
 @export var attack_damage: int = 0
 @export var attack_cooldown: float = 1.0
 @export var attack_windup: float = 0.0
-
 
 @export_category("Traits")
 @export_flags(
@@ -75,6 +82,7 @@ var keywords: int = KW_STRUCTURE
 
 func can_target_units() -> bool:
 	return (target_categories & TARGET_UNITS) != 0
+
 
 func can_target_structures() -> bool:
 	return (target_categories & TARGET_STRUCTURES) != 0

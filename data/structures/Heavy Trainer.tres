@@ -1,8 +1,9 @@
-[gd_resource type="Resource" script_class="StructureStats" load_steps=4 format=3 uid="uid://ciuh15hld7ewv"]
+[gd_resource type="Resource" script_class="StructureStats" load_steps=5 format=3 uid="uid://ciuh15hld7ewv"]
 
 [ext_resource type="Texture2D" uid="uid://cofee85urgh4d" path="res://sprites/heavy trainer/heavy trainer.png" id="1_kbujm"]
 [ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_qdg3o"]
 [ext_resource type="Resource" uid="uid://i0yc37mfo0d4" path="res://data/units/heavy_soldier.tres" id="2_xbc78"]
+[ext_resource type="Texture2D" uid="uid://2fxil8j6p66x" path="res://sprites/select ring/select ring.png" id="3_rrjlp"]
 
 [resource]
 script = ExtResource("1_qdg3o")
@@ -11,6 +12,11 @@ description = "Heavy Units"
 sprite_normal = ExtResource("1_kbujm")
 sprite_destroyed = ExtResource("1_kbujm")
 icon_texture = ExtResource("1_kbujm")
+selection_ring_texture = ExtResource("3_rrjlp")
+selection_ring_scale = 3.0
+selection_ring_offset = Vector2(0, 8)
+selection_ring_color = Color(1, 1, 1, 1)
+show_rally_marker = true
 max_health = 30
 radius = 32.0
 footprint_size = Vector2(32, 22)

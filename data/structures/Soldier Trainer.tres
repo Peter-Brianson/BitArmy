@@ -1,8 +1,9 @@
-[gd_resource type="Resource" script_class="StructureStats" load_steps=4 format=3 uid="uid://dp5ffj6e6myue"]
+[gd_resource type="Resource" script_class="StructureStats" load_steps=5 format=3 uid="uid://dp5ffj6e6myue"]
 
 [ext_resource type="Texture2D" uid="uid://dqi3vuob8l8p3" path="res://sprites/soldier trainer/soldier trainer.png" id="1_4ui5e"]
 [ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="1_wlrr8"]
 [ext_resource type="Resource" uid="uid://c8ehm6364nus1" path="res://data/units/basic_soldier.tres" id="2_h7lmg"]
+[ext_resource type="Texture2D" uid="uid://2fxil8j6p66x" path="res://sprites/select ring/select ring.png" id="3_cog8o"]
 
 [resource]
 script = ExtResource("1_wlrr8")
@@ -11,6 +12,11 @@ description = "Soldier Units"
 sprite_normal = ExtResource("1_4ui5e")
 sprite_destroyed = ExtResource("1_4ui5e")
 icon_texture = ExtResource("1_4ui5e")
+selection_ring_texture = ExtResource("3_cog8o")
+selection_ring_scale = 3.0
+selection_ring_offset = Vector2(0, 8)
+selection_ring_color = Color(1, 1, 1, 1)
+show_rally_marker = true
 max_health = 30
 radius = 26.0
 footprint_size = Vector2(26, 20)
