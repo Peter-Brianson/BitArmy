@@ -1,4 +1,4 @@
-[gd_scene load_steps=33 format=3 uid="uid://cqum0hu0tuqy0"]
+[gd_scene load_steps=34 format=3 uid="uid://cqum0hu0tuqy0"]
 
 [ext_resource type="Script" path="res://scripts/input/CameraPanController.gd" id="1_m2t5q"]
 [ext_resource type="Script" path="res://data/structures/structure_placement_controller.gd" id="2_723eq"]
@@ -27,6 +27,7 @@
 [ext_resource type="Script" path="res://scenes/main/MatchNetController.gd" id="24_0r7dn"]
 [ext_resource type="Resource" uid="uid://bgvvwnr0y8icr" path="res://data/structures/Mage Trainer.tres" id="29_3e5xs"]
 [ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="29_4b20o"]
+[ext_resource type="Resource" uid="uid://b8a68r5ldlfj7" path="res://data/structures/Tank Trainer.tres" id="30_a4aip"]
 [ext_resource type="Resource" uid="uid://dx22f8gid4pg1" path="res://data/structures/Credit Relay.tres" id="30_lju2h"]
 [ext_resource type="Resource" uid="uid://jardanqrg5kq" path="res://data/structures/Canine Trainer.tres" id="31_g4nnb"]
 [ext_resource type="Resource" uid="uid://bfqn0ko6j2nkn" path="res://data/structures/Basic War Shrine.tres" id="31_t21mw"]
@@ -94,7 +95,7 @@ match_net_controller = NodePath("../../Simulation/MatchNetController")
 preview_root = NodePath("")
 grid_snap_enabled = true
 grid_size = 4.0
-placement_padding = 4.0
+placement_padding = 1.0
 
 [node name="SelectionUnderlay" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager")]
 script = ExtResource("2_xldib")
@@ -217,8 +218,8 @@ match_controller = NodePath("../../MatchRoot/Simulation/MatchController")
 match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 camera_pan_controller = NodePath("../../MatchRoot/CameraRig")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
-buildable_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("19_1wux7"), ExtResource("17_u6d7c"), ExtResource("20_abcjn"), ExtResource("30_lju2h"), ExtResource("31_t21mw"), ExtResource("31_g4nnb"), ExtResource("32_nc4th"), ExtResource("29_3e5xs")])
-buildable_structure_scenes = Array[PackedScene]([ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd")])
+buildable_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("19_1wux7"), ExtResource("17_u6d7c"), ExtResource("20_abcjn"), ExtResource("30_lju2h"), ExtResource("31_t21mw"), ExtResource("31_g4nnb"), ExtResource("32_nc4th"), ExtResource("29_3e5xs"), ExtResource("30_a4aip")])
+buildable_structure_scenes = Array[PackedScene]([ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd")])
 
 [node name="DebugOverlay" type="Control" parent="UI"]
 layout_mode = 3

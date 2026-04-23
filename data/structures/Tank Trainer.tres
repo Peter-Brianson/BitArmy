@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="StructureStats" load_steps=5 format=3 uid="uid://b8a68r5ldlfj7"]
+
+[ext_resource type="Texture2D" uid="uid://cbj6qofsv30uj" path="res://sprites/Tank Trainer/tank trainer.png" id="1_5vfoe"]
+[ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="2_6oiut"]
+[ext_resource type="Texture2D" uid="uid://2fxil8j6p66x" path="res://sprites/select ring/select ring.png" id="3_biu7c"]
+[ext_resource type="Resource" uid="uid://bk5ja1pn4vqxg" path="res://data/units/machine_tank.tres" id="4_donhq"]
+
+[resource]
+script = ExtResource("2_6oiut")
+structure_name = "Tank Trianer"
+description = "Tank Units"
+sprite_normal = ExtResource("1_5vfoe")
+sprite_destroyed = ExtResource("1_5vfoe")
+icon_texture = ExtResource("1_5vfoe")
+selection_ring_texture = ExtResource("3_biu7c")
+selection_ring_scale = 3.5
+selection_ring_offset = Vector2(0, 12)
+selection_ring_color = Color(1, 1, 1, 1)
+show_rally_marker = true
+max_health = 100
+radius = 30.0
+footprint_size = Vector2(30, 30)
+death_time = 1.0
+cost = 50
+can_produce = true
+can_train_units = true
+can_place_structures = false
+trained_unit_stats = ExtResource("4_donhq")
+spawn_offset = Vector2(0, 20)
+income_bonus_per_second = 0.0
+teamwide_buff_unit_tags = 0
+teamwide_bonus_damage = 0
+teamwide_bonus_health = 0
+can_attack = false
+damage = 0
+attack_speed = 1.0
+attack_range = 0.0
+target_categories = 0
+attack_damage = 0
+attack_cooldown = 1.0
+attack_windup = 0.0
+keywords = 32

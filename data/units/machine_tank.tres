@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=9 format=3 uid="uid://bk5ja1pn4vqxg"]
+
+[ext_resource type="Texture2D" uid="uid://i4qmuc88ckfp" path="res://sprites/Effects/Explosive-1.png" id="1_2wwni"]
+[ext_resource type="Script" path="res://data/units/unit_stats.gd" id="2_ksom0"]
+[ext_resource type="Texture2D" uid="uid://ciwnthmnmkc28" path="res://sprites/machine tank/idle.png" id="2_xxblv"]
+[ext_resource type="Texture2D" uid="uid://2fxil8j6p66x" path="res://sprites/select ring/select ring.png" id="3_fxbfl"]
+[ext_resource type="Texture2D" uid="uid://c3ay00dnyb0fn" path="res://sprites/machine tank/shoot.png" id="5_7vxwh"]
+[ext_resource type="Texture2D" uid="uid://dkfbwfcluh0rr" path="res://sprites/machine tank/dead.png" id="6_jv1co"]
+[ext_resource type="Texture2D" uid="uid://csq81ecm0mavl" path="res://sprites/machine tank/walk 1.png" id="7_8q8pf"]
+[ext_resource type="Texture2D" uid="uid://cdfv4bt3vcgd5" path="res://sprites/machine tank/walk 2.png" id="8_3haa2"]
+
+[resource]
+script = ExtResource("2_ksom0")
+unit_name = "Tank"
+description = "Machine Tank"
+sprite_idle = ExtResource("2_xxblv")
+sprite_walk = ExtResource("7_8q8pf")
+sprite_walk_a = ExtResource("7_8q8pf")
+sprite_walk_b = ExtResource("8_3haa2")
+walk_anim_fps = 20.0
+sprite_attack = ExtResource("5_7vxwh")
+sprite_dead = ExtResource("6_jv1co")
+icon_texture = ExtResource("2_xxblv")
+selection_ring_texture = ExtResource("3_fxbfl")
+selection_ring_scale = 2.5
+selection_ring_offset = Vector2(0, 0)
+selection_ring_color = Color(1, 1, 1, 1)
+unit_type_tags = 8
+max_health = 20
+damage = 10
+move_speed = 75.0
+radius = 12.0
+body_size = Vector2(12, 16)
+build_time = 10.0
+cost = 30
+attack_speed = 0.5
+attack_range = 200.0
+damage_type = 4
+keywords = 10
+target_categories = 3
+aggro_range = 150.0
+aoe_radius = 0.0
+explosive_fx_texture = ExtResource("1_2wwni")
+explosive_fx_color = Color(0.811765, 0.662745, 0, 1)
+explosive_fx_scale = 3.0
+explosive_fx_lifetime = 0.25
+aoe_fx_color = Color(1, 1, 1, 1)
+aoe_fx_scale = 1.0
+aoe_fx_lifetime = 0.25
+death_time = 0.25
+body_color = Color(1, 1, 1, 1)
+attack_flash_color = Color(1, 1, 1, 1)
+hit_flash_color = Color(1, 1, 1, 1)
