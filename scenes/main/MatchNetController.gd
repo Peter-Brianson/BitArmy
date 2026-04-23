@@ -42,6 +42,7 @@ func _ready() -> void:
 	local_peer_id = multiplayer.get_unique_id()
 
 	_build_structure_scene_registry()
+	_bind_match_disconnect_signals()
 
 	if is_host_authority:
 		_enable_host_mode()
@@ -110,6 +111,68 @@ func _request_full_sync_from_host() -> void:
 		return
 
 	server_request_full_sync.rpc_id(1)
+
+
+func _bind_match_disconnect_signals() -> void:
+	var peer_disconnected_cb := Callable(self, "_on_match_peer_disconnected")
+	if not multiplayer.peer_disconnected.is_connected(peer_disconnected_cb):
+		multiplayer.peer_disconnected.connect(peer_disconnected_cb)
+
+	var server_disconnected_cb := Callable(self, "_on_match_server_disconnected")
+	if not multiplayer.server_disconnected.is_connected(server_disconnected_cb):
+		multiplayer.server_disconnected.connect(server_disconnected_cb)
+
+
+func _on_match_peer_disconnected(peer_id: int) -> void:
+	if not online_enabled:
+		return
+	if not is_host_authority:
+		return
+
+	_destroy_disconnected_peer_hq(peer_id)
+
+
+func _on_match_server_disconnected() -> void:
+	if not online_enabled:
+		return
+	if is_host_authority:
+		return
+
+	if match_controller != null:
+		match_controller.match_is_over = true
+
+	if match_controller != null and match_controller.match_end_controller != null:
+		match_controller.match_end_controller.show_match_end("Connection Lost", Color.WHITE)
+
+
+func _destroy_disconnected_peer_hq(peer_id: int) -> void:
+	if match_controller == null:
+		return
+	if structure_manager == null:
+		return
+
+	for i in range(GameSession.seat_setups.size()):
+		var seat: Dictionary = GameSession.seat_setups[i]
+
+		if int(seat.get("peer_id", 0)) != peer_id:
+			continue
+		if int(seat.get("control_type", GameSession.ControlType.CLOSED)) != GameSession.ControlType.PLAYER:
+			continue
+
+		var team_id: int = int(seat.get("team_id", -1))
+		if team_id == -1:
+			continue
+
+		var runtime_team_id: int = match_controller.get_runtime_team_id_from_session_team_id(team_id)
+		if runtime_team_id == -1:
+			runtime_team_id = team_id
+
+		var hq_id: int = match_controller.get_hq_id_for_runtime_team(runtime_team_id)
+		if hq_id != -1:
+			structure_manager.destroy_structure(hq_id)
+
+		GameSession.seat_setups[i]["peer_id"] = 0
+		GameSession.seat_setups[i]["control_type"] = GameSession.ControlType.CLOSED
 
 
 func _build_structure_scene_registry() -> void:
