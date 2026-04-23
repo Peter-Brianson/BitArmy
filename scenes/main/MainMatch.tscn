@@ -1,4 +1,4 @@
-[gd_scene load_steps=32 format=3 uid="uid://cqum0hu0tuqy0"]
+[gd_scene load_steps=33 format=3 uid="uid://cqum0hu0tuqy0"]
 
 [ext_resource type="Script" path="res://scripts/input/CameraPanController.gd" id="1_m2t5q"]
 [ext_resource type="Script" path="res://data/structures/structure_placement_controller.gd" id="2_723eq"]
@@ -25,6 +25,7 @@
 [ext_resource type="PackedScene" uid="uid://dmvic5f48xipl" path="res://scenes/ui/MatchEndMenu.tscn" id="19_boffa"]
 [ext_resource type="Resource" uid="uid://dp5ffj6e6myue" path="res://data/structures/Soldier Trainer.tres" id="20_abcjn"]
 [ext_resource type="Script" path="res://scenes/main/MatchNetController.gd" id="24_0r7dn"]
+[ext_resource type="Resource" uid="uid://bgvvwnr0y8icr" path="res://data/structures/Mage Trainer.tres" id="29_3e5xs"]
 [ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="29_4b20o"]
 [ext_resource type="Resource" uid="uid://dx22f8gid4pg1" path="res://data/structures/Credit Relay.tres" id="30_lju2h"]
 [ext_resource type="Resource" uid="uid://jardanqrg5kq" path="res://data/structures/Canine Trainer.tres" id="31_g4nnb"]
@@ -184,10 +185,10 @@ ai_team_manager = NodePath("../AITeamManager")
 
 [node name="CombatResolver" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager", "unit_manager", "structure_manager")]
 script = ExtResource("13_t2dt4")
+default_attack_windup = 0.0
 team_manager = NodePath("../TeamManager")
 unit_manager = NodePath("../UnitSimulationManager")
 structure_manager = NodePath("../StructureSimulationManager")
-default_attack_windup = 0.0
 
 [node name="MatchInputBridge" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("camera_pan_controller", "match_controller", "selection_controller")]
 script = ExtResource("14_mfb8g")
@@ -217,8 +218,8 @@ match_controller = NodePath("../../MatchRoot/Simulation/MatchController")
 match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 camera_pan_controller = NodePath("../../MatchRoot/CameraRig")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
-buildable_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("19_1wux7"), ExtResource("17_u6d7c"), ExtResource("20_abcjn"), ExtResource("30_lju2h"), ExtResource("31_t21mw"), ExtResource("31_g4nnb"), ExtResource("32_nc4th")])
-buildable_structure_scenes = Array[PackedScene]([ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd")])
+buildable_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("19_1wux7"), ExtResource("17_u6d7c"), ExtResource("20_abcjn"), ExtResource("30_lju2h"), ExtResource("31_t21mw"), ExtResource("31_g4nnb"), ExtResource("32_nc4th"), ExtResource("29_3e5xs")])
+buildable_structure_scenes = Array[PackedScene]([ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd")])
 
 [node name="DebugOverlay" type="Control" parent="UI"]
 layout_mode = 3

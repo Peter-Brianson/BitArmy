@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="StructureStats" load_steps=4 format=3 uid="uid://bgvvwnr0y8icr"]
+
+[ext_resource type="Texture2D" uid="uid://cmvpsxt5jfmx4" path="res://sprites/mage trainer/mage trainer.png" id="1_i3lpo"]
+[ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="2_blplb"]
+[ext_resource type="Resource" uid="uid://bhjm5m50yl83y" path="res://data/units/mystic mage.tres" id="3_kasf1"]
+
+[resource]
+script = ExtResource("2_blplb")
+structure_name = "Mage Trainer"
+description = "Mage Units"
+sprite_normal = ExtResource("1_i3lpo")
+sprite_destroyed = ExtResource("1_i3lpo")
+icon_texture = ExtResource("1_i3lpo")
+max_health = 30
+radius = 20.0
+footprint_size = Vector2(20, 20)
+death_time = 1.0
+cost = 30
+can_produce = true
+can_train_units = true
+can_place_structures = false
+trained_unit_stats = ExtResource("3_kasf1")
+spawn_offset = Vector2(0, 8)
+income_bonus_per_second = 0.0
+teamwide_buff_unit_tags = 0
+teamwide_bonus_damage = 0
+teamwide_bonus_health = 0
+can_attack = false
+damage = 0
+attack_speed = 1.0
+attack_range = 0.0
+target_categories = 0
+attack_damage = 0
+attack_cooldown = 1.0
+attack_windup = 0.0
+keywords = 32

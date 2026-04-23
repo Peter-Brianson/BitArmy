@@ -6,7 +6,7 @@
 
 [resource]
 script = ExtResource("1_ei74e")
-structure_name = "Canine "
+structure_name = "Canine Trainer"
 description = "Canine Units"
 sprite_normal = ExtResource("1_y24qo")
 sprite_destroyed = ExtResource("1_y24qo")

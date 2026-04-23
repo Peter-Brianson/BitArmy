@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=6 format=3 uid="uid://bhjm5m50yl83y"]
+
+[ext_resource type="Texture2D" uid="uid://i4qmuc88ckfp" path="res://sprites/Effects/Explosive-1.png" id="1_bbato"]
+[ext_resource type="Texture2D" uid="uid://diy2hcsm6llw5" path="res://sprites/mystic mage/idle.png" id="1_cklct"]
+[ext_resource type="Script" path="res://data/units/unit_stats.gd" id="2_64pba"]
+[ext_resource type="Texture2D" uid="uid://dx71fa178pl2y" path="res://sprites/mystic mage/attack.png" id="3_nt6dd"]
+[ext_resource type="Texture2D" uid="uid://ciimf342oycgb" path="res://sprites/mystic mage/dead.png" id="4_ntj8r"]
+
+[resource]
+script = ExtResource("2_64pba")
+unit_name = "Mage"
+description = "Mystic Mage"
+sprite_idle = ExtResource("1_cklct")
+sprite_walk = ExtResource("1_cklct")
+sprite_attack = ExtResource("3_nt6dd")
+sprite_dead = ExtResource("4_ntj8r")
+icon_texture = ExtResource("1_cklct")
+unit_type_tags = 2
+max_health = 1
+damage = 5
+move_speed = 50.0
+radius = 10.0
+body_size = Vector2(10, 10)
+build_time = 1.0
+cost = 10
+attack_speed = 0.5
+attack_range = 100.0
+damage_type = 1
+keywords = 64
+target_categories = 3
+aggro_range = 150.0
+aoe_radius = 0.0
+explosive_fx_color = Color(1, 1, 1, 1)
+explosive_fx_scale = 1.0
+explosive_fx_lifetime = 0.18
+aoe_fx_texture = ExtResource("1_bbato")
+aoe_fx_color = Color(1, 0.784314, 0.427451, 1)
+aoe_fx_scale = 1.0
+aoe_fx_lifetime = 0.25
+death_time = 0.25
+body_color = Color(1, 1, 1, 1)
+attack_flash_color = Color(1, 1, 1, 1)
+hit_flash_color = Color(1, 1, 1, 1)

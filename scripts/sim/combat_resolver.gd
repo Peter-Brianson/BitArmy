@@ -54,10 +54,9 @@ func process_unit_attack(attacker: UnitRuntime, delta: float) -> void:
 
 	if attacker.attack_windup_left > 0.0:
 		attacker.attack_windup_left -= delta
-
-	if attacker.attack_windup_left <= 0.0 and not attacker.attack_has_landed:
-		_land_attack(attacker)
-		attacker.attack_has_landed = true
+		if attacker.attack_windup_left <= 0.0 and not attacker.attack_has_landed:
+			_land_attack(attacker)
+			attacker.attack_has_landed = true
 
 	attacker.attack_cooldown_left = max(attacker.attack_cooldown_left - delta, 0.0)
 
@@ -71,7 +70,6 @@ func try_find_target_for_unit(attacker: UnitRuntime) -> bool:
 	var best_unit_id: int = -1
 	var best_structure_id: int = -1
 	var best_distance_sq: float = INF
-
 	var search_radius: float = attacker.stats.aggro_range + attacker.get_radius()
 
 	if attacker.can_target_units():
@@ -109,7 +107,6 @@ func try_find_target_for_unit(attacker: UnitRuntime) -> bool:
 
 	attacker.target_unit_id = best_unit_id
 	attacker.target_structure_id = best_structure_id
-
 	return attacker.has_valid_target()
 
 
@@ -202,10 +199,8 @@ func _is_valid_unit_target(attacker: UnitRuntime, target: UnitRuntime) -> bool:
 		return false
 	if not _is_enemy(attacker.owner_team_id, target.owner_team_id):
 		return false
-
 	if target.has_keyword(UnitStats.KW_FLYING, team_manager) and not attacker.has_keyword(UnitStats.KW_ANTI_AIR, team_manager):
 		return false
-
 	if not _can_damage_target(attacker, target):
 		return false
 
@@ -221,7 +216,6 @@ func _is_valid_structure_target(attacker: UnitRuntime, target: StructureRuntime)
 		return false
 	if not _is_enemy(attacker.owner_team_id, target.owner_team_id):
 		return false
-
 	if not _can_damage_target(attacker, target):
 		return false
 
@@ -232,11 +226,17 @@ func _can_damage_target(attacker: UnitRuntime, target) -> bool:
 	match attacker.stats.damage_type:
 		UnitStats.DamageType.PHYSICAL:
 			return not target.has_keyword(UnitStats.KW_PHYSICAL_IMMUNITY, team_manager)
+
 		UnitStats.DamageType.MAGICAL:
 			return not target.has_keyword(UnitStats.KW_MAGICAL_IMMUNITY, team_manager)
+
 		UnitStats.DamageType.SIEGE:
 			return true
+
 		UnitStats.DamageType.TRUE:
+			return true
+
+		UnitStats.DamageType.EXPLOSIVE:
 			return true
 
 	return true
@@ -247,6 +247,7 @@ func _land_attack(attacker: UnitRuntime) -> void:
 		var unit_target: UnitRuntime = unit_manager.get_unit(attacker.target_unit_id)
 		if not _is_valid_unit_target(attacker, unit_target):
 			return
+
 		if not _is_in_range(
 			attacker.position,
 			attacker.get_radius(),
@@ -257,37 +258,147 @@ func _land_attack(attacker: UnitRuntime) -> void:
 			return
 
 		unit_manager.notify_attack_flash(attacker.id)
-
-		var unit_damage: int = _get_final_damage(attacker, unit_target)
-		unit_target.apply_damage(unit_damage)
-
-		unit_manager.notify_hit_flash(unit_target.id)
 		AudioHub.play_unit_shoot(attacker.position, get_tree().current_scene)
+
+		var impact_position: Vector2 = unit_target.position
+		var unit_damage: int = _get_final_damage_vs_unit(attacker, unit_target)
+		unit_target.apply_damage(unit_damage)
+		unit_manager.notify_hit_flash(unit_target.id)
+
+		if attacker.stats.damage_type == UnitStats.DamageType.EXPLOSIVE:
+			_spawn_explosive_fx(attacker, impact_position)
+
+		if attacker.stats.has_keyword(UnitStats.KW_AOE) and attacker.stats.aoe_radius > 0.0:
+			_spawn_aoe_fx(attacker, impact_position)
+			_apply_aoe_splash(attacker, impact_position, unit_target.id, -1)
+
 		return
 
 	if attacker.target_structure_id != -1 and structure_manager != null:
 		var structure_target: StructureRuntime = structure_manager.get_structure(attacker.target_structure_id)
 		if not _is_valid_structure_target(attacker, structure_target):
 			return
+
 		if not _is_structure_in_attack_range(attacker, structure_target):
 			return
 
 		unit_manager.notify_attack_flash(attacker.id)
 		AudioHub.play_unit_shoot(attacker.position, get_tree().current_scene)
 
-		var structure_damage: int = _get_final_damage(attacker, structure_target)
+		var impact_position: Vector2 = _get_structure_contact_point(attacker, structure_target)
+		var structure_damage: int = _get_final_damage_vs_structure(attacker, structure_target)
 		structure_target.apply_damage(structure_damage)
-
 		structure_manager.notify_hit_flash(structure_target.id)
 
+		if attacker.stats.damage_type == UnitStats.DamageType.EXPLOSIVE:
+			_spawn_explosive_fx(attacker, impact_position)
 
-func _get_final_damage(attacker: UnitRuntime, target) -> int:
+		if attacker.stats.has_keyword(UnitStats.KW_AOE) and attacker.stats.aoe_radius > 0.0:
+			_spawn_aoe_fx(attacker, impact_position)
+			_apply_aoe_splash(attacker, impact_position, -1, structure_target.id)
+
+
+func _apply_aoe_splash(attacker: UnitRuntime, impact_position: Vector2, skip_unit_id: int, skip_structure_id: int) -> void:
+	var radius: float = attacker.stats.aoe_radius
+	if radius <= 0.0:
+		return
+
+	if unit_manager != null:
+		var nearby_unit_ids: Array[int] = unit_manager.spatial_hash.query_unit_ids_in_radius(impact_position, radius)
+		for unit_id: int in nearby_unit_ids:
+			if unit_id == skip_unit_id:
+				continue
+
+			var target: UnitRuntime = unit_manager.get_unit(unit_id)
+			if not _is_valid_unit_target(attacker, target):
+				continue
+			if impact_position.distance_squared_to(target.position) > radius * radius:
+				continue
+
+			var splash_damage: int = _get_final_damage_vs_unit(attacker, target)
+			target.apply_damage(splash_damage)
+			unit_manager.notify_hit_flash(target.id)
+
+	if unit_manager != null and structure_manager != null:
+		var nearby_structure_ids: Array[int] = unit_manager.spatial_hash.query_structure_ids_in_radius(impact_position, radius)
+		for structure_id: int in nearby_structure_ids:
+			if structure_id == skip_structure_id:
+				continue
+
+			var structure_target: StructureRuntime = structure_manager.get_structure(structure_id)
+			if not _is_valid_structure_target(attacker, structure_target):
+				continue
+			if impact_position.distance_squared_to(structure_target.position) > radius * radius:
+				continue
+
+			var splash_structure_damage: int = _get_final_damage_vs_structure(attacker, structure_target)
+			structure_target.apply_damage(splash_structure_damage)
+			structure_manager.notify_hit_flash(structure_target.id)
+
+
+func _get_final_damage_vs_unit(attacker: UnitRuntime, target: UnitRuntime) -> int:
 	var amount: int = attacker.get_effective_damage(team_manager)
 
-	if target.has_keyword(UnitStats.KW_ARMORED, team_manager) and attacker.stats.damage_type == UnitStats.DamageType.PHYSICAL:
-		amount = max(amount - 1, 1)
+	if attacker.stats.damage_type == UnitStats.DamageType.PHYSICAL:
+		if target.has_keyword(UnitStats.KW_ARMORED, team_manager):
+			amount = max(amount - 1, 1)
+
+	elif attacker.stats.damage_type == UnitStats.DamageType.EXPLOSIVE:
+		if target.has_keyword(UnitStats.KW_ARMORED, team_manager):
+			amount = max(1, int(floor(float(amount) * 0.25)))
 
 	return amount
+
+
+func _get_final_damage_vs_structure(attacker: UnitRuntime, _target: StructureRuntime) -> int:
+	var amount: int = attacker.get_effective_damage(team_manager)
+
+	if attacker.stats.damage_type == UnitStats.DamageType.EXPLOSIVE:
+		amount = max(1, amount * 2)
+
+	return amount
+
+
+func _spawn_explosive_fx(attacker: UnitRuntime, world_pos: Vector2) -> void:
+	_spawn_sprite_fx(
+		attacker.stats.explosive_fx_texture,
+		world_pos,
+		attacker.stats.explosive_fx_color,
+		attacker.stats.explosive_fx_scale,
+		attacker.stats.explosive_fx_lifetime
+	)
+
+
+func _spawn_aoe_fx(attacker: UnitRuntime, world_pos: Vector2) -> void:
+	_spawn_sprite_fx(
+		attacker.stats.aoe_fx_texture,
+		world_pos,
+		attacker.stats.aoe_fx_color,
+		attacker.stats.aoe_fx_scale,
+		attacker.stats.aoe_fx_lifetime
+	)
+
+
+func _spawn_sprite_fx(texture: Texture2D, world_pos: Vector2, modulate_color: Color, fx_scale: float, lifetime: float) -> void:
+	if texture == null:
+		return
+
+	var scene_root: Node = get_tree().current_scene
+	if scene_root == null:
+		return
+
+	var sprite := Sprite2D.new()
+	sprite.texture = texture
+	sprite.global_position = world_pos
+	sprite.modulate = modulate_color
+	sprite.scale = Vector2.ONE * max(fx_scale, 0.01)
+	sprite.centered = true
+
+	scene_root.add_child(sprite)
+
+	var tween := sprite.create_tween()
+	tween.tween_property(sprite, "modulate:a", 0.0, max(lifetime, 0.01))
+	tween.finished.connect(sprite.queue_free)
 
 
 func _is_in_range(
@@ -325,7 +436,6 @@ func _get_circular_approach_position(
 	target_radius: float
 ) -> Vector2:
 	var dir: Vector2 = attacker_position.direction_to(target_position)
-
 	if dir.length_squared() <= 0.0001:
 		dir = Vector2.RIGHT
 
@@ -341,7 +451,15 @@ func _get_structure_approach_position(attacker: UnitRuntime, structure_target: S
 
 	var clamped_x: float = clamp(attacker.position.x, padded_rect.position.x, padded_rect.position.x + padded_rect.size.x)
 	var clamped_y: float = clamp(attacker.position.y, padded_rect.position.y, padded_rect.position.y + padded_rect.size.y)
+	return Vector2(clamped_x, clamped_y)
 
+
+func _get_structure_contact_point(attacker: UnitRuntime, structure_target: StructureRuntime) -> Vector2:
+	var half_size: Vector2 = structure_target.stats.footprint_size * 0.5
+	var rect := Rect2(structure_target.position - half_size, structure_target.stats.footprint_size)
+
+	var clamped_x: float = clamp(attacker.position.x, rect.position.x, rect.position.x + rect.size.x)
+	var clamped_y: float = clamp(attacker.position.y, rect.position.y, rect.position.y + rect.size.y)
 	return Vector2(clamped_x, clamped_y)
 
 
