@@ -78,6 +78,7 @@ vertical_alignment = 1
 
 [node name="TransportRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
 layout_mode = 2
+alignment = 1
 
 [node name="TransportLabel" type="Label" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/TransportRow"]
 layout_mode = 2
@@ -88,16 +89,22 @@ layout_mode = 2
 
 [node name="SignalingRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
 layout_mode = 2
+alignment = 1
 
 [node name="SignalingLabel" type="Label" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/SignalingRow"]
 layout_mode = 2
 text = "Signal URL"
 
 [node name="SignalingUrlLineEdit" type="LineEdit" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/SignalingRow"]
+custom_minimum_size = Vector2(450, 0)
 layout_mode = 2
+text = "wss://bitarmy-signaling.juryriggedworks.workers.dev"
+placeholder_text = "wss://bitarmy-signaling.juryriggedworks.workers.dev"
+alignment = 1
 
 [node name="RoomRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
 layout_mode = 2
+alignment = 1
 
 [node name="RoomLabel" type="Label" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/RoomRow"]
 layout_mode = 2
@@ -105,6 +112,8 @@ text = "Room Code"
 
 [node name="RoomCodeLineEdit" type="LineEdit" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox/RoomRow"]
 layout_mode = 2
+text = "Default"
+placeholder_text = "Default"
 
 [node name="AddressRow" type="HBoxContainer" parent="RootMargin/MainVBox/NetworkPanel/NetworkVBox"]
 layout_mode = 2

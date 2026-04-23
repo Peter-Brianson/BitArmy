@@ -21,7 +21,7 @@ var is_host: bool = false
 var host_peer_id: int = 1
 
 var transport_mode: int = TransportMode.ENET
-var webrtc_signaling_url: String = ""
+var webrtc_signaling_url: String = "wss://bitarmy-signaling.juryriggedworks.workers.dev"
 var webrtc_room_code: String = "default"
 
 var lobby_team_count: int = 2
