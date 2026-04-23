@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "bitarmy-singaling",
+  "name": "bitarmy-signaling",
   "main": "src/index.js",
   "compatibility_date": "2026-04-23",
   "durable_objects": {
@@ -16,5 +16,20 @@
       "tag": "v1",
       "new_sqlite_classes": ["SignalRoom"]
     }
-  ]
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": false,
+      "head_sampling_rate": 1
+    }
+  }
 }
