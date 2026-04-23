@@ -24,7 +24,7 @@ var team_setups: Array[Dictionary] = []
 var seat_setups: Array[Dictionary] = []
 
 # Shared match settings.
-var starting_credits: int = 10
+var starting_credits: int = 100
 var base_credit_income_per_second: float = 1.0
 var selected_map_path: String = ""
 var selected_map_name: String = "No Map"
@@ -46,7 +46,7 @@ func reset_skirmish_defaults() -> void:
 	online_is_host = false
 
 	team_count = 2
-	starting_credits = 10
+	starting_credits = 100
 	base_credit_income_per_second = 1.0
 	clear_selected_map()
 
@@ -72,7 +72,7 @@ func reset_online_defaults() -> void:
 	online_is_host = false
 
 	team_count = 2
-	starting_credits = 10
+	starting_credits = 100
 	base_credit_income_per_second = 1.0
 	clear_selected_map()
 
@@ -89,7 +89,7 @@ func apply_online_lobby_state(lobby_state: Dictionary, p_local_peer_id: int) -> 
 	team_count = clamp(int(lobby_state.get("team_count", 2)), 2, MAX_TEAMS)
 	selected_map_path = str(lobby_state.get("map_path", ""))
 	selected_map_name = str(lobby_state.get("map_name", "No Map"))
-	starting_credits = int(lobby_state.get("starting_credits", 10))
+	starting_credits = int(lobby_state.get("starting_credits", 100))
 	base_credit_income_per_second = float(lobby_state.get("income_per_second", 1.0))
 
 	var host_peer_id: int = int(lobby_state.get("host_peer_id", 1))

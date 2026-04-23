@@ -1,71 +1,68 @@
 class_name AITeamManager
 extends Node
 
+enum AiStrategy {
+	BALANCED,
+	RUSH,
+	TURTLE,
+	MACRO,
+	TECH
+}
+
 @export var structure_manager: StructureSimulationManager
 @export var unit_manager: UnitSimulationManager
 @export var team_manager: TeamManager
 @export var game_manager: GameManager
 
-@export_group("Legacy Unit Options")
-@export var soldier_unit_stats: UnitStats
-@export var sniper_unit_stats: UnitStats
-@export var heavy_unit_stats: UnitStats
+@export_group("Structure Scene Fallback")
+@export var default_structure_scene: PackedScene
 
-@export_group("Legacy Trainer Structures")
-@export var soldier_trainer_stats: StructureStats
-@export var soldier_trainer_scene: PackedScene
-@export var sniper_trainer_stats: StructureStats
-@export var sniper_trainer_scene: PackedScene
-@export var heavy_trainer_stats: StructureStats
-@export var heavy_trainer_scene: PackedScene
-
-@export_group("Generic Trainers")
+@export_group("Trainer Structures")
 @export var trainer_structure_stats: Array[StructureStats] = []
 @export var trainer_structure_scenes: Array[PackedScene] = []
 
-@export_group("Generic Economy Structures")
+@export_group("Economy Structures")
 @export var economy_structure_stats: Array[StructureStats] = []
 @export var economy_structure_scenes: Array[PackedScene] = []
 
-@export_group("Generic Support Structures")
+@export_group("Support Structures")
 @export var support_structure_stats: Array[StructureStats] = []
 @export var support_structure_scenes: Array[PackedScene] = []
 
-@export_group("Generic Defense Structures")
+@export_group("Defense Structures")
 @export var defense_structure_stats: Array[StructureStats] = []
 @export var defense_structure_scenes: Array[PackedScene] = []
 
+@export_group("Strategy")
+@export var use_rotating_strategies: bool = true
+@export var default_strategy: AiStrategy = AiStrategy.BALANCED
+@export var production_check_interval: float = 1.0
+@export var build_check_interval: float = 2.0
+@export var defense_check_interval: float = 0.5
+@export var squad_launch_interval: float = 2.5
+
 @export_group("Production")
 @export var max_queue_size: int = 4
-@export var production_check_interval: float = 1.10
 @export var minimum_total_units_before_full_mix: int = 8
+@export var desired_units_per_type_floor: int = 2
 
-@export_group("Build Planning")
-@export var build_check_interval: float = 2.0
+@export_group("Building")
 @export var placement_padding: float = 8.0
 @export var base_build_distance_from_hq: float = 110.0
 @export var build_ring_step: float = 70.0
-@export var desired_economy_structures: int = 2
-@export var desired_support_structures: int = 2
-@export var desired_defense_structures: int = 3
-@export var bonus_defense_structures_under_attack: int = 2
-@export var army_per_extra_support_structure: int = 10
-@export var army_per_extra_defense_structure: int = 8
+@export var build_ring_count: int = 4
+@export var build_points_per_ring: int = 12
+@export var world_rect: Rect2 = Rect2(-5000, -5000, 10000, 10000)
 
 @export_group("Defense")
-@export var defense_check_interval: float = 0.50
 @export var base_defense_radius: float = 220.0
 @export var defense_response_radius: float = 360.0
 
 @export_group("Squads")
-@export var squad_launch_interval: float = 2.5
 @export var squad_gather_radius: float = 180.0
 @export var squad_min_unit_count: int = 4
 @export var squad_max_unit_count: int = 8
 @export var staging_distance_from_hq: float = 100.0
-
-@export_group("World Bounds")
-@export var world_rect: Rect2 = Rect2(-5000, -5000, 10000, 10000)
 
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
@@ -79,7 +76,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if structure_manager == null or team_manager == null or unit_manager == null:
+	if structure_manager == null or team_manager == null or unit_manager == null or game_manager == null:
 		return
 
 	for runtime_team_id in _ai_teams.keys():
@@ -97,6 +94,7 @@ func _physics_process(delta: float) -> void:
 		if hq == null or not hq.is_alive:
 			continue
 
+		var strategy: int = int(state["strategy"])
 		var base_under_attack: bool = false
 
 		if float(state["defense_timer"]) <= 0.0:
@@ -106,27 +104,32 @@ func _physics_process(delta: float) -> void:
 			base_under_attack = _is_base_under_attack(int(runtime_team_id), hq)
 
 		if float(state["build_timer"]) <= 0.0:
-			_handle_build_planning_for_team(int(runtime_team_id), hq, base_under_attack)
+			_handle_build_planning_for_team(int(runtime_team_id), hq, strategy, base_under_attack)
 			state["build_timer"] = build_check_interval
 
 		if float(state["production_timer"]) <= 0.0:
-			_handle_production_for_team(int(runtime_team_id), hq)
+			_handle_production_for_team(int(runtime_team_id), hq, strategy)
 			state["production_timer"] = production_check_interval
 
 		if float(state["rally_timer"]) <= 0.0:
-			_update_rally_for_team(int(runtime_team_id), hq, base_under_attack)
+			_update_rally_for_team(int(runtime_team_id), hq, base_under_attack, strategy)
 			state["rally_timer"] = 1.0
 
 		if not base_under_attack and float(state["squad_timer"]) <= 0.0:
-			_try_launch_squad(int(runtime_team_id), hq)
+			_try_launch_squad(int(runtime_team_id), hq, strategy)
 			state["squad_timer"] = squad_launch_interval
 
 		_ai_teams[runtime_team_id] = state
 
 
-func register_ai_team(runtime_team_id: int, hq_id: int) -> void:
+func register_ai_team(runtime_team_id: int, hq_id: int, strategy_override: int = -1) -> void:
+	var chosen_strategy: int = strategy_override
+	if chosen_strategy == -1:
+		chosen_strategy = _pick_strategy_for_team(runtime_team_id)
+
 	_ai_teams[runtime_team_id] = {
 		"hq_id": hq_id,
+		"strategy": chosen_strategy,
 		"production_timer": _rng.randf_range(0.1, production_check_interval),
 		"build_timer": _rng.randf_range(0.1, build_check_interval),
 		"defense_timer": _rng.randf_range(0.1, defense_check_interval),
@@ -148,104 +151,280 @@ func is_ai_team(runtime_team_id: int) -> bool:
 	return _ai_teams.has(runtime_team_id)
 
 
-func _handle_build_planning_for_team(runtime_team_id: int, hq: StructureRuntime, base_under_attack: bool) -> void:
+func _pick_strategy_for_team(runtime_team_id: int) -> int:
+	if use_rotating_strategies:
+		return runtime_team_id % 5
+
+	return int(default_strategy)
+
+
+func _handle_build_planning_for_team(runtime_team_id: int, hq: StructureRuntime, strategy: int, base_under_attack: bool) -> void:
 	var total_units: int = _count_alive_units_for_team(runtime_team_id)
+	var profile: Dictionary = _get_strategy_profile(strategy, total_units, base_under_attack)
 
-	# 1) Build every trainer eventually so all unit types become available.
-	for entry in _get_all_trainer_entries():
-		var trainer_stats: StructureStats = entry["stats"]
-		var trainer_scene: PackedScene = entry["scene"]
+	# Phase 1: ensure every listed structure type gets used at least once.
+	var category_order: Array = _get_structure_category_order_for_strategy(strategy)
 
-		if trainer_stats == null or trainer_scene == null:
+	for category in category_order:
+		var entries: Array = _get_entries_for_category_name(str(category))
+		for entry in entries:
+			var stats: StructureStats = entry["stats"]
+			var scene: PackedScene = entry["scene"]
+
+			if stats == null or scene == null:
+				continue
+
+			if _count_alive_structures_of_stats(runtime_team_id, stats) <= 0:
+				if _try_build_structure_near_hq(runtime_team_id, hq, stats, scene):
+					return
+
+	# Phase 2: duplicate structures according to strategy.
+	_process_category_duplicates(runtime_team_id, hq, "economy", int(profile["economy_target"]))
+	_process_category_duplicates(runtime_team_id, hq, "support", int(profile["support_target"]))
+	_process_category_duplicates(runtime_team_id, hq, "defense", int(profile["defense_target"]))
+
+
+func _process_category_duplicates(runtime_team_id: int, hq: StructureRuntime, category_name: String, target_per_type: int) -> void:
+	if target_per_type <= 0:
+		return
+
+	var entries: Array = _get_entries_for_category_name(category_name)
+	for entry in entries:
+		var stats: StructureStats = entry["stats"]
+		var scene: PackedScene = entry["scene"]
+
+		if stats == null or scene == null:
 			continue
 
-		if _count_alive_structures_of_stats(runtime_team_id, trainer_stats) <= 0:
-			if _try_build_structure_near_hq(runtime_team_id, hq, trainer_stats, trainer_scene):
-				return
-
-	# 2) Economy structures early and steadily.
-	var desired_econ: int = desired_economy_structures + int(floor(float(total_units) / 12.0))
-	for entry in _get_structure_entries(economy_structure_stats, economy_structure_scenes):
-		var econ_stats: StructureStats = entry["stats"]
-		var econ_scene: PackedScene = entry["scene"]
-
-		if econ_stats == null or econ_scene == null:
-			continue
-
-		if _count_alive_structures_of_stats(runtime_team_id, econ_stats) < desired_econ:
-			if _try_build_structure_near_hq(runtime_team_id, hq, econ_stats, econ_scene):
-				return
-
-	# 3) Support/buff structures scale with army size.
-	var desired_support: int = desired_support_structures + int(floor(float(total_units) / max(1.0, float(army_per_extra_support_structure))))
-	for entry in _get_structure_entries(support_structure_stats, support_structure_scenes):
-		var support_stats: StructureStats = entry["stats"]
-		var support_scene: PackedScene = entry["scene"]
-
-		if support_stats == null or support_scene == null:
-			continue
-
-		if _count_alive_structures_of_stats(runtime_team_id, support_stats) < desired_support:
-			if _try_build_structure_near_hq(runtime_team_id, hq, support_stats, support_scene):
-				return
-
-	# 4) Defense structures scale with pressure and army size.
-	var desired_defense: int = desired_defense_structures + int(floor(float(total_units) / max(1.0, float(army_per_extra_defense_structure))))
-	if base_under_attack:
-		desired_defense += bonus_defense_structures_under_attack
-
-	for entry in _get_structure_entries(defense_structure_stats, defense_structure_scenes):
-		var defense_stats: StructureStats = entry["stats"]
-		var defense_scene: PackedScene = entry["scene"]
-
-		if defense_stats == null or defense_scene == null:
-			continue
-
-		if _count_alive_structures_of_stats(runtime_team_id, defense_stats) < desired_defense:
-			if _try_build_structure_near_hq(runtime_team_id, hq, defense_stats, defense_scene):
+		if _count_alive_structures_of_stats(runtime_team_id, stats) < target_per_type:
+			if _try_build_structure_near_hq(runtime_team_id, hq, stats, scene):
 				return
 
 
-func _handle_production_for_team(runtime_team_id: int, _hq: StructureRuntime) -> void:
+func _handle_production_for_team(runtime_team_id: int, _hq: StructureRuntime, strategy: int) -> void:
 	var producers: Array = _get_all_alive_producers_for_team(runtime_team_id)
 	if producers.is_empty():
 		return
 
 	var total_units: int = _count_alive_units_for_team(runtime_team_id)
-	var trained_unit_types: Array = _get_trained_unit_types_from_producers(producers)
+	var profile: Dictionary = _get_strategy_profile(strategy, total_units, false)
 
+	# First: ensure every trainable unit type appears at least once.
 	for producer_item in producers:
 		var producer: StructureRuntime = producer_item
-		if producer == null:
-			continue
-		if not producer.is_alive:
-			continue
-		if not producer.can_produce():
-			continue
-		if not producer.can_train_units():
-			continue
-
 		var unit_stats: UnitStats = producer.get_trained_unit_stats()
+
 		if unit_stats == null:
 			continue
 
-		var unit_count: int = _count_alive_units_of_type(runtime_team_id, unit_stats)
-
-		var desired_count_for_type: int = 0
-		if total_units < minimum_total_units_before_full_mix:
-			# Early game: keep everything producing, but favor the cheapest/frontline options naturally by count.
-			desired_count_for_type = 2
-		else:
-			var type_count: int = max(trained_unit_types.size(), 1)
-			desired_count_for_type = max(2, int(ceil(float(total_units + type_count) / float(type_count))))
-
-		if unit_count <= desired_count_for_type:
+		if _count_alive_units_of_type(runtime_team_id, unit_stats) <= 0:
 			_try_queue_unit_from_structure(runtime_team_id, producer, unit_stats)
+			return
+
+	# Then: queue using strategy weights.
+	var best_score: float = -INF
+	var best_producer: StructureRuntime = null
+	var best_unit_stats: UnitStats = null
+
+	for producer_item in producers:
+		var producer: StructureRuntime = producer_item
+		var unit_stats: UnitStats = producer.get_trained_unit_stats()
+
+		if unit_stats == null:
 			continue
 
-		# If this type is slightly above target, still occasionally queue it so all types stay in rotation.
-		if _rng.randf() < 0.20:
-			_try_queue_unit_from_structure(runtime_team_id, producer, unit_stats)
+		if not _can_queue_on_producer(producer):
+			continue
+
+		var score: float = _score_unit_for_strategy(runtime_team_id, unit_stats, total_units, profile)
+		score += _rng.randf_range(0.0, 0.15)
+
+		if score > best_score:
+			best_score = score
+			best_producer = producer
+			best_unit_stats = unit_stats
+
+	if best_producer != null and best_unit_stats != null:
+		_try_queue_unit_from_structure(runtime_team_id, best_producer, best_unit_stats)
+
+
+func _score_unit_for_strategy(runtime_team_id: int, unit_stats: UnitStats, total_units: int, profile: Dictionary) -> float:
+	var current_count: int = _count_alive_units_of_type(runtime_team_id, unit_stats)
+	var frontline_score: float = float(profile["frontline_weight"])
+	var ranged_score: float = float(profile["ranged_weight"])
+	var heavy_score: float = float(profile["heavy_weight"])
+
+	var role_frontline: float = _get_frontline_value(unit_stats)
+	var role_ranged: float = _get_ranged_value(unit_stats)
+	var role_heavy: float = _get_heavy_value(unit_stats)
+
+	var score: float = 0.0
+	score += role_frontline * frontline_score
+	score += role_ranged * ranged_score
+	score += role_heavy * heavy_score
+
+	# Favor underrepresented unit types.
+	score += max(0.0, float(desired_units_per_type_floor - current_count)) * 0.6
+	score += max(0.0, float(total_units / max(1, _get_trainable_unit_type_count(runtime_team_id)) - current_count)) * 0.15
+
+	# Slight preference for lower cost in rush, higher cost in tech/turtle.
+	var cost_bias: float = 0.0
+	if int(profile["cost_mode"]) == 0:
+		cost_bias = -float(unit_stats.cost) * 0.01
+	else:
+		cost_bias = float(unit_stats.cost) * 0.005
+
+	score += cost_bias
+	return score
+
+
+func _get_frontline_value(unit_stats: UnitStats) -> float:
+	if unit_stats == null:
+		return 0.0
+
+	var value: float = 0.0
+	if unit_stats.attack_range <= 70.0:
+		value += 1.0
+	if unit_stats.move_speed >= 55.0:
+		value += 0.3
+	if unit_stats.max_health >= 5:
+		value += 0.2
+	return value
+
+
+func _get_ranged_value(unit_stats: UnitStats) -> float:
+	if unit_stats == null:
+		return 0.0
+
+	var value: float = 0.0
+	if unit_stats.attack_range >= 90.0:
+		value += 1.0
+	if unit_stats.attack_range >= 120.0:
+		value += 0.35
+	return value
+
+
+func _get_heavy_value(unit_stats: UnitStats) -> float:
+	if unit_stats == null:
+		return 0.0
+
+	var value: float = 0.0
+	if unit_stats.max_health >= 7:
+		value += 1.0
+	if unit_stats.move_speed <= 45.0:
+		value += 0.25
+	if unit_stats.cost >= 6:
+		value += 0.25
+	return value
+
+
+func _get_strategy_profile(strategy: int, total_units: int, base_under_attack: bool) -> Dictionary:
+	match strategy:
+		AiStrategy.RUSH:
+			return {
+				"economy_target": 1,
+				"support_target": 1,
+				"defense_target": 1 if not base_under_attack else 2,
+				"frontline_weight": 1.4,
+				"ranged_weight": 0.55,
+				"heavy_weight": 0.75,
+				"cost_mode": 0
+			}
+
+		AiStrategy.TURTLE:
+			return {
+				"economy_target": 2,
+				"support_target": 2,
+				"defense_target": 2 + int(floor(float(total_units) / 8.0)) + (2 if base_under_attack else 0),
+				"frontline_weight": 0.9,
+				"ranged_weight": 1.25,
+				"heavy_weight": 1.15,
+				"cost_mode": 1
+			}
+
+		AiStrategy.MACRO:
+			return {
+				"economy_target": 2 + int(floor(float(total_units) / 10.0)),
+				"support_target": 2,
+				"defense_target": 1 + (1 if base_under_attack else 0),
+				"frontline_weight": 1.0,
+				"ranged_weight": 0.95,
+				"heavy_weight": 0.95,
+				"cost_mode": 0
+			}
+
+		AiStrategy.TECH:
+			return {
+				"economy_target": 2,
+				"support_target": 3,
+				"defense_target": 2 + (1 if base_under_attack else 0),
+				"frontline_weight": 0.7,
+				"ranged_weight": 1.2,
+				"heavy_weight": 1.35,
+				"cost_mode": 1
+			}
+
+		_:
+			return {
+				"economy_target": 2,
+				"support_target": 2,
+				"defense_target": 2 + (1 if base_under_attack else 0),
+				"frontline_weight": 1.0,
+				"ranged_weight": 1.0,
+				"heavy_weight": 1.0,
+				"cost_mode": 0
+			}
+
+
+func _get_structure_category_order_for_strategy(strategy: int) -> Array:
+	match strategy:
+		AiStrategy.RUSH:
+			return ["trainers", "economy", "support", "defense"]
+		AiStrategy.TURTLE:
+			return ["economy", "defense", "trainers", "support"]
+		AiStrategy.MACRO:
+			return ["economy", "trainers", "support", "defense"]
+		AiStrategy.TECH:
+			return ["trainers", "support", "economy", "defense"]
+		_:
+			return ["trainers", "economy", "support", "defense"]
+
+
+func _get_entries_for_category_name(category_name: String) -> Array:
+	match category_name:
+		"trainers":
+			return _get_category_entries(trainer_structure_stats, trainer_structure_scenes)
+		"economy":
+			return _get_category_entries(economy_structure_stats, economy_structure_scenes)
+		"support":
+			return _get_category_entries(support_structure_stats, support_structure_scenes)
+		"defense":
+			return _get_category_entries(defense_structure_stats, defense_structure_scenes)
+
+	return []
+
+
+func _get_category_entries(stats_array: Array, scene_array: Array) -> Array:
+	var results: Array = []
+
+	for i in range(stats_array.size()):
+		var stats: StructureStats = stats_array[i]
+		if stats == null:
+			continue
+
+		var scene: PackedScene = default_structure_scene
+		if i < scene_array.size() and scene_array[i] != null:
+			scene = scene_array[i]
+
+		if scene == null:
+			continue
+
+		results.append({
+			"stats": stats,
+			"scene": scene
+		})
+
+	return results
 
 
 func _try_queue_unit_from_structure(runtime_team_id: int, producer: StructureRuntime, unit_stats: UnitStats) -> void:
@@ -253,25 +432,33 @@ func _try_queue_unit_from_structure(runtime_team_id: int, producer: StructureRun
 		return
 	if unit_stats == null:
 		return
+	if not _can_queue_on_producer(producer):
+		return
+
+	if not game_manager.can_afford(runtime_team_id, unit_stats.cost):
+		return
+
+	if not game_manager.spend_credits(runtime_team_id, unit_stats.cost):
+		return
+
+	structure_manager.queue_unit_production(producer.id, unit_stats)
+
+
+func _can_queue_on_producer(producer: StructureRuntime) -> bool:
+	if producer == null:
+		return false
 	if not producer.is_alive:
-		return
+		return false
 	if not producer.can_produce():
-		return
+		return false
 	if not producer.can_train_units():
-		return
+		return false
 
 	var queue_count: int = producer.production_queue.size()
 	if producer.current_production != null:
 		queue_count += 1
 
-	if queue_count >= max_queue_size:
-		return
-
-	if game_manager != null:
-		if not game_manager.spend_credits(runtime_team_id, unit_stats.cost):
-			return
-
-	structure_manager.queue_unit_production(producer.id, unit_stats)
+	return queue_count < max_queue_size
 
 
 func _handle_base_defense_for_team(runtime_team_id: int, hq: StructureRuntime) -> bool:
@@ -283,9 +470,7 @@ func _handle_base_defense_for_team(runtime_team_id: int, hq: StructureRuntime) -
 
 	for responder in responders:
 		var unit: UnitRuntime = responder
-		if unit == null:
-			continue
-		if not unit.is_alive:
+		if unit == null or not unit.is_alive:
 			continue
 
 		var closest_intruder: UnitRuntime = _get_closest_enemy_unit_to_position(unit.position, intruders)
@@ -301,7 +486,7 @@ func _is_base_under_attack(runtime_team_id: int, hq: StructureRuntime) -> bool:
 	return not _get_enemy_units_near_position(runtime_team_id, hq.position, base_defense_radius).is_empty()
 
 
-func _update_rally_for_team(runtime_team_id: int, hq: StructureRuntime, base_under_attack: bool) -> void:
+func _update_rally_for_team(runtime_team_id: int, hq: StructureRuntime, base_under_attack: bool, strategy: int) -> void:
 	var nearest_enemy_hq: StructureRuntime = _find_nearest_enemy_hq(runtime_team_id, hq.position)
 	if nearest_enemy_hq == null:
 		return
@@ -310,10 +495,21 @@ func _update_rally_for_team(runtime_team_id: int, hq: StructureRuntime, base_und
 	if dir_to_enemy.length_squared() <= 0.0001:
 		dir_to_enemy = Vector2.RIGHT
 
-	var staging_point: Vector2 = hq.position + dir_to_enemy * staging_distance_from_hq
-	var defense_point: Vector2 = hq.position
+	var aggression_mult: float = 1.0
+	match strategy:
+		AiStrategy.RUSH:
+			aggression_mult = 1.3
+		AiStrategy.TURTLE:
+			aggression_mult = 0.7
+		AiStrategy.MACRO:
+			aggression_mult = 0.9
+		AiStrategy.TECH:
+			aggression_mult = 1.0
+		_:
+			aggression_mult = 1.0
 
-	var target_rally: Vector2 = defense_point if base_under_attack else staging_point
+	var staging_point: Vector2 = hq.position + dir_to_enemy * staging_distance_from_hq * aggression_mult
+	var target_rally: Vector2 = hq.position if base_under_attack else staging_point
 
 	for structure in structure_manager.structures.values():
 		var s: StructureRuntime = structure
@@ -331,12 +527,12 @@ func _update_rally_for_team(runtime_team_id: int, hq: StructureRuntime, base_und
 	hq.rally_point = target_rally
 
 
-func _try_launch_squad(runtime_team_id: int, hq: StructureRuntime) -> void:
+func _try_launch_squad(runtime_team_id: int, hq: StructureRuntime, strategy: int) -> void:
 	var enemy_hq: StructureRuntime = _find_nearest_enemy_hq(runtime_team_id, hq.position)
 	if enemy_hq == null:
 		return
 
-	var staging_point: Vector2 = _get_staging_point_for_team(runtime_team_id, hq)
+	var staging_point: Vector2 = _get_staging_point_for_team(runtime_team_id, hq, strategy)
 	var available: Array = _get_available_units_near_position(runtime_team_id, staging_point, squad_gather_radius)
 
 	if available.size() < squad_min_unit_count:
@@ -353,7 +549,6 @@ func _build_mixed_squad_from_available_units(available: Array) -> Array:
 	var squad: Array = []
 	var used_unit_type_paths: Dictionary = {}
 
-	# First pass: try to include diverse unit types.
 	for item in available:
 		var unit: UnitRuntime = item
 		if unit == null or not unit.is_alive:
@@ -367,7 +562,6 @@ func _build_mixed_squad_from_available_units(available: Array) -> Array:
 		if squad.size() >= squad_max_unit_count:
 			return squad
 
-	# Second pass: fill remaining slots by nearest available units.
 	for item in available:
 		var unit: UnitRuntime = item
 		if unit == null or not unit.is_alive:
@@ -376,7 +570,6 @@ func _build_mixed_squad_from_available_units(available: Array) -> Array:
 			continue
 
 		squad.append(unit)
-
 		if squad.size() >= squad_max_unit_count:
 			break
 
@@ -386,15 +579,13 @@ func _build_mixed_squad_from_available_units(available: Array) -> Array:
 func _issue_squad_attack_move(squad: Array, world_target: Vector2) -> void:
 	for member in squad:
 		var unit: UnitRuntime = member
-		if unit == null:
-			continue
-		if not unit.is_alive:
+		if unit == null or not unit.is_alive:
 			continue
 
 		unit_manager.issue_attack_move_order(unit.id, world_target)
 
 
-func _get_staging_point_for_team(runtime_team_id: int, hq: StructureRuntime) -> Vector2:
+func _get_staging_point_for_team(runtime_team_id: int, hq: StructureRuntime, strategy: int) -> Vector2:
 	var enemy_hq: StructureRuntime = _find_nearest_enemy_hq(runtime_team_id, hq.position)
 	if enemy_hq == null:
 		return hq.position
@@ -403,7 +594,20 @@ func _get_staging_point_for_team(runtime_team_id: int, hq: StructureRuntime) -> 
 	if dir_to_enemy.length_squared() <= 0.0001:
 		dir_to_enemy = Vector2.RIGHT
 
-	return hq.position + dir_to_enemy * staging_distance_from_hq
+	var mult: float = 1.0
+	match strategy:
+		AiStrategy.RUSH:
+			mult = 1.3
+		AiStrategy.TURTLE:
+			mult = 0.8
+		AiStrategy.MACRO:
+			mult = 1.0
+		AiStrategy.TECH:
+			mult = 1.1
+		_:
+			mult = 1.0
+
+	return hq.position + dir_to_enemy * staging_distance_from_hq * mult
 
 
 func _find_nearest_enemy_hq(runtime_team_id: int, from_pos: Vector2) -> StructureRuntime:
@@ -436,17 +640,15 @@ func _try_build_structure_near_hq(runtime_team_id: int, hq: StructureRuntime, st
 	if not hq.can_place_structures():
 		return false
 
-	if game_manager != null:
-		if not game_manager.can_afford(runtime_team_id, stats.cost):
-			return false
+	if not game_manager.can_afford(runtime_team_id, stats.cost):
+		return false
 
 	var placement_pos: Vector2 = _find_structure_placement_position(hq, stats)
 	if placement_pos == Vector2.INF:
 		return false
 
-	if game_manager != null:
-		if not game_manager.spend_credits(runtime_team_id, stats.cost):
-			return false
+	if not game_manager.spend_credits(runtime_team_id, stats.cost):
+		return false
 
 	structure_manager.spawn_structure(
 		stats,
@@ -459,7 +661,7 @@ func _try_build_structure_near_hq(runtime_team_id: int, hq: StructureRuntime, st
 
 
 func _find_structure_placement_position(hq: StructureRuntime, stats: StructureStats) -> Vector2:
-	for ring in range(4):
+	for ring in range(build_ring_count):
 		var radius: float = base_build_distance_from_hq + build_ring_step * float(ring)
 		var candidates: Array = _get_candidate_positions_around_center(hq.position, radius)
 
@@ -473,10 +675,9 @@ func _find_structure_placement_position(hq: StructureRuntime, stats: StructureSt
 
 func _get_candidate_positions_around_center(center: Vector2, radius: float) -> Array:
 	var results: Array = []
-	var steps: int = 12
 
-	for i in range(steps):
-		var angle: float = TAU * (float(i) / float(steps))
+	for i in range(build_points_per_ring):
+		var angle: float = TAU * (float(i) / float(build_points_per_ring))
 		var dir := Vector2.RIGHT.rotated(angle)
 		results.append(center + dir * radius)
 
@@ -554,6 +755,23 @@ func _count_alive_units_of_type(runtime_team_id: int, unit_stats: UnitStats) -> 
 		count += 1
 
 	return count
+
+
+func _get_trainable_unit_type_count(runtime_team_id: int) -> int:
+	var types: Dictionary = {}
+
+	for producer in _get_all_alive_producers_for_team(runtime_team_id):
+		var s: StructureRuntime = producer
+		if s == null:
+			continue
+
+		var unit_stats: UnitStats = s.get_trained_unit_stats()
+		if unit_stats == null:
+			continue
+
+		types[unit_stats.resource_path] = true
+
+	return max(types.size(), 1)
 
 
 func _count_alive_structures_of_stats(runtime_team_id: int, structure_stats: StructureStats) -> int:
@@ -693,65 +911,5 @@ func _get_all_alive_producers_for_team(runtime_team_id: int) -> Array:
 			continue
 
 		results.append(s)
-
-	return results
-
-
-func _get_trained_unit_types_from_producers(producers: Array) -> Array:
-	var results: Array = []
-	var seen_paths: Dictionary = {}
-
-	for producer in producers:
-		var s: StructureRuntime = producer
-		if s == null:
-			continue
-
-		var unit_stats: UnitStats = s.get_trained_unit_stats()
-		if unit_stats == null:
-			continue
-
-		var path: String = unit_stats.resource_path
-		if seen_paths.has(path):
-			continue
-
-		seen_paths[path] = true
-		results.append(unit_stats)
-
-	return results
-
-
-func _get_all_trainer_entries() -> Array:
-	var results: Array = []
-
-	for entry in _get_structure_entries(trainer_structure_stats, trainer_structure_scenes):
-		results.append(entry)
-
-	# Legacy fallback support.
-	if trainer_structure_stats.is_empty():
-		if soldier_trainer_stats != null and soldier_trainer_scene != null:
-			results.append({"stats": soldier_trainer_stats, "scene": soldier_trainer_scene})
-		if sniper_trainer_stats != null and sniper_trainer_scene != null:
-			results.append({"stats": sniper_trainer_stats, "scene": sniper_trainer_scene})
-		if heavy_trainer_stats != null and heavy_trainer_scene != null:
-			results.append({"stats": heavy_trainer_stats, "scene": heavy_trainer_scene})
-
-	return results
-
-
-func _get_structure_entries(stats_array: Array, scene_array: Array) -> Array:
-	var results: Array = []
-	var count: int = min(stats_array.size(), scene_array.size())
-
-	for i in range(count):
-		var stats: StructureStats = stats_array[i]
-		var scene: PackedScene = scene_array[i]
-
-		if stats == null or scene == null:
-			continue
-
-		results.append({
-			"stats": stats,
-			"scene": scene
-		})
 
 	return results

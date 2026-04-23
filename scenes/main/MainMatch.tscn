@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=3 uid="uid://cqum0hu0tuqy0"]
+[gd_scene load_steps=32 format=3 uid="uid://cqum0hu0tuqy0"]
 
 [ext_resource type="Script" path="res://scripts/input/CameraPanController.gd" id="1_m2t5q"]
 [ext_resource type="Script" path="res://data/structures/structure_placement_controller.gd" id="2_723eq"]
@@ -16,9 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://drdqas7wvyya7" path="res://scenes/buildings/structure_preview.tscn" id="10_jwsqd"]
 [ext_resource type="PackedScene" uid="uid://gr37u0oewtun" path="res://data/units/unit_preview.tscn" id="11_50y2w"]
 [ext_resource type="Script" path="res://scripts/sim/structure_simulation_manager.gd" id="12_e1kf6"]
-[ext_resource type="Resource" uid="uid://cwkfq10gwh1ek" path="res://data/units/sniper_soldier.tres" id="13_jsb67"]
 [ext_resource type="Script" path="res://scripts/sim/combat_resolver.gd" id="13_t2dt4"]
-[ext_resource type="Resource" uid="uid://i0yc37mfo0d4" path="res://data/units/heavy_soldier.tres" id="14_0qdqg"]
 [ext_resource type="Script" path="res://scripts/input/match_input_bridge.gd" id="14_mfb8g"]
 [ext_resource type="PackedScene" uid="uid://kcnvorweio0v" path="res://scenes/ui/HUD.tscn" id="15_mksec"]
 [ext_resource type="PackedScene" uid="uid://6i181850aihr" path="res://scenes/ui/PauseMenu.tscn" id="16_mo52i"]
@@ -156,15 +154,11 @@ structure_manager = NodePath("../StructureSimulationManager")
 unit_manager = NodePath("../UnitSimulationManager")
 team_manager = NodePath("../TeamManager")
 game_manager = NodePath("../GameManager")
-soldier_unit_stats = ExtResource("6_71p1s")
-sniper_unit_stats = ExtResource("13_jsb67")
-heavy_unit_stats = ExtResource("14_0qdqg")
-soldier_trainer_stats = ExtResource("20_abcjn")
-soldier_trainer_scene = ExtResource("10_jwsqd")
-sniper_trainer_stats = ExtResource("17_u6d7c")
-sniper_trainer_scene = ExtResource("10_jwsqd")
-heavy_trainer_stats = ExtResource("19_1wux7")
-heavy_trainer_scene = ExtResource("10_jwsqd")
+default_structure_scene = ExtResource("10_jwsqd")
+trainer_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("20_abcjn"), ExtResource("31_g4nnb"), ExtResource("17_u6d7c"), ExtResource("19_1wux7")])
+economy_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("30_lju2h")])
+support_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("31_t21mw")])
+defense_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("32_nc4th")])
 
 [node name="TeamManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("structure_manager")]
 script = ExtResource("9_witlm")
