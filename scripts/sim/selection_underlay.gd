@@ -12,6 +12,17 @@ extends Node2D
 @export var fallback_structure_inner_color: Color = Color(1, 1, 1, 0.95)
 @export var fallback_rally_color: Color = Color(1, 1, 1, 0.95)
 
+@export_group("Rally Marker")
+@export var rally_line_width: float = 2.0
+@export var rally_dash_length: float = 4.0
+@export var rally_gap_length: float = 6.0
+@export var rally_marker_radius: float = 11.0
+@export var rally_marker_pole_height: float = 22.0
+@export var rally_marker_flag_width: float = 12.0
+@export var rally_marker_flag_height: float = 8.0
+@export var rally_marker_shadow_offset: Vector2 = Vector2(1.0, 1.0)
+@export var rally_marker_shadow_color: Color = Color(0, 0, 0, 0.35)
+
 
 func _ready() -> void:
 	z_as_relative = true
@@ -36,8 +47,10 @@ func _draw_unit_selection() -> void:
 
 	for unit_id: int in selection_controller.selected_unit_ids:
 		var unit: UnitRuntime = unit_manager.get_unit(unit_id)
+
 		if unit == null:
 			continue
+
 		if not unit.is_alive:
 			continue
 
@@ -57,6 +70,7 @@ func _draw_unit_selection_texture(unit: UnitRuntime) -> bool:
 		return false
 
 	var texture: Texture2D = unit.stats.selection_ring_texture
+
 	if texture == null:
 		return false
 
@@ -74,12 +88,15 @@ func _draw_structure_selection() -> void:
 		return
 
 	var structure_id: int = selection_controller.selected_structure_id
+
 	if structure_id == -1:
 		return
 
 	var structure: StructureRuntime = structure_manager.get_structure(structure_id)
+
 	if structure == null:
 		return
+
 	if not structure.is_alive:
 		return
 
@@ -95,29 +112,7 @@ func _draw_structure_selection() -> void:
 	if structure.stats != null and not structure.stats.show_rally_marker:
 		return
 
-	var local_center: Vector2 = to_local(structure.position)
-	var local_rally: Vector2 = to_local(structure.rally_point)
-
-	draw_line(local_center, local_rally, Color(fallback_rally_color.r, fallback_rally_color.g, fallback_rally_color.b, 0.70), 2.0)
-
-	draw_arc(
-		local_rally,
-		10.0,
-		0.0,
-		TAU,
-		24,
-		fallback_rally_color,
-		2.0
-	)
-	draw_circle(local_rally, 2.5, fallback_rally_color)
-
-	var dir: Vector2 = structure.rally_point - structure.position
-	if dir.length_squared() <= 0.001:
-		dir = Vector2.DOWN
-	else:
-		dir = dir.normalized()
-
-	_draw_rally_direction_tick(local_rally, dir)
+	_draw_flag_rally_marker(structure)
 
 
 func _draw_structure_selection_texture(structure: StructureRuntime) -> bool:
@@ -125,6 +120,7 @@ func _draw_structure_selection_texture(structure: StructureRuntime) -> bool:
 		return false
 
 	var texture: Texture2D = structure.stats.selection_ring_texture
+
 	if texture == null:
 		return false
 
@@ -136,20 +132,114 @@ func _draw_structure_selection_texture(structure: StructureRuntime) -> bool:
 	return true
 
 
-func _draw_rally_direction_tick(center: Vector2, dir: Vector2) -> void:
-	var tip: Vector2 = center + dir * 14.0
-	var base: Vector2 = center + dir * 7.0
-	var side: Vector2 = Vector2(-dir.y, dir.x)
+func _draw_flag_rally_marker(structure: StructureRuntime) -> void:
+	var local_center: Vector2 = to_local(structure.position)
+	var local_rally: Vector2 = to_local(structure.rally_point)
 
-	var left: Vector2 = base + side * 4.0
-	var right: Vector2 = base - side * 4.0
+	var line_color := Color(
+		fallback_rally_color.r,
+		fallback_rally_color.g,
+		fallback_rally_color.b,
+		fallback_rally_color.a * 0.75
+	)
 
-	draw_line(base, tip, fallback_rally_color, 2.0)
-	draw_line(left, tip, fallback_rally_color, 2.0)
-	draw_line(right, tip, fallback_rally_color, 2.0)
+	var shadow_line_color := Color(
+		rally_marker_shadow_color.r,
+		rally_marker_shadow_color.g,
+		rally_marker_shadow_color.b,
+		rally_marker_shadow_color.a * 0.75
+	)
+
+	if local_center.distance_squared_to(local_rally) > 4.0:
+		_draw_dashed_line(
+			local_center + rally_marker_shadow_offset,
+			local_rally + rally_marker_shadow_offset,
+			shadow_line_color,
+			rally_line_width,
+			rally_dash_length,
+			rally_gap_length,
+			rally_marker_radius + 4.0
+		)
+
+		_draw_dashed_line(
+			local_center,
+			local_rally,
+			line_color,
+			rally_line_width,
+			rally_dash_length,
+			rally_gap_length,
+			rally_marker_radius + 4.0
+		)
+
+	_draw_rally_flag(local_rally + rally_marker_shadow_offset, rally_marker_shadow_color)
+	_draw_rally_flag(local_rally, fallback_rally_color)
 
 
-func _draw_oval_outline(center: Vector2, radius_x: float, radius_y: float, color: Color, width: float = 2.0) -> void:
+func _draw_dashed_line(
+	from_pos: Vector2,
+	to_pos: Vector2,
+	color: Color,
+	width: float,
+	dash_length: float,
+	gap_length: float,
+	end_padding: float
+) -> void:
+	var delta: Vector2 = to_pos - from_pos
+	var total_length: float = delta.length()
+
+	if total_length <= 0.001:
+		return
+
+	var direction: Vector2 = delta / total_length
+	var drawable_length: float = max(total_length - end_padding, 0.0)
+
+	if drawable_length <= 0.001:
+		return
+
+	var cursor: float = 0.0
+
+	while cursor < drawable_length:
+		var segment_start: Vector2 = from_pos + direction * cursor
+		var segment_end: Vector2 = from_pos + direction * min(cursor + dash_length, drawable_length)
+
+		draw_line(segment_start, segment_end, color, width)
+
+		cursor += dash_length + gap_length
+
+
+func _draw_rally_flag(center: Vector2, color: Color) -> void:
+	var ring_width: float = rally_line_width
+	var pole_base: Vector2 = center + Vector2(0.0, -1.0)
+	var pole_top: Vector2 = center + Vector2(0.0, -rally_marker_pole_height)
+
+	var flag_top: Vector2 = pole_top
+	var flag_tip: Vector2 = pole_top + Vector2(rally_marker_flag_width, rally_marker_flag_height * 0.5)
+	var flag_bottom: Vector2 = pole_top + Vector2(0.0, rally_marker_flag_height)
+
+	var flag_points := PackedVector2Array([
+		flag_top,
+		flag_tip,
+		flag_bottom
+	])
+
+	var flag_fill := Color(color.r, color.g, color.b, color.a * 0.35)
+
+	draw_arc(center, rally_marker_radius, 0.0, TAU, 24, color, ring_width)
+	draw_line(pole_base, pole_top, color, ring_width)
+	draw_colored_polygon(flag_points, flag_fill)
+
+	draw_line(flag_top, flag_tip, color, ring_width)
+	draw_line(flag_tip, flag_bottom, color, ring_width)
+	draw_line(flag_bottom, flag_top, color, ring_width)
+
+
+func _draw_oval_outline(
+	center: Vector2,
+	radius_x: float,
+	radius_y: float,
+	color: Color,
+	width: float = 2.0
+) -> void:
 	var points: PackedVector2Array = PackedVector2Array()
 	var steps: int = 32
 
@@ -158,6 +248,7 @@ func _draw_oval_outline(center: Vector2, radius_x: float, radius_y: float, color
 		var angle: float = t * TAU
 		var x: float = cos(angle) * radius_x
 		var y: float = sin(angle) * radius_y
+
 		points.append(center + Vector2(x, y))
 
 	draw_polyline(points, color, width)
