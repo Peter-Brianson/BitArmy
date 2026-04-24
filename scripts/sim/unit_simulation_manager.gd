@@ -12,6 +12,12 @@ extends Node
 @export var cull_margin: float = 128.0
 @export var cull_update_interval: float = 0.12
 
+@export_group("Fog of War Culling")
+@export var use_fog_of_war_culling: bool = true
+@export var friendly_always_visible_in_fog: bool = true
+@export var unit_sight_radius_pixels: float = 900.0
+@export var structure_sight_radius_pixels: float = 1100.0
+
 @export_group("Broadphase")
 @export var spatial_hash_cell_size: float = 128.0
 @export var retarget_interval: float = 0.08
@@ -28,6 +34,10 @@ var next_unit_id: int = 1
 var _cull_timer: float = 0.0
 var _current_cull_rect: Rect2 = Rect2(-1000000, -1000000, 2000000, 2000000)
 
+var _fog_unit_reveal_points: Array[Vector2] = []
+var _fog_structure_reveal_points: Array[Vector2] = []
+var _fog_player_team_ids: Array[int] = []
+
 var spatial_hash: SpatialHash2D = SpatialHash2D.new()
 
 
@@ -40,6 +50,7 @@ func _physics_process(delta: float) -> void:
 	_rebuild_spatial_hash()
 
 	_cull_timer -= delta
+
 	if _cull_timer <= 0.0:
 		_update_cull_rect()
 		_cull_timer = cull_update_interval
@@ -69,12 +80,23 @@ func _physics_process(delta: float) -> void:
 		_remove_unit(unit_id)
 
 
+func set_fog_of_war_context(
+	unit_points: Array[Vector2],
+	structure_points: Array[Vector2],
+	player_team_ids: Array[int]
+) -> void:
+	_fog_unit_reveal_points = unit_points
+	_fog_structure_reveal_points = structure_points
+	_fog_player_team_ids = player_team_ids
+
+
 func spawn_unit(stats: UnitStats, team_id: int, spawn_position: Vector2) -> int:
 	var unit_id: int = next_unit_id
 	next_unit_id += 1
 
 	var unit := UnitRuntime.new()
 	unit.setup(unit_id, stats, team_id, spawn_position)
+
 	units[unit_id] = unit
 	unit_death_flash_played[unit_id] = false
 
@@ -86,13 +108,16 @@ func spawn_unit(stats: UnitStats, team_id: int, spawn_position: Vector2) -> int:
 func get_unit(unit_id: int) -> UnitRuntime:
 	if units.has(unit_id):
 		return units[unit_id]
+
 	return null
 
 
 func issue_move_order(unit_id: int, target_position: Vector2) -> void:
 	var unit: UnitRuntime = get_unit(unit_id)
+
 	if unit == null:
 		return
+
 	if unit.state == UnitRuntime.UnitState.DEAD:
 		return
 
@@ -104,10 +129,12 @@ func issue_move_order_many(unit_ids: Array[int], target_position: Vector2) -> vo
 
 	for unit_id in unit_ids:
 		var final_target: Vector2 = target_position
+
 		if formation_targets.has(unit_id):
 			final_target = formation_targets[unit_id]
 
 		issue_move_order(unit_id, final_target)
+
 
 func _build_formation_targets(unit_ids: Array[int], target_position: Vector2) -> Dictionary:
 	var result: Dictionary = {}
@@ -115,8 +142,10 @@ func _build_formation_targets(unit_ids: Array[int], target_position: Vector2) ->
 
 	for unit_id in unit_ids:
 		var unit: UnitRuntime = get_unit(unit_id)
+
 		if unit == null:
 			continue
+
 		if unit.state == UnitRuntime.UnitState.DEAD:
 			continue
 
@@ -125,25 +154,22 @@ func _build_formation_targets(unit_ids: Array[int], target_position: Vector2) ->
 	if valid_units.is_empty():
 		return result
 
-	valid_units.sort_custom(func(a: UnitRuntime, b: UnitRuntime) -> bool:
-		return a.position.x < b.position.x
+	valid_units.sort_custom(
+		func(a: UnitRuntime, b: UnitRuntime) -> bool:
+			return a.position.x < b.position.x
 	)
 
 	var row_size: int = max(formation_row_width, 1)
 	var spacing: float = max(formation_spacing, 1.0)
-
 	var row_count: int = int(ceil(float(valid_units.size()) / float(row_size)))
-	var center_row: float = (float(row_count - 1)) * 0.5
+	var center_row: float = float(row_count - 1) * 0.5
 
 	for i in range(valid_units.size()):
 		var unit: UnitRuntime = valid_units[i]
-
 		var row: int = i / row_size
 		var col: int = i % row_size
-
 		var units_in_this_row: int = min(row_size, valid_units.size() - row * row_size)
-		var center_col: float = (float(units_in_this_row - 1)) * 0.5
-
+		var center_col: float = float(units_in_this_row - 1) * 0.5
 		var x_offset: float = (float(col) - center_col) * spacing
 		var y_offset: float = (float(row) - center_row) * spacing
 
@@ -151,14 +177,18 @@ func _build_formation_targets(unit_ids: Array[int], target_position: Vector2) ->
 
 	return result
 
+
 func issue_attack_move_order_many(unit_ids: Array[int], target_position: Vector2) -> void:
 	for unit_id in unit_ids:
 		issue_attack_move_order(unit_id, target_position)
 
+
 func issue_attack_move_order(unit_id: int, target_position: Vector2) -> void:
 	var unit: UnitRuntime = get_unit(unit_id)
+
 	if unit == null:
 		return
+
 	if unit.state == UnitRuntime.UnitState.DEAD:
 		return
 
@@ -171,10 +201,13 @@ func issue_attack_unit_order(unit_id: int, target_unit_id: int) -> void:
 
 	if unit == null:
 		return
+
 	if target == null:
 		return
+
 	if unit.state == UnitRuntime.UnitState.DEAD:
 		return
+
 	if not target.is_alive:
 		return
 
@@ -190,10 +223,13 @@ func issue_attack_structure_order(unit_id: int, target_structure_id: int) -> voi
 
 	if unit == null:
 		return
+
 	if target == null:
 		return
+
 	if unit.state == UnitRuntime.UnitState.DEAD:
 		return
+
 	if not target.is_alive:
 		return
 
@@ -212,6 +248,7 @@ func issue_attack_structure_order_many(unit_ids: Array[int], target_structure_id
 
 func kill_unit(unit_id: int) -> void:
 	var unit: UnitRuntime = get_unit(unit_id)
+
 	if unit == null:
 		return
 
@@ -221,6 +258,7 @@ func kill_unit(unit_id: int) -> void:
 func clear_all_units() -> void:
 	for unit_id in unit_views.keys():
 		var view: Node = unit_views[unit_id]
+
 		if is_instance_valid(view):
 			view.queue_free()
 
@@ -235,6 +273,7 @@ func notify_attack_flash(unit_id: int) -> void:
 		return
 
 	var view: Node = unit_views[unit_id]
+
 	if is_instance_valid(view) and view.has_method("play_attack_flash"):
 		view.call("play_attack_flash")
 
@@ -244,6 +283,7 @@ func notify_hit_flash(unit_id: int) -> void:
 		return
 
 	var view: Node = unit_views[unit_id]
+
 	if is_instance_valid(view) and view.has_method("play_hit_flash"):
 		view.call("play_hit_flash")
 
@@ -253,6 +293,7 @@ func notify_death_flash(unit_id: int) -> void:
 		return
 
 	var view: Node = unit_views[unit_id]
+
 	if is_instance_valid(view) and view.has_method("play_death_flash"):
 		view.call("play_death_flash")
 
@@ -262,15 +303,19 @@ func _rebuild_spatial_hash() -> void:
 
 	for unit in units.values():
 		var u: UnitRuntime = unit
+
 		if not u.is_alive:
 			continue
+
 		spatial_hash.add_unit(u.id, u.position)
 
 	if structure_manager != null:
 		for structure in structure_manager.structures.values():
 			var s: StructureRuntime = structure
+
 			if not s.is_alive:
 				continue
+
 			spatial_hash.add_structure(s.id, s.position, s.stats.footprint_size)
 
 
@@ -282,7 +327,7 @@ func _update_idle(unit: UnitRuntime, delta: float) -> void:
 		UnitRuntime.OrderMode.MOVE:
 			if unit.has_move_target:
 				unit.state = UnitRuntime.UnitState.WALK
-			return
+				return
 
 		UnitRuntime.OrderMode.ATTACK_MOVE:
 			unit.retarget_timer_left -= delta
@@ -295,6 +340,7 @@ func _update_idle(unit: UnitRuntime, delta: float) -> void:
 						unit.move_target = combat_resolver.get_current_target_approach_position(unit)
 						unit.has_move_target = true
 						unit.state = UnitRuntime.UnitState.WALK
+
 					_schedule_next_retarget(unit)
 					return
 
@@ -306,6 +352,7 @@ func _update_idle(unit: UnitRuntime, delta: float) -> void:
 				unit.state = UnitRuntime.UnitState.WALK
 			else:
 				unit.clear_attack_move_order()
+
 			return
 
 		UnitRuntime.OrderMode.ATTACK_UNIT, UnitRuntime.OrderMode.ATTACK_STRUCTURE:
@@ -316,6 +363,7 @@ func _update_idle(unit: UnitRuntime, delta: float) -> void:
 					unit.move_target = combat_resolver.get_current_target_approach_position(unit)
 					unit.has_move_target = true
 					unit.state = UnitRuntime.UnitState.WALK
+
 				return
 			else:
 				unit.clear_all_orders()
@@ -325,6 +373,7 @@ func _update_idle(unit: UnitRuntime, delta: float) -> void:
 			pass
 
 	unit.retarget_timer_left -= delta
+
 	if unit.retarget_timer_left <= 0.0:
 		if combat_resolver != null and combat_resolver.try_find_target_for_unit(unit):
 			if combat_resolver.is_current_target_in_attack_range(unit):
@@ -333,6 +382,7 @@ func _update_idle(unit: UnitRuntime, delta: float) -> void:
 				unit.move_target = combat_resolver.get_current_target_approach_position(unit)
 				unit.has_move_target = true
 				unit.state = UnitRuntime.UnitState.WALK
+
 			_schedule_next_retarget(unit)
 			return
 
@@ -427,10 +477,12 @@ func _update_walk(unit: UnitRuntime, delta: float) -> void:
 		else:
 			unit.clear_move_order()
 			unit.state = UnitRuntime.UnitState.IDLE
+
 		return
 
 	var desired_velocity: Vector2 = to_target.normalized() * unit.stats.move_speed
 	var separation: Vector2 = _get_separation_vector(unit)
+
 	unit.velocity = desired_velocity + separation
 
 	if unit.velocity.length() > unit.stats.move_speed:
@@ -468,6 +520,7 @@ func _face_current_target(unit: UnitRuntime) -> void:
 
 	var target_pos: Vector2 = combat_resolver.get_current_target_position(unit)
 	var dir: Vector2 = target_pos - unit.position
+
 	if dir.length_squared() > 0.001:
 		unit.facing_dir = dir.normalized()
 
@@ -475,7 +528,6 @@ func _face_current_target(unit: UnitRuntime) -> void:
 func _get_separation_vector(unit: UnitRuntime) -> Vector2:
 	var push: Vector2 = Vector2.ZERO
 	var check_radius: float = unit.stats.radius * 2.2
-
 	var nearby_ids: Array[int] = spatial_hash.query_unit_ids_in_radius(unit.position, check_radius)
 
 	for other_id in nearby_ids:
@@ -483,8 +535,10 @@ func _get_separation_vector(unit: UnitRuntime) -> Vector2:
 			continue
 
 		var other: UnitRuntime = get_unit(other_id)
+
 		if other == null:
 			continue
+
 		if other.state == UnitRuntime.UnitState.DEAD:
 			continue
 
@@ -493,10 +547,12 @@ func _get_separation_vector(unit: UnitRuntime) -> Vector2:
 
 		if distance <= 0.001:
 			continue
+
 		if distance > check_radius:
 			continue
 
 		var strength: float = (check_radius - distance) / check_radius
+
 		push += offset.normalized() * strength * unit.stats.move_speed * 0.35
 
 	return push
@@ -509,8 +565,10 @@ func _schedule_next_retarget(unit: UnitRuntime) -> void:
 func _apply_team_bonus_health_adjustment(unit: UnitRuntime) -> void:
 	if unit == null:
 		return
+
 	if not unit.is_alive:
 		return
+
 	if team_manager == null:
 		return
 
@@ -528,10 +586,12 @@ func _apply_team_bonus_health_adjustment(unit: UnitRuntime) -> void:
 func _create_view(unit: UnitRuntime) -> void:
 	if unit_preview_scene == null:
 		return
+
 	if render_root == null:
 		return
 
 	var view := unit_preview_scene.instantiate() as Node2D
+
 	if view == null:
 		return
 
@@ -547,8 +607,9 @@ func _create_view(unit: UnitRuntime) -> void:
 		view.call("apply_unit_runtime_setup", unit.id, unit.stats, visual_team_id)
 	else:
 		view.set("stats", unit.stats)
-		if view is CanvasItem:
-			view.queue_redraw()
+
+	if view is CanvasItem:
+		view.queue_redraw()
 
 	unit_views[unit.id] = view
 
@@ -561,7 +622,19 @@ func _update_cull_rect() -> void:
 	var cam: Camera2D = camera_pan_controller.camera
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	var center: Vector2 = cam.get_screen_center_position()
-	var half_extents: Vector2 = viewport_size * 0.5 * cam.zoom
+	var zoom: Vector2 = cam.zoom
+
+	if zoom.x <= 0.0:
+		zoom.x = 1.0
+
+	if zoom.y <= 0.0:
+		zoom.y = 1.0
+
+	var half_extents := Vector2(
+		(viewport_size.x / zoom.x) * 0.5,
+		(viewport_size.y / zoom.y) * 0.5
+	)
+
 	var margin_vec := Vector2(cull_margin, cull_margin)
 
 	_current_cull_rect = Rect2(
@@ -575,10 +648,18 @@ func _sync_view_with_culling(unit: UnitRuntime) -> void:
 		return
 
 	var view: Node2D = unit_views[unit.id]
+
 	if not is_instance_valid(view):
 		return
 
-	var is_visible_now: bool = _current_cull_rect.has_point(unit.position)
+	var camera_visible: bool = _current_cull_rect.has_point(unit.position)
+	var fog_visible: bool = _passes_fog_visibility(
+		unit.owner_team_id,
+		unit.position,
+		unit.get_radius()
+	)
+
+	var is_visible_now: bool = camera_visible and fog_visible
 
 	if view is CanvasItem:
 		(view as CanvasItem).visible = is_visible_now
@@ -599,11 +680,67 @@ func _sync_view_with_culling(unit: UnitRuntime) -> void:
 		)
 
 
+func _passes_fog_visibility(owner_team_id: int, world_position: Vector2, extra_radius: float = 0.0) -> bool:
+	if not use_fog_of_war_culling:
+		return true
+
+	if friendly_always_visible_in_fog and _is_owner_friendly_to_fog_player(owner_team_id):
+		return true
+
+	# Fail open during setup so views do not disappear before MatchController sends context.
+	if _fog_player_team_ids.is_empty():
+		return true
+
+	if _is_point_near_any_reveal_point(
+		world_position,
+		_fog_unit_reveal_points,
+		unit_sight_radius_pixels + extra_radius
+	):
+		return true
+
+	if _is_point_near_any_reveal_point(
+		world_position,
+		_fog_structure_reveal_points,
+		structure_sight_radius_pixels + extra_radius
+	):
+		return true
+
+	return false
+
+
+func _is_owner_friendly_to_fog_player(owner_team_id: int) -> bool:
+	for player_team_id in _fog_player_team_ids:
+		if team_manager == null:
+			if owner_team_id == player_team_id:
+				return true
+		else:
+			if not team_manager.is_enemy(player_team_id, owner_team_id):
+				return true
+
+	return false
+
+
+func _is_point_near_any_reveal_point(
+	world_position: Vector2,
+	points: Array[Vector2],
+	radius: float
+) -> bool:
+	var radius_squared: float = radius * radius
+
+	for point in points:
+		if world_position.distance_squared_to(point) <= radius_squared:
+			return true
+
+	return false
+
+
 func _remove_unit(unit_id: int) -> void:
 	if unit_views.has(unit_id):
 		var view: Node = unit_views[unit_id]
+
 		if is_instance_valid(view):
 			view.queue_free()
+
 		unit_views.erase(unit_id)
 
 	if unit_death_flash_played.has(unit_id):

@@ -11,8 +11,8 @@ const MAX_TEAM_SPAWNS := 8
 @export_group("World Size")
 @export var world_size_pixels: Vector2 = Vector2(10000.0, 10000.0)
 @export var chunk_size_tiles: int = 64
-@export var spawn_margin_pixels: float = 1400.0
-@export var spawn_clear_radius_pixels: float = 280.0
+@export var spawn_margin_pixels: float = 2000.0
+@export var spawn_clear_radius_pixels: float = 300.0
 
 @export_group("Seed")
 @export var generation_seed: int = 0

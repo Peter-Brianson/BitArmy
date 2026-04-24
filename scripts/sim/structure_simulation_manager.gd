@@ -6,8 +6,17 @@ extends Node
 @export var match_net_controller: MatchNetController
 @export var unit_manager: UnitSimulationManager
 @export var camera_pan_controller: CameraPanController
+
+@export_group("Manual Culling")
 @export var cull_margin: float = 192.0
 @export var cull_update_interval: float = 0.12
+
+@export_group("Fog of War Culling")
+@export var use_fog_of_war_culling: bool = true
+@export var friendly_always_visible_in_fog: bool = true
+@export var unit_sight_radius_pixels: float = 900.0
+@export var structure_sight_radius_pixels: float = 1100.0
+
 @export var team_manager: TeamManager
 @export var ai_team_manager: AITeamManager
 
@@ -20,9 +29,14 @@ var next_structure_id: int = 1
 var _cull_timer: float = 0.0
 var _current_cull_rect: Rect2 = Rect2(-1000000, -1000000, 2000000, 2000000)
 
+var _fog_unit_reveal_points: Array[Vector2] = []
+var _fog_structure_reveal_points: Array[Vector2] = []
+var _fog_player_team_ids: Array[int] = []
+
 
 func _physics_process(delta: float) -> void:
 	_cull_timer -= delta
+
 	if _cull_timer <= 0.0:
 		_update_cull_rect()
 		_cull_timer = cull_update_interval
@@ -47,6 +61,16 @@ func _physics_process(delta: float) -> void:
 		_remove_structure(structure_id)
 
 
+func set_fog_of_war_context(
+	unit_points: Array[Vector2],
+	structure_points: Array[Vector2],
+	player_team_ids: Array[int]
+) -> void:
+	_fog_unit_reveal_points = unit_points
+	_fog_structure_reveal_points = structure_points
+	_fog_player_team_ids = player_team_ids
+
+
 func _update_cull_rect() -> void:
 	if camera_pan_controller == null or camera_pan_controller.camera == null:
 		_current_cull_rect = Rect2(-1000000, -1000000, 2000000, 2000000)
@@ -55,7 +79,19 @@ func _update_cull_rect() -> void:
 	var cam: Camera2D = camera_pan_controller.camera
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	var center: Vector2 = cam.get_screen_center_position()
-	var half_extents: Vector2 = viewport_size * 0.5 * cam.zoom
+	var zoom: Vector2 = cam.zoom
+
+	if zoom.x <= 0.0:
+		zoom.x = 1.0
+
+	if zoom.y <= 0.0:
+		zoom.y = 1.0
+
+	var half_extents := Vector2(
+		(viewport_size.x / zoom.x) * 0.5,
+		(viewport_size.y / zoom.y) * 0.5
+	)
+
 	var margin_vec := Vector2(cull_margin, cull_margin)
 
 	_current_cull_rect = Rect2(
@@ -69,12 +105,22 @@ func _sync_view_with_culling(structure: StructureRuntime) -> void:
 		return
 
 	var view: Node2D = structure_views[structure.id]
+
 	if not is_instance_valid(view):
 		return
 
 	var half_size: Vector2 = structure.stats.footprint_size * 0.5
 	var rect := Rect2(structure.position - half_size, structure.stats.footprint_size)
-	var is_visible_now: bool = _current_cull_rect.intersects(rect)
+
+	var camera_visible: bool = _current_cull_rect.intersects(rect)
+	var reveal_extra_radius: float = max(half_size.x, half_size.y)
+	var fog_visible: bool = _passes_fog_visibility(
+		structure.owner_team_id,
+		structure.position,
+		reveal_extra_radius
+	)
+
+	var is_visible_now: bool = camera_visible and fog_visible
 
 	if view is CanvasItem:
 		(view as CanvasItem).visible = is_visible_now
@@ -93,6 +139,59 @@ func _sync_view_with_culling(structure: StructureRuntime) -> void:
 		)
 
 
+func _passes_fog_visibility(owner_team_id: int, world_position: Vector2, extra_radius: float = 0.0) -> bool:
+	if not use_fog_of_war_culling:
+		return true
+
+	if friendly_always_visible_in_fog and _is_owner_friendly_to_fog_player(owner_team_id):
+		return true
+
+	if _fog_player_team_ids.is_empty():
+		return true
+
+	if _is_point_near_any_reveal_point(
+		world_position,
+		_fog_unit_reveal_points,
+		unit_sight_radius_pixels + extra_radius
+	):
+		return true
+
+	if _is_point_near_any_reveal_point(
+		world_position,
+		_fog_structure_reveal_points,
+		structure_sight_radius_pixels + extra_radius
+	):
+		return true
+
+	return false
+
+
+func _is_owner_friendly_to_fog_player(owner_team_id: int) -> bool:
+	for player_team_id in _fog_player_team_ids:
+		if team_manager == null:
+			if owner_team_id == player_team_id:
+				return true
+		else:
+			if not team_manager.is_enemy(player_team_id, owner_team_id):
+				return true
+
+	return false
+
+
+func _is_point_near_any_reveal_point(
+	world_position: Vector2,
+	points: Array[Vector2],
+	radius: float
+) -> bool:
+	var radius_squared: float = radius * radius
+
+	for point in points:
+		if world_position.distance_squared_to(point) <= radius_squared:
+			return true
+
+	return false
+
+
 func spawn_structure(
 	stats: StructureStats,
 	team_id: int,
@@ -104,11 +203,12 @@ func spawn_structure(
 
 	var structure := StructureRuntime.new()
 	structure.setup(structure_id, stats, team_id, spawn_position)
+
 	structures[structure_id] = structure
 	structure_death_flash_played[structure_id] = false
 	structure_death_fx_played[structure_id] = false
-
 	structure.rally_point = _get_structure_spawn_position(structure)
+
 	_create_view(structure, scene_override)
 
 	return structure_id
@@ -123,6 +223,7 @@ func register_existing_structure(view: Node2D, stats: StructureStats, team_id: i
 
 	var structure := StructureRuntime.new()
 	structure.setup(structure_id, stats, team_id, view.global_position)
+
 	structures[structure_id] = structure
 	structure_views[structure_id] = view
 	structure_death_flash_played[structure_id] = false
@@ -143,13 +244,16 @@ func register_existing_structure(view: Node2D, stats: StructureStats, team_id: i
 func get_structure(structure_id: int) -> StructureRuntime:
 	if structures.has(structure_id):
 		return structures[structure_id]
+
 	return null
 
 
 func queue_unit_production(structure_id: int, unit_stats: UnitStats) -> void:
 	var structure: StructureRuntime = get_structure(structure_id)
+
 	if structure == null:
 		return
+
 	if not structure.is_alive:
 		return
 
@@ -158,6 +262,7 @@ func queue_unit_production(structure_id: int, unit_stats: UnitStats) -> void:
 
 func damage_structure(structure_id: int, amount: int) -> void:
 	var structure: StructureRuntime = get_structure(structure_id)
+
 	if structure == null:
 		return
 
@@ -166,6 +271,7 @@ func damage_structure(structure_id: int, amount: int) -> void:
 
 func destroy_structure(structure_id: int) -> void:
 	var structure: StructureRuntime = get_structure(structure_id)
+
 	if structure == null:
 		return
 
@@ -175,6 +281,7 @@ func destroy_structure(structure_id: int) -> void:
 func clear_all_structures() -> void:
 	for structure_id in structure_views.keys():
 		var view: Node = structure_views[structure_id]
+
 		if is_instance_valid(view):
 			view.queue_free()
 
@@ -190,6 +297,7 @@ func notify_attack_flash(structure_id: int) -> void:
 		return
 
 	var view: Node = structure_views[structure_id]
+
 	if is_instance_valid(view) and view.has_method("play_attack_flash"):
 		view.call("play_attack_flash")
 
@@ -199,6 +307,7 @@ func notify_hit_flash(structure_id: int) -> void:
 		return
 
 	var view: Node = structure_views[structure_id]
+
 	if is_instance_valid(view) and view.has_method("play_hit_flash"):
 		view.call("play_hit_flash")
 
@@ -208,6 +317,7 @@ func notify_death_flash(structure_id: int) -> void:
 		return
 
 	var view: Node = structure_views[structure_id]
+
 	if is_instance_valid(view) and view.has_method("play_death_flash"):
 		view.call("play_death_flash")
 
@@ -220,10 +330,13 @@ func _update_active_structure(structure: StructureRuntime, delta: float) -> void
 func _update_structure_combat(structure: StructureRuntime, delta: float) -> void:
 	if unit_manager == null:
 		return
+
 	if team_manager == null:
 		return
+
 	if not structure.is_alive:
 		return
+
 	if not structure.can_attack():
 		return
 
@@ -258,15 +371,19 @@ func _update_structure_combat(structure: StructureRuntime, delta: float) -> void
 		structure.attack_has_landed = true
 
 		notify_attack_flash(structure.id)
+
 		if match_net_controller != null:
 			match_net_controller.broadcast_structure_attack_flash(structure.id)
 
 		unit_manager.notify_hit_flash(target.id)
+
 		if match_net_controller != null:
 			match_net_controller.broadcast_unit_hit_flash(target.id)
 
 		if AudioHub != null:
 			AudioHub.play_unit_shoot(structure.position, self)
+
+		# Kept from the current pushed behavior.
 		notify_attack_flash(structure.id)
 		unit_manager.notify_hit_flash(target.id)
 
@@ -277,14 +394,19 @@ func _update_structure_combat(structure: StructureRuntime, delta: float) -> void
 func _is_valid_structure_target(structure: StructureRuntime, target: UnitRuntime) -> bool:
 	if structure == null:
 		return false
+
 	if target == null:
 		return false
+
 	if not structure.can_target_units():
 		return false
+
 	if not structure.is_alive:
 		return false
+
 	if not target.is_alive:
 		return false
+
 	if not team_manager.is_enemy(structure.owner_team_id, target.owner_team_id):
 		return false
 
@@ -294,12 +416,12 @@ func _is_valid_structure_target(structure: StructureRuntime, target: UnitRuntime
 func _find_best_structure_target(structure: StructureRuntime) -> int:
 	var best_id: int = -1
 	var best_distance_sq: float = INF
-
 	var search_radius: float = structure.get_radius() + structure.get_attack_range()
 	var nearby_ids: Array[int] = unit_manager.spatial_hash.query_unit_ids_in_radius(structure.position, search_radius)
 
 	for unit_id in nearby_ids:
 		var target: UnitRuntime = unit_manager.get_unit(unit_id)
+
 		if not _is_valid_structure_target(structure, target):
 			continue
 
@@ -316,16 +438,19 @@ func _find_best_structure_target(structure: StructureRuntime) -> int:
 func _is_structure_target_in_range(structure: StructureRuntime, target: UnitRuntime) -> bool:
 	if structure == null:
 		return false
+
 	if target == null:
 		return false
 
 	var total_range: float = structure.get_radius() + structure.get_attack_range() + target.get_radius()
+
 	return structure.position.distance_squared_to(target.position) <= total_range * total_range
 
 
 func _update_production(structure: StructureRuntime, delta: float) -> void:
 	if unit_manager == null:
 		return
+
 	if not structure.can_produce():
 		return
 
@@ -381,12 +506,15 @@ func _update_destroyed_structure(structure: StructureRuntime, delta: float) -> v
 
 func _create_view(structure: StructureRuntime, scene_override: PackedScene = null) -> void:
 	var scene_to_use: PackedScene = scene_override if scene_override != null else default_structure_scene
+
 	if scene_to_use == null:
 		return
+
 	if structure_root == null:
 		return
 
 	var view := scene_to_use.instantiate() as Node2D
+
 	if view == null:
 		return
 
@@ -396,16 +524,20 @@ func _create_view(structure: StructureRuntime, scene_override: PackedScene = nul
 
 	if view.has_method("apply_structure_runtime_setup"):
 		var visual_team_id: int = structure.owner_team_id
+
 		if team_manager != null:
 			visual_team_id = team_manager.get_visual_team_id(structure.owner_team_id)
+
 		view.call("apply_structure_runtime_setup", structure.id, structure.stats, visual_team_id)
 
 
 func _remove_structure(structure_id: int) -> void:
 	if structure_views.has(structure_id):
 		var view: Node = structure_views[structure_id]
+
 		if is_instance_valid(view):
 			view.queue_free()
+
 		structure_views.erase(structure_id)
 
 	if structure_death_flash_played.has(structure_id):
