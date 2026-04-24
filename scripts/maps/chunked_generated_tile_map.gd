@@ -10,7 +10,7 @@ const MAX_TEAM_SPAWNS := 8
 
 @export_group("World Size")
 @export var world_size_pixels: Vector2 = Vector2(10000.0, 10000.0)
-@export var chunk_size_tiles: int = 32
+@export var chunk_size_tiles: int = 64
 @export var spawn_margin_pixels: float = 1400.0
 @export var spawn_clear_radius_pixels: float = 280.0
 
@@ -20,28 +20,40 @@ const MAX_TEAM_SPAWNS := 8
 
 @export_group("Culling")
 @export var tracked_camera_group: StringName = &"map_cull_camera"
-@export var cull_margin_pixels: float = 700.0
-@export var keep_alive_padding_chunks: int = 1
-@export var update_interval: float = 0.15
+@export var cull_margin_pixels: float = 350.0
+@export var keep_alive_padding_chunks: int = 0
+@export var update_interval: float = 0.25
+@export var max_chunks_built_per_frame: int = 1
+@export var max_chunks_built_on_refresh: int = 4
 
 @export_group("Scene Nodes")
 @export var chunks_root_path: NodePath = ^"Chunks"
 @export var spawn_points_path: NodePath = ^"TeamSpawnPoints"
 
 @export_group("Runtime")
-@export var auto_generate_on_ready: bool = false
+@export var auto_generate_on_ready: bool = true
 
 @export_group("Debug")
 @export var debug_chunks: bool = false
 
 var _chunks_root: Node2D = null
 var _spawn_points: Node2D = null
+
 var _loaded_chunks: Dictionary = {}
+var _pending_chunk_builds: Array[Vector2i] = []
+var _pending_chunk_lookup: Dictionary = {}
 var _generated_spawn_positions: Dictionary = {}
+
 var _seed_value: int = 12345
 var _tile_size: Vector2i = Vector2i(16, 16)
+var _world_rect: Rect2 = Rect2(-5000, -5000, 10000, 10000)
+var _cached_spawn_positions: Array[Vector2] = []
+var _patch_noise: FastNoiseLite = FastNoiseLite.new()
+
 var _timer: float = 0.0
 var _has_setup: bool = false
+var _last_focus_chunk: Vector2i = Vector2i.ZERO
+var _last_debug_chunk_count: int = -1
 
 
 func _ready() -> void:
@@ -55,16 +67,19 @@ func _process(delta: float) -> void:
 
 	_timer -= delta
 
-	if _timer > 0.0:
-		return
+	if _timer <= 0.0:
+		_timer = update_interval
+		_update_visible_chunks()
 
-	_timer = update_interval
-	_update_visible_chunks()
+	_process_pending_chunk_builds(max_chunks_built_per_frame)
 
 
 func generate_map(force: bool = false) -> void:
 	if _has_setup and not force:
 		return
+
+	if force:
+		_clear_all_chunks()
 
 	_resolve_nodes()
 
@@ -86,14 +101,28 @@ func generate_map(force: bool = false) -> void:
 		_tile_size = Vector2i(16, 16)
 
 	_seed_value = _get_seed_value()
+	_world_rect = _get_world_rect()
+	_cached_spawn_positions = _calculate_spawn_positions()
+
+	_patch_noise.seed = _seed_value
+	_patch_noise.frequency = generation_set.patch_noise_frequency
+
 	_generated_spawn_positions.clear()
 	_create_spawn_markers()
 
 	_has_setup = true
-	_update_visible_chunks()
+	_timer = 0.0
 
 	if debug_chunks:
 		print("ChunkedGeneratedTileMap ready | seed=", _seed_value, " world=", world_size_pixels, " tile_size=", _tile_size)
+
+
+func refresh_visible_chunks() -> void:
+	if not _has_setup:
+		return
+
+	_update_visible_chunks()
+	_process_pending_chunk_builds(max_chunks_built_on_refresh)
 
 
 func get_team_spawn_position(team_id: int, fallback_index: int = -1) -> Vector2:
@@ -102,16 +131,9 @@ func get_team_spawn_position(team_id: int, fallback_index: int = -1) -> Vector2:
 
 	if fallback_index >= 0 and _generated_spawn_positions.has(fallback_index):
 		return _generated_spawn_positions[fallback_index]
-	
-	
 
 	return Vector2.INF
 
-func refresh_visible_chunks() -> void:
-	if not _has_setup:
-		return
-
-	_update_visible_chunks()
 
 func _resolve_nodes() -> void:
 	_chunks_root = get_node_or_null(chunks_root_path) as Node2D
@@ -156,6 +178,13 @@ func _update_visible_chunks() -> void:
 		return
 
 	var wanted_chunks: Dictionary = {}
+	var focus_sum := Vector2.ZERO
+
+	for rect in camera_rects:
+		focus_sum += rect.position + rect.size * 0.5
+
+	var focus_position: Vector2 = focus_sum / float(camera_rects.size())
+	_last_focus_chunk = _world_to_chunk(focus_position)
 
 	for rect in camera_rects:
 		var expanded_rect := rect.grow(cull_margin_pixels)
@@ -175,7 +204,7 @@ func _update_visible_chunks() -> void:
 				wanted_chunks[chunk_coord] = true
 
 				if not _loaded_chunks.has(chunk_coord):
-					_load_chunk(chunk_coord)
+					_enqueue_chunk_build(chunk_coord)
 
 	var chunks_to_remove: Array[Vector2i] = []
 
@@ -186,13 +215,64 @@ func _update_visible_chunks() -> void:
 	for chunk_coord in chunks_to_remove:
 		_unload_chunk(chunk_coord)
 
-	if debug_chunks:
-		print("Map chunks loaded: ", _loaded_chunks.size())
+	for pending_coord in _pending_chunk_lookup.keys():
+		if not wanted_chunks.has(pending_coord):
+			_pending_chunk_lookup.erase(pending_coord)
+
+	if not _pending_chunk_builds.is_empty():
+		_pending_chunk_builds.sort_custom(Callable(self, "_sort_chunk_by_focus"))
+
+	if debug_chunks and _last_debug_chunk_count != _loaded_chunks.size():
+		_last_debug_chunk_count = _loaded_chunks.size()
+		print("Map chunks loaded: ", _loaded_chunks.size(), " pending: ", _pending_chunk_builds.size())
+
+
+func _enqueue_chunk_build(chunk_coord: Vector2i) -> void:
+	if _loaded_chunks.has(chunk_coord):
+		return
+
+	if _pending_chunk_lookup.has(chunk_coord):
+		return
+
+	_pending_chunk_lookup[chunk_coord] = true
+	_pending_chunk_builds.append(chunk_coord)
+
+
+func _process_pending_chunk_builds(max_count: int) -> void:
+	if max_count <= 0:
+		return
+
+	var built_count: int = 0
+
+	while built_count < max_count and not _pending_chunk_builds.is_empty():
+		var chunk_coord: Vector2i = _pending_chunk_builds.pop_front()
+
+		if not _pending_chunk_lookup.has(chunk_coord):
+			continue
+
+		_pending_chunk_lookup.erase(chunk_coord)
+
+		if _loaded_chunks.has(chunk_coord):
+			continue
+
+		_load_chunk(chunk_coord)
+		built_count += 1
+
+
+func _sort_chunk_by_focus(a: Vector2i, b: Vector2i) -> bool:
+	var adx: int = a.x - _last_focus_chunk.x
+	var ady: int = a.y - _last_focus_chunk.y
+	var bdx: int = b.x - _last_focus_chunk.x
+	var bdy: int = b.y - _last_focus_chunk.y
+
+	var a_distance: int = adx * adx + ady * ady
+	var b_distance: int = bdx * bdx + bdy * bdy
+
+	return a_distance < b_distance
 
 
 func _get_active_camera_rects() -> Array[Rect2]:
 	var rects: Array[Rect2] = []
-
 	var cameras: Array[Node] = get_tree().get_nodes_in_group(tracked_camera_group)
 
 	for node in cameras:
@@ -200,6 +280,9 @@ func _get_active_camera_rects() -> Array[Rect2]:
 			var camera := node as Camera2D
 
 			if not camera.is_inside_tree():
+				continue
+
+			if not camera.enabled:
 				continue
 
 			rects.append(_get_camera_world_rect(camera))
@@ -223,12 +306,12 @@ func _get_camera_world_rect(camera: Camera2D) -> Rect2:
 	if zoom.y <= 0.0:
 		zoom.y = 1.0
 
-	var world_size := Vector2(
+	var visible_world_size := Vector2(
 		viewport_size.x / zoom.x,
 		viewport_size.y / zoom.y
 	)
 
-	return Rect2(camera.global_position - world_size * 0.5, world_size)
+	return Rect2(camera.global_position - visible_world_size * 0.5, visible_world_size)
 
 
 func _load_chunk(chunk_coord: Vector2i) -> void:
@@ -274,27 +357,22 @@ func _unload_chunk(chunk_coord: Vector2i) -> void:
 
 
 func _set_cell_generated(tile_map: TileMap, local_cell: Vector2i, world_cell: Vector2i) -> void:
-	var noise := FastNoiseLite.new()
-	noise.seed = _seed_value
-	noise.frequency = generation_set.patch_noise_frequency
-
-	var noise_value: float = noise.get_noise_2d(float(world_cell.x), float(world_cell.y))
 	var is_spawn_clear: bool = _is_cell_in_spawn_clear_area(world_cell)
 
-	if not is_spawn_clear and generation_set.has_patch_tiles() and noise_value >= generation_set.patch_noise_cutoff:
-		tile_map.set_cell(
-			GROUND_LAYER,
-			local_cell,
-			generation_set.patch_source_id,
-			_pick_tile(generation_set.patch_tiles, world_cell, 11)
-		)
+	if not is_spawn_clear and generation_set.has_patch_tiles():
+		var noise_value: float = _patch_noise.get_noise_2d(float(world_cell.x), float(world_cell.y))
+
+		if noise_value >= generation_set.patch_noise_cutoff:
+			tile_map.set_cell(
+				GROUND_LAYER,
+				local_cell,
+				generation_set.patch_source_id,
+				_pick_tile(generation_set.patch_tiles, world_cell, 11)
+			)
+		else:
+			_set_ground_cell(tile_map, local_cell, world_cell)
 	else:
-		tile_map.set_cell(
-			GROUND_LAYER,
-			local_cell,
-			generation_set.ground_source_id,
-			_pick_tile(generation_set.ground_tiles, world_cell, 17)
-		)
+		_set_ground_cell(tile_map, local_cell, world_cell)
 
 	if is_spawn_clear:
 		tile_map.set_cell(DETAIL_LAYER, local_cell)
@@ -312,6 +390,15 @@ func _set_cell_generated(tile_map: TileMap, local_cell: Vector2i, world_cell: Ve
 			)
 
 
+func _set_ground_cell(tile_map: TileMap, local_cell: Vector2i, world_cell: Vector2i) -> void:
+	tile_map.set_cell(
+		GROUND_LAYER,
+		local_cell,
+		generation_set.ground_source_id,
+		_pick_tile(generation_set.ground_tiles, world_cell, 17)
+	)
+
+
 func _pick_tile(tiles: Array[Vector2i], world_cell: Vector2i, salt: int) -> Vector2i:
 	if tiles.is_empty():
 		return Vector2i.ZERO
@@ -326,8 +413,15 @@ func _cell_float(world_cell: Vector2i, salt: int) -> float:
 
 
 func _cell_hash(world_cell: Vector2i, salt: int) -> int:
-	var text := "%d|%d|%d|%d" % [_seed_value, world_cell.x, world_cell.y, salt]
-	return abs(hash(text))
+	var h: int = _seed_value
+	h = h ^ (world_cell.x * 73856093)
+	h = h ^ (world_cell.y * 19349663)
+	h = h ^ (salt * 83492791)
+
+	if h < 0:
+		h = -h
+
+	return h
 
 
 func _world_to_cell(world_position: Vector2) -> Vector2i:
@@ -361,14 +455,13 @@ func _chunk_overlaps_world(chunk_coord: Vector2i) -> bool:
 	var chunk_max_world := _cell_to_world(chunk_max_cell)
 
 	var chunk_rect := Rect2(chunk_min_world, chunk_max_world - chunk_min_world)
-	var world_rect := _get_world_rect()
 
-	return chunk_rect.intersects(world_rect)
+	return chunk_rect.intersects(_world_rect)
 
 
 func _cell_inside_world(cell: Vector2i) -> bool:
 	var world_position := _cell_to_world(cell)
-	return _get_world_rect().has_point(world_position)
+	return _world_rect.has_point(world_position)
 
 
 func _get_world_rect() -> Rect2:
@@ -385,28 +478,23 @@ func _create_spawn_markers() -> void:
 	for child in _spawn_points.get_children():
 		child.queue_free()
 
-	var spawn_positions := _get_spawn_positions()
-
-	for i in range(spawn_positions.size()):
+	for i in range(_cached_spawn_positions.size()):
 		var marker := Marker2D.new()
 		marker.name = "TeamSpawn%02d" % (i + 1)
-		marker.global_position = spawn_positions[i]
+		marker.global_position = _cached_spawn_positions[i]
 		_spawn_points.add_child(marker)
 
-		_generated_spawn_positions[i] = spawn_positions[i]
+		_generated_spawn_positions[i] = _cached_spawn_positions[i]
 
 
-func _get_spawn_positions() -> Array[Vector2]:
-	var world_rect := _get_world_rect()
-
-	# Keep spawns far enough from the edge for zoomed-out cameras.
+func _calculate_spawn_positions() -> Array[Vector2]:
 	var safe_margin: float = max(spawn_margin_pixels, 1400.0)
 
-	var left := world_rect.position.x + safe_margin
-	var right := world_rect.position.x + world_rect.size.x - safe_margin
-	var top := world_rect.position.y + safe_margin
-	var bottom := world_rect.position.y + world_rect.size.y - safe_margin
-	var center := world_rect.position + world_rect.size * 0.5
+	var left := _world_rect.position.x + safe_margin
+	var right := _world_rect.position.x + _world_rect.size.x - safe_margin
+	var top := _world_rect.position.y + safe_margin
+	var bottom := _world_rect.position.y + _world_rect.size.y - safe_margin
+	var center := _world_rect.position + _world_rect.size * 0.5
 
 	return [
 		Vector2(left, center.y),       # Team 1
@@ -422,10 +510,22 @@ func _get_spawn_positions() -> Array[Vector2]:
 
 func _is_cell_in_spawn_clear_area(world_cell: Vector2i) -> bool:
 	var cell_world_position := _cell_to_world(world_cell)
-	var spawn_positions := _get_spawn_positions()
+	var radius_squared: float = spawn_clear_radius_pixels * spawn_clear_radius_pixels
 
-	for spawn_position in spawn_positions:
-		if cell_world_position.distance_to(spawn_position) <= spawn_clear_radius_pixels:
+	for spawn_position in _cached_spawn_positions:
+		if cell_world_position.distance_squared_to(spawn_position) <= radius_squared:
 			return true
 
 	return false
+
+
+func _clear_all_chunks() -> void:
+	for chunk_coord in _loaded_chunks.keys():
+		var node: Node = _loaded_chunks[chunk_coord]
+
+		if node != null and is_instance_valid(node):
+			node.queue_free()
+
+	_loaded_chunks.clear()
+	_pending_chunk_builds.clear()
+	_pending_chunk_lookup.clear()
