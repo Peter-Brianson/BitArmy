@@ -12,6 +12,13 @@ extends Node2D
 @export var preview_root: Node2D
 @export var valid_color: Color = Color(0.4, 1.0, 0.4, 0.65)
 @export var invalid_color: Color = Color(1.0, 0.35, 0.35, 0.65)
+@export var preview_z_index: int = 200
+@export var preview_use_nearest_filter: bool = true
+@export var preview_show_footprint_outline: bool = false
+@export var preview_outline_width: float = 2.0
+@export var preview_scale_sprite_to_footprint: bool = false
+
+@export_group("Placement")
 @export var grid_snap_enabled: bool = false
 @export var grid_size: float = 8.0
 @export var placement_padding: float = 8.0
@@ -21,8 +28,9 @@ var placement_owner_team_id: int = -1
 var placement_builder_structure_id: int = -1
 var placement_stats: StructureStats = null
 var placement_scene: PackedScene = null
-
 var preview_instance: Node2D = null
+var preview_sprite: Sprite2D = null
+var preview_outline: Line2D = null
 var preview_is_valid: bool = false
 var preview_world_pos: Vector2 = Vector2.ZERO
 
@@ -91,18 +99,24 @@ func cancel_placement() -> void:
 
 	if preview_instance != null and is_instance_valid(preview_instance):
 		preview_instance.queue_free()
+
 	preview_instance = null
+	preview_sprite = null
+	preview_outline = null
 
 
 func _confirm_placement() -> void:
 	if not is_placing:
 		return
+
 	if placement_stats == null:
 		cancel_placement()
 		return
+
 	if placement_scene == null:
 		cancel_placement()
 		return
+
 	if not preview_is_valid:
 		return
 
@@ -138,16 +152,105 @@ func _create_preview() -> void:
 	if preview_instance != null and is_instance_valid(preview_instance):
 		preview_instance.queue_free()
 
-	var parent_node: Node = preview_root if preview_root != null else self
-	var instance := placement_scene.instantiate() as Node2D
-	if instance == null:
+	preview_sprite = null
+	preview_outline = null
+
+	if placement_stats == null:
 		return
 
-	parent_node.add_child(instance)
-	instance.global_position = preview_world_pos
-	preview_instance = instance
+	var parent_node: Node = preview_root if preview_root != null else self
+
+	var root := Node2D.new()
+	root.name = "StructurePlacementPreview"
+	root.z_index = preview_z_index
+	root.global_position = preview_world_pos
+
+	parent_node.add_child(root)
+	preview_instance = root
+
+	_create_preview_sprite(root)
+	_create_preview_outline(root)
 
 	_apply_preview_tint(valid_color)
+
+
+func _create_preview_sprite(root: Node2D) -> void:
+	if placement_stats == null:
+		return
+
+	var texture_to_use: Texture2D = placement_stats.sprite_normal
+
+	if texture_to_use == null:
+		return
+
+	var sprite := Sprite2D.new()
+	sprite.name = "ShapeSprite"
+	sprite.texture = texture_to_use
+	sprite.centered = true
+	sprite.z_index = 1
+
+	if preview_use_nearest_filter:
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+	if preview_scale_sprite_to_footprint:
+		_apply_sprite_footprint_scale(sprite, texture_to_use)
+
+	root.add_child(sprite)
+	preview_sprite = sprite
+
+
+func _create_preview_outline(root: Node2D) -> void:
+	if not preview_show_footprint_outline:
+		return
+
+	if placement_stats == null:
+		return
+
+	var size: Vector2 = placement_stats.footprint_size
+
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
+
+	var half: Vector2 = size * 0.5
+
+	var outline := Line2D.new()
+	outline.name = "FootprintOutline"
+	outline.width = preview_outline_width
+	outline.closed = true
+	outline.z_index = 0
+	outline.points = PackedVector2Array([
+		Vector2(-half.x, -half.y),
+		Vector2(half.x, -half.y),
+		Vector2(half.x, half.y),
+		Vector2(-half.x, half.y)
+	])
+
+	root.add_child(outline)
+	preview_outline = outline
+
+
+func _apply_sprite_footprint_scale(sprite: Sprite2D, texture: Texture2D) -> void:
+	if placement_stats == null:
+		return
+
+	if texture == null:
+		return
+
+	var texture_size: Vector2 = texture.get_size()
+
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+
+	var target_size: Vector2 = placement_stats.footprint_size
+
+	if target_size.x <= 0.0 or target_size.y <= 0.0:
+		return
+
+	var scale_x: float = target_size.x / texture_size.x
+	var scale_y: float = target_size.y / texture_size.y
+	var uniform_scale: float = min(scale_x, scale_y)
+
+	sprite.scale = Vector2(uniform_scale, uniform_scale)
 
 
 func _update_preview_visual() -> void:
@@ -166,15 +269,12 @@ func _apply_preview_tint(tint: Color) -> void:
 	if preview_instance == null or not is_instance_valid(preview_instance):
 		return
 
-	_apply_tint_recursive(preview_instance, tint)
+	if preview_sprite != null and is_instance_valid(preview_sprite):
+		preview_sprite.modulate = tint
 
-
-func _apply_tint_recursive(node: Node, tint: Color) -> void:
-	if node is CanvasItem:
-		(node as CanvasItem).modulate = tint
-
-	for child in node.get_children():
-		_apply_tint_recursive(child, tint)
+	if preview_outline != null and is_instance_valid(preview_outline):
+		preview_outline.default_color = tint
+		preview_outline.modulate = Color.WHITE
 
 
 func _get_snapped_world_position(world_pos: Vector2) -> Vector2:
@@ -190,6 +290,7 @@ func _get_snapped_world_position(world_pos: Vector2) -> Vector2:
 func _can_place_at(world_pos: Vector2) -> bool:
 	if placement_stats == null:
 		return false
+
 	if structure_manager == null:
 		return false
 
@@ -202,8 +303,10 @@ func _can_place_at(world_pos: Vector2) -> bool:
 
 	for structure in structure_manager.structures.values():
 		var s: StructureRuntime = structure
+
 		if s == null:
 			continue
+
 		if not s.is_alive:
 			continue
 
