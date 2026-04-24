@@ -4,6 +4,7 @@ extends Node
 @export var camera_pan_controller: CameraPanController
 @export var match_controller: MatchController
 @export var selection_controller: SelectionController
+
 @export var primary_player_index: int = 0
 @export var pause_menu_group_name: String = "pause_menu"
 @export var consume_router_transients: bool = true
@@ -17,12 +18,13 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	var player = InputHub.get_player(primary_player_index)
+
 	if player == null:
-		# Still allow direct keyboard pause fallback even if router player lookup fails.
 		_apply_direct_pause_fallback()
 
 		if consume_router_transients:
 			InputHub.begin_frame()
+
 		return
 
 	_apply_camera_inputs(player)
@@ -47,20 +49,31 @@ func _apply_pointer_inputs(player) -> void:
 	if camera_pan_controller == null:
 		return
 
-	if not player.is_keyboard_mouse:
-		camera_pan_controller.set_virtual_pointer_screen(player.pointer_screen)
-
-		if player.primary_just_pressed:
-			camera_pan_controller.emit_virtual_mouse_button(MOUSE_BUTTON_LEFT, true)
-		if player.primary_just_released:
-			camera_pan_controller.emit_virtual_mouse_button(MOUSE_BUTTON_LEFT, false)
-
-		if player.secondary_just_pressed:
-			camera_pan_controller.emit_virtual_mouse_button(MOUSE_BUTTON_RIGHT, true)
-		if player.secondary_just_released:
-			camera_pan_controller.emit_virtual_mouse_button(MOUSE_BUTTON_RIGHT, false)
-	else:
+	if player.is_keyboard_mouse:
 		camera_pan_controller.clear_virtual_pointer_override()
+
+		if selection_controller != null:
+			selection_controller.clear_external_pointer_world()
+
+		return
+
+	camera_pan_controller.set_virtual_pointer_screen(player.pointer_screen)
+
+	var world_pos: Vector2 = camera_pan_controller.screen_to_world(player.pointer_screen)
+
+	if selection_controller == null:
+		return
+
+	selection_controller.set_external_pointer_world(world_pos)
+
+	if player.primary_just_pressed:
+		selection_controller.primary_pointer_pressed(world_pos)
+
+	if player.primary_just_released:
+		selection_controller.primary_pointer_released(world_pos)
+
+	if player.secondary_just_pressed:
+		selection_controller.secondary_pointer_pressed(world_pos)
 
 
 func _apply_pause_input(player) -> void:
@@ -71,18 +84,19 @@ func _apply_pause_input(player) -> void:
 
 
 func _apply_direct_pause_fallback() -> void:
-	# Keyboard fallback for cases where router transients are missed.
 	var pressed_now: bool = Input.is_action_pressed("pause_game")
 
 	if pressed_now and not _direct_pause_latch:
 		_direct_pause_latch = true
 		_toggle_pause_menu()
+
 	elif not pressed_now:
 		_direct_pause_latch = false
 
 
 func _toggle_pause_menu() -> void:
 	var pause_menu := get_tree().get_first_node_in_group(pause_menu_group_name)
+
 	if pause_menu != null and pause_menu.has_method("toggle_pause_menu"):
 		pause_menu.toggle_pause_menu()
 

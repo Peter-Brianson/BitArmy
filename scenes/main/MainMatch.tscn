@@ -1,4 +1,4 @@
-[gd_scene load_steps=35 format=3 uid="uid://cqum0hu0tuqy0"]
+[gd_scene load_steps=36 format=3 uid="uid://cqum0hu0tuqy0"]
 
 [ext_resource type="Script" path="res://scripts/input/CameraPanController.gd" id="1_m2t5q"]
 [ext_resource type="Script" path="res://data/structures/structure_placement_controller.gd" id="2_723eq"]
@@ -28,6 +28,7 @@
 [ext_resource type="Script" path="res://scenes/main/MatchNetController.gd" id="24_0r7dn"]
 [ext_resource type="Resource" uid="uid://bgvvwnr0y8icr" path="res://data/structures/Mage Trainer.tres" id="29_3e5xs"]
 [ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="29_4b20o"]
+[ext_resource type="Script" path="res://scripts/ui/local_split_screen_manager.gd" id="29_gmnus"]
 [ext_resource type="Resource" uid="uid://b8a68r5ldlfj7" path="res://data/structures/Tank Trainer.tres" id="30_a4aip"]
 [ext_resource type="Resource" uid="uid://dx22f8gid4pg1" path="res://data/structures/Credit Relay.tres" id="30_lju2h"]
 [ext_resource type="Resource" uid="uid://jardanqrg5kq" path="res://data/structures/Canine Trainer.tres" id="31_g4nnb"]
@@ -211,6 +212,22 @@ structure_scene_stats = Array[ExtResource("29_4b20o")]([ExtResource("31_t21mw"),
 structure_scene_scenes = Array[PackedScene]([ExtResource("10_jwsqd")])
 
 [node name="UI" type="CanvasLayer" parent="."]
+
+[node name="LocalSplitScreenRoot" type="Control" parent="UI" node_paths=PackedStringArray("main_camera_rig", "original_match_input_bridge", "main_selection_controller", "match_controller", "unit_manager", "structure_manager", "match_net_controller")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("29_gmnus")
+main_camera_rig = NodePath("../../MatchRoot/CameraRig")
+original_match_input_bridge = NodePath("../../MatchRoot/Simulation/MatchInputBridge")
+main_selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")
+match_controller = NodePath("../../MatchRoot/Simulation/MatchController")
+unit_manager = NodePath("../../MatchRoot/Simulation/UnitSimulationManager")
+structure_manager = NodePath("../../MatchRoot/Simulation/StructureSimulationManager")
+match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 
 [node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "match_controller", "match_net_controller", "camera_pan_controller", "structure_placement_controller") instance=ExtResource("15_mksec")]
 selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")
