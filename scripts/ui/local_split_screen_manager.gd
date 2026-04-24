@@ -214,12 +214,15 @@ func _create_view(view_index: int, player) -> void:
 	var camera := Camera2D.new()
 	camera.name = "Camera2D"
 	camera.enabled = true
+	camera.add_to_group("map_cull_camera")
 
 	if main_camera_rig != null and main_camera_rig.camera != null:
 		camera.zoom = main_camera_rig.camera.zoom
 	else:
 		camera.zoom = Vector2.ONE
 
+	camera_rig.camera = camera
+	camera_rig.add_child(camera)
 	camera_rig.camera = camera
 	camera_rig.add_child(camera)
 

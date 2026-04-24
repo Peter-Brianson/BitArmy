@@ -78,6 +78,7 @@ func _load_selected_map() -> void:
 		return
 
 	var map_scene: PackedScene = load(GameSession.selected_map_path) as PackedScene
+
 	if map_scene == null:
 		push_error("MatchController: failed to load selected map: %s" % GameSession.selected_map_path)
 		return
@@ -85,7 +86,11 @@ func _load_selected_map() -> void:
 	current_map_instance = map_scene.instantiate()
 	map_host.add_child(current_map_instance)
 
+	if current_map_instance.has_method("generate_map"):
+		current_map_instance.call("generate_map")
+
 	print("Loaded map: ", GameSession.selected_map_name, " | ", GameSession.selected_map_path)
+
 
 
 func get_alive_runtime_team_count() -> int:
@@ -295,20 +300,45 @@ func get_alliance_team_id_for_runtime_team(runtime_team_id: int) -> int:
 	return runtime_team_id
 
 func _get_spawn_position(session_team_id: int, fallback_index: int) -> Vector2:
-	# Preferred: use the selected team ID as the marker index so team colors / team slots stay stable.
+	var generated_spawn_position: Vector2 = _get_spawn_position_from_current_map(session_team_id, fallback_index)
+
+	if generated_spawn_position != Vector2.INF:
+		return generated_spawn_position
+
 	if session_team_id >= 0 and session_team_id < team_spawn_markers.size():
 		var preferred: Vector2 = _get_spawn_position_from_marker_index(session_team_id)
+
 		if preferred != Vector2.INF:
 			return preferred
 
-	# Fallback: if you only have a small number of spawn markers in-scene, use active-team order.
 	if fallback_index >= 0 and fallback_index < team_spawn_markers.size():
 		var fallback: Vector2 = _get_spawn_position_from_marker_index(fallback_index)
+
 		if fallback != Vector2.INF:
 			return fallback
 
 	return Vector2.ZERO
 
+func _get_spawn_position_from_current_map(session_team_id: int, fallback_index: int) -> Vector2:
+	if current_map_instance == null:
+		return Vector2.INF
+
+	if not is_instance_valid(current_map_instance):
+		return Vector2.INF
+
+	if not current_map_instance.has_method("get_team_spawn_position"):
+		return Vector2.INF
+
+	var result: Variant = current_map_instance.call(
+		"get_team_spawn_position",
+		session_team_id,
+		fallback_index
+	)
+
+	if result is Vector2:
+		return result
+
+	return Vector2.INF
 
 func _get_spawn_position_from_marker_index(index: int) -> Vector2:
 	if index < 0 or index >= team_spawn_markers.size():

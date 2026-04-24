@@ -40,9 +40,11 @@ func _ready() -> void:
 	if camera == null:
 		camera = get_node_or_null("Camera2D")
 
+	if camera != null:
+		camera.add_to_group("map_cull_camera")
+
 	var viewport_size: Vector2 = get_viewport_rect().size
 	_external_pointer_screen = viewport_size * 0.5
-
 	_update_virtual_cursor_visual()
 
 

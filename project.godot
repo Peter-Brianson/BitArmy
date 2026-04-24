@@ -38,6 +38,7 @@ window/size/mode=2
 [global_group]
 
 pause_menu="for pause menu access"
+map_cull_camera="sets this camera as a culling camera"
 
 [gui]
 

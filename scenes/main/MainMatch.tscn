@@ -48,7 +48,7 @@ script = ExtResource("1_m2t5q")
 camera = NodePath("Camera2D")
 virtual_cursor_visual = NodePath("VirtualCursor")
 
-[node name="Camera2D" type="Camera2D" parent="MatchRoot/CameraRig"]
+[node name="Camera2D" type="Camera2D" parent="MatchRoot/CameraRig" groups=["map_cull_camera"]]
 limit_left = -10000
 limit_top = -10000
 limit_right = 100000
