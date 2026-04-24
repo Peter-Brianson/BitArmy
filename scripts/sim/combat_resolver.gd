@@ -3,6 +3,7 @@ extends Node
 
 @export var team_manager: TeamManager
 @export var unit_manager: UnitSimulationManager
+@export var match_net_controller: MatchNetController
 @export var structure_manager: StructureSimulationManager
 @export var default_attack_windup: float = 0.10
 
@@ -258,12 +259,16 @@ func _land_attack(attacker: UnitRuntime) -> void:
 			return
 
 		unit_manager.notify_attack_flash(attacker.id)
+		if match_net_controller != null:
+			match_net_controller.broadcast_unit_attack_flash(attacker.id)
 		AudioHub.play_unit_shoot(attacker.position, get_tree().current_scene)
 
 		var impact_position: Vector2 = unit_target.position
 		var unit_damage: int = _get_final_damage_vs_unit(attacker, unit_target)
 		unit_target.apply_damage(unit_damage)
 		unit_manager.notify_hit_flash(unit_target.id)
+		if match_net_controller != null:
+			match_net_controller.broadcast_unit_hit_flash(unit_target.id)
 
 		if attacker.stats.damage_type == UnitStats.DamageType.EXPLOSIVE:
 			_spawn_explosive_fx(attacker, impact_position)
@@ -283,12 +288,16 @@ func _land_attack(attacker: UnitRuntime) -> void:
 			return
 
 		unit_manager.notify_attack_flash(attacker.id)
+		if match_net_controller != null:
+			match_net_controller.broadcast_unit_attack_flash(attacker.id)
 		AudioHub.play_unit_shoot(attacker.position, get_tree().current_scene)
 
 		var impact_position: Vector2 = _get_structure_contact_point(attacker, structure_target)
 		var structure_damage: int = _get_final_damage_vs_structure(attacker, structure_target)
 		structure_target.apply_damage(structure_damage)
 		structure_manager.notify_hit_flash(structure_target.id)
+		if match_net_controller != null:
+			match_net_controller.broadcast_structure_hit_flash(structure_target.id)
 
 		if attacker.stats.damage_type == UnitStats.DamageType.EXPLOSIVE:
 			_spawn_explosive_fx(attacker, impact_position)
@@ -318,7 +327,8 @@ func _apply_aoe_splash(attacker: UnitRuntime, impact_position: Vector2, skip_uni
 			var splash_damage: int = _get_final_damage_vs_unit(attacker, target)
 			target.apply_damage(splash_damage)
 			unit_manager.notify_hit_flash(target.id)
-
+			if match_net_controller != null:
+				match_net_controller.broadcast_unit_hit_flash(target.id)
 	if unit_manager != null and structure_manager != null:
 		var nearby_structure_ids: Array[int] = unit_manager.spatial_hash.query_structure_ids_in_radius(impact_position, radius)
 		for structure_id: int in nearby_structure_ids:
@@ -334,6 +344,8 @@ func _apply_aoe_splash(attacker: UnitRuntime, impact_position: Vector2, skip_uni
 			var splash_structure_damage: int = _get_final_damage_vs_structure(attacker, structure_target)
 			structure_target.apply_damage(splash_structure_damage)
 			structure_manager.notify_hit_flash(structure_target.id)
+			if match_net_controller != null:
+				match_net_controller.broadcast_structure_hit_flash(structure_target.id)
 
 
 func _get_final_damage_vs_unit(attacker: UnitRuntime, target: UnitRuntime) -> int:

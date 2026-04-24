@@ -27,12 +27,15 @@ var webrtc_room_code: String = "default"
 var lobby_team_count: int = 2
 var lobby_map_path: String = ""
 var lobby_map_name: String = "No Map"
-var lobby_starting_credits: int = 10
+var lobby_starting_credits: int = 100
 var lobby_income_per_second: float = 1.0
 var lobby_seats: Array[Dictionary] = []
 
+
+
 var _webrtc_multiplayer_peer: WebRTCMultiplayerPeer = null
 var _webrtc_connections: Dictionary = {}
+var _webrtc_data_channels: Dictionary = {}
 var _signaling_socket: WebSocketPeer = null
 var _signaling_join_sent: bool = false
 var _webrtc_local_peer_id: int = 1
@@ -300,7 +303,15 @@ func _ensure_webrtc_connection(remote_peer_id: int) -> WebRTCPeerConnection:
 		return null
 
 	var connection := WebRTCPeerConnection.new()
-	var err: Error = connection.initialize({})
+	var err: Error = connection.initialize({
+		"iceServers": [
+			{
+				"urls": [
+					"stun:stun.l.google.com:19302"
+				]
+			}
+		]
+	})
 	if err != OK:
 		return null
 
@@ -311,13 +322,30 @@ func _ensure_webrtc_connection(remote_peer_id: int) -> WebRTCPeerConnection:
 		Callable(self, "_on_webrtc_ice_candidate_created").bind(remote_peer_id)
 	)
 
+	connection.data_channel_received.connect(
+		Callable(self, "_on_webrtc_data_channel_received").bind(remote_peer_id)
+	)
+
 	err = _webrtc_multiplayer_peer.add_peer(connection, remote_peer_id)
 	if err != OK:
 		connection.close()
 		return null
 
+	# Important: the side creating the offer must create a data channel first.
+	# The remote side will receive it through data_channel_received.
+	if is_host:
+		var channel: WebRTCDataChannel = connection.create_data_channel("game")
+		if channel == null:
+			connection.close()
+			return null
+
+		_webrtc_data_channels[remote_peer_id] = channel
+
 	_webrtc_connections[remote_peer_id] = connection
 	return connection
+
+func _on_webrtc_data_channel_received(channel: WebRTCDataChannel, remote_peer_id: int) -> void:
+	_webrtc_data_channels[remote_peer_id] = channel
 
 
 func _on_webrtc_session_description_created(type: String, sdp: String, remote_peer_id: int) -> void:
@@ -336,14 +364,14 @@ func _on_webrtc_session_description_created(type: String, sdp: String, remote_pe
 	})
 
 
-func _on_webrtc_ice_candidate_created(media: String, index: int, name: String, remote_peer_id: int) -> void:
+func _on_webrtc_ice_candidate_created(media: String, index: int, _name: String, remote_peer_id: int) -> void:
 	_send_signaling_message({
 		"type": "ice",
 		"from": _webrtc_local_peer_id,
 		"to": remote_peer_id,
 		"media": media,
 		"index": index,
-		"name": name
+		"name": _name
 	})
 
 
@@ -467,6 +495,7 @@ func _close_existing_peer() -> void:
 		if connection != null:
 			connection.close()
 	_webrtc_connections.clear()
+	_webrtc_data_channels.clear()
 	_webrtc_multiplayer_peer = null
 
 	if multiplayer.multiplayer_peer != null:
@@ -484,7 +513,7 @@ func _reset_local_lobby() -> void:
 	lobby_team_count = 2
 	lobby_map_path = ""
 	lobby_map_name = "No Map"
-	lobby_starting_credits = 10
+	lobby_starting_credits = 100
 	lobby_income_per_second = 1.0
 	lobby_seats.clear()
 
@@ -640,7 +669,7 @@ func _deserialize_lobby_state(state: Dictionary) -> void:
 	lobby_team_count = int(state.get("team_count", 2))
 	lobby_map_path = str(state.get("map_path", ""))
 	lobby_map_name = str(state.get("map_name", "No Map"))
-	lobby_starting_credits = int(state.get("starting_credits", 10))
+	lobby_starting_credits = int(state.get("starting_credits", 100))
 	lobby_income_per_second = float(state.get("income_per_second", 1.0))
 	lobby_seats = state.get("seats", []).duplicate(true)
 

@@ -10,7 +10,7 @@ extends Node
 @export var ai_team_manager: AITeamManager
 
 @export_group("Snapshot")
-@export var snapshot_interval: float = 0.10
+@export var snapshot_interval: float = 0.033
 
 @export_group("Structure Scene Registry")
 @export var structure_scene_stats: Array[StructureStats] = []
@@ -585,6 +585,60 @@ func _apply_remote_match_end(winner_team_id: int) -> void:
 			match_controller.match_end_controller.show_match_end(winner_name, winner_color)
 
 
+func broadcast_unit_attack_flash(unit_id: int) -> void:
+	if not online_enabled:
+		return
+	if not is_host_authority:
+		return
+
+	client_unit_attack_flash.rpc(unit_id)
+
+
+func broadcast_unit_hit_flash(unit_id: int) -> void:
+	if not online_enabled:
+		return
+	if not is_host_authority:
+		return
+
+	client_unit_hit_flash.rpc(unit_id)
+
+
+func broadcast_unit_death_flash(unit_id: int) -> void:
+	if not online_enabled:
+		return
+	if not is_host_authority:
+		return
+
+	client_unit_death_flash.rpc(unit_id)
+
+
+func broadcast_structure_attack_flash(structure_id: int) -> void:
+	if not online_enabled:
+		return
+	if not is_host_authority:
+		return
+
+	client_structure_attack_flash.rpc(structure_id)
+
+
+func broadcast_structure_hit_flash(structure_id: int) -> void:
+	if not online_enabled:
+		return
+	if not is_host_authority:
+		return
+
+	client_structure_hit_flash.rpc(structure_id)
+
+
+func broadcast_structure_death_flash(structure_id: int) -> void:
+	if not online_enabled:
+		return
+	if not is_host_authority:
+		return
+
+	client_structure_death_flash.rpc(structure_id)
+
+
 func request_move_units(unit_ids: Array[int], target_position: Vector2) -> void:
 	if not online_enabled or is_host_authority:
 		if unit_manager != null:
@@ -842,6 +896,54 @@ func client_apply_snapshot(snapshot: Dictionary) -> void:
 
 	if bool(snapshot.get("match_over", false)):
 		_apply_remote_match_end(int(snapshot.get("winner_team_id", -1)))
+
+
+@rpc("authority", "call_remote", "unreliable")
+func client_unit_attack_flash(unit_id: int) -> void:
+	if is_host_authority:
+		return
+	if unit_manager != null:
+		unit_manager.notify_attack_flash(unit_id)
+
+
+@rpc("authority", "call_remote", "unreliable")
+func client_unit_hit_flash(unit_id: int) -> void:
+	if is_host_authority:
+		return
+	if unit_manager != null:
+		unit_manager.notify_hit_flash(unit_id)
+
+
+@rpc("authority", "call_remote", "unreliable")
+func client_unit_death_flash(unit_id: int) -> void:
+	if is_host_authority:
+		return
+	if unit_manager != null:
+		unit_manager.notify_death_flash(unit_id)
+
+
+@rpc("authority", "call_remote", "unreliable")
+func client_structure_attack_flash(structure_id: int) -> void:
+	if is_host_authority:
+		return
+	if structure_manager != null:
+		structure_manager.notify_attack_flash(structure_id)
+
+
+@rpc("authority", "call_remote", "unreliable")
+func client_structure_hit_flash(structure_id: int) -> void:
+	if is_host_authority:
+		return
+	if structure_manager != null:
+		structure_manager.notify_hit_flash(structure_id)
+
+
+@rpc("authority", "call_remote", "unreliable")
+func client_structure_death_flash(structure_id: int) -> void:
+	if is_host_authority:
+		return
+	if structure_manager != null:
+		structure_manager.notify_death_flash(structure_id)
 
 
 @rpc("authority", "call_remote", "reliable")

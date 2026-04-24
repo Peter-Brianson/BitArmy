@@ -3,6 +3,7 @@ extends Node
 
 @export var structure_root: Node2D
 @export var default_structure_scene: PackedScene
+@export var match_net_controller: MatchNetController
 @export var unit_manager: UnitSimulationManager
 @export var camera_pan_controller: CameraPanController
 @export var cull_margin: float = 192.0
@@ -251,6 +252,16 @@ func _update_structure_combat(structure: StructureRuntime, delta: float) -> void
 		target.apply_damage(structure.get_attack_damage())
 		structure.attack_has_landed = true
 
+		notify_attack_flash(structure.id)
+		if match_net_controller != null:
+			match_net_controller.broadcast_structure_attack_flash(structure.id)
+
+		unit_manager.notify_hit_flash(target.id)
+		if match_net_controller != null:
+			match_net_controller.broadcast_unit_hit_flash(target.id)
+
+		if AudioHub != null:
+			AudioHub.play_unit_shoot(structure.position, self)
 		notify_attack_flash(structure.id)
 		unit_manager.notify_hit_flash(target.id)
 

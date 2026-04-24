@@ -175,19 +175,21 @@ structure_manager = NodePath("../StructureSimulationManager")
 camera_pan_controller = NodePath("../../CameraRig")
 team_manager = NodePath("../TeamManager")
 
-[node name="StructureSimulationManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("structure_root", "unit_manager", "camera_pan_controller", "team_manager", "ai_team_manager")]
+[node name="StructureSimulationManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("structure_root", "match_net_controller", "unit_manager", "camera_pan_controller", "team_manager", "ai_team_manager")]
 script = ExtResource("12_e1kf6")
 structure_root = NodePath("../../World/StructureRoot")
 default_structure_scene = ExtResource("10_jwsqd")
+match_net_controller = NodePath("../MatchNetController")
 unit_manager = NodePath("../UnitSimulationManager")
 camera_pan_controller = NodePath("../../CameraRig")
 team_manager = NodePath("../TeamManager")
 ai_team_manager = NodePath("../AITeamManager")
 
-[node name="CombatResolver" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager", "unit_manager", "structure_manager")]
+[node name="CombatResolver" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager", "unit_manager", "match_net_controller", "structure_manager")]
 script = ExtResource("13_t2dt4")
 team_manager = NodePath("../TeamManager")
 unit_manager = NodePath("../UnitSimulationManager")
+match_net_controller = NodePath("../MatchNetController")
 structure_manager = NodePath("../StructureSimulationManager")
 
 [node name="MatchInputBridge" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("camera_pan_controller", "match_controller", "selection_controller")]
