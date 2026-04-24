@@ -233,8 +233,12 @@ func _build_match_from_game_session() -> void:
 
 	if game_manager != null:
 		game_manager.configure_from_game_session(active_runtime_team_ids)
-
+		
 	_center_camera_on_local_hq()
+
+	if current_map_instance != null and current_map_instance.has_method("refresh_visible_chunks"):
+		current_map_instance.call_deferred("refresh_visible_chunks")
+
 	_print_match_summary()
 
 

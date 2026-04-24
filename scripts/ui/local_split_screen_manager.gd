@@ -223,8 +223,6 @@ func _create_view(view_index: int, player) -> void:
 
 	camera_rig.camera = camera
 	camera_rig.add_child(camera)
-	camera_rig.camera = camera
-	camera_rig.add_child(camera)
 
 	var cursor := TextureRect.new()
 	cursor.name = "VirtualCursor"

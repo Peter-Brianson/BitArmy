@@ -11,7 +11,7 @@ const MAX_TEAM_SPAWNS := 8
 @export_group("World Size")
 @export var world_size_pixels: Vector2 = Vector2(10000.0, 10000.0)
 @export var chunk_size_tiles: int = 32
-@export var spawn_margin_pixels: float = 900.0
+@export var spawn_margin_pixels: float = 1400.0
 @export var spawn_clear_radius_pixels: float = 280.0
 
 @export_group("Seed")
@@ -102,9 +102,16 @@ func get_team_spawn_position(team_id: int, fallback_index: int = -1) -> Vector2:
 
 	if fallback_index >= 0 and _generated_spawn_positions.has(fallback_index):
 		return _generated_spawn_positions[fallback_index]
+	
+	
 
 	return Vector2.INF
 
+func refresh_visible_chunks() -> void:
+	if not _has_setup:
+		return
+
+	_update_visible_chunks()
 
 func _resolve_nodes() -> void:
 	_chunks_root = get_node_or_null(chunks_root_path) as Node2D
@@ -392,10 +399,13 @@ func _create_spawn_markers() -> void:
 func _get_spawn_positions() -> Array[Vector2]:
 	var world_rect := _get_world_rect()
 
-	var left := world_rect.position.x + spawn_margin_pixels
-	var right := world_rect.position.x + world_rect.size.x - spawn_margin_pixels
-	var top := world_rect.position.y + spawn_margin_pixels
-	var bottom := world_rect.position.y + world_rect.size.y - spawn_margin_pixels
+	# Keep spawns far enough from the edge for zoomed-out cameras.
+	var safe_margin: float = max(spawn_margin_pixels, 1400.0)
+
+	var left := world_rect.position.x + safe_margin
+	var right := world_rect.position.x + world_rect.size.x - safe_margin
+	var top := world_rect.position.y + safe_margin
+	var bottom := world_rect.position.y + world_rect.size.y - safe_margin
 	var center := world_rect.position + world_rect.size * 0.5
 
 	return [

@@ -7,4 +7,4 @@ texture = ExtResource("1_vfxmv")
 0:0/0 = 0
 
 [resource]
-sources/2 = SubResource("TileSetAtlasSource_v37ov")
+sources/0 = SubResource("TileSetAtlasSource_v37ov")

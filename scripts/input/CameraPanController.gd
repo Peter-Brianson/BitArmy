@@ -147,9 +147,17 @@ func screen_to_world(screen_pos: Vector2) -> Vector2:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var screen_delta: Vector2 = screen_pos - viewport_size * 0.5
 
+	var safe_zoom: Vector2 = camera.zoom
+
+	if safe_zoom.x <= 0.0:
+		safe_zoom.x = 1.0
+
+	if safe_zoom.y <= 0.0:
+		safe_zoom.y = 1.0
+
 	return camera.global_position + Vector2(
-		screen_delta.x * camera.zoom.x,
-		screen_delta.y * camera.zoom.y
+		screen_delta.x / safe_zoom.x,
+		screen_delta.y / safe_zoom.y
 	)
 
 
@@ -226,16 +234,32 @@ func _get_clamped_camera_position(target_pos: Vector2, viewport_size: Vector2) -
 	if camera == null:
 		return target_pos
 
-	var half_extents: Vector2 = viewport_size * 0.5 * camera.zoom
+	var safe_zoom: Vector2 = camera.zoom
+
+	if safe_zoom.x <= 0.0:
+		safe_zoom.x = 1.0
+
+	if safe_zoom.y <= 0.0:
+		safe_zoom.y = 1.0
+
+	# Camera2D visible world gets larger when zoom is smaller.
+	var half_extents := Vector2(
+		(viewport_size.x / safe_zoom.x) * 0.5,
+		(viewport_size.y / safe_zoom.y) * 0.5
+	)
 
 	var min_pos := world_rect.position + half_extents
 	var max_pos := world_rect.position + world_rect.size - half_extents
 
 	if max_pos.x < min_pos.x:
-		max_pos.x = min_pos.x
+		var center_x: float = world_rect.position.x + world_rect.size.x * 0.5
+		min_pos.x = center_x
+		max_pos.x = center_x
 
 	if max_pos.y < min_pos.y:
-		max_pos.y = min_pos.y
+		var center_y: float = world_rect.position.y + world_rect.size.y * 0.5
+		min_pos.y = center_y
+		max_pos.y = center_y
 
 	return Vector2(
 		clamp(target_pos.x, min_pos.x, max_pos.x),
