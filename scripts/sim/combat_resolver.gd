@@ -65,6 +65,7 @@ func process_unit_attack(attacker: UnitRuntime, delta: float) -> void:
 func try_find_target_for_unit(attacker: UnitRuntime) -> bool:
 	if attacker == null or not attacker.is_alive:
 		return false
+
 	if unit_manager == null:
 		return false
 
@@ -100,8 +101,9 @@ func try_find_target_for_unit(attacker: UnitRuntime) -> bool:
 			if not _is_valid_structure_target(attacker, target):
 				continue
 
-			var dist_sq: float = attacker.position.distance_squared_to(target.position)
-			if dist_sq < best_distance_sq:
+			var dist_sq: float = _get_structure_target_distance_sq(attacker, target)
+
+			if dist_sq <= search_radius * search_radius and dist_sq < best_distance_sq:
 				best_distance_sq = dist_sq
 				best_unit_id = -1
 				best_structure_id = target.id
@@ -110,6 +112,22 @@ func try_find_target_for_unit(attacker: UnitRuntime) -> bool:
 	attacker.target_structure_id = best_structure_id
 	return attacker.has_valid_target()
 
+func _get_structure_target_distance_sq(attacker: UnitRuntime, structure_target: StructureRuntime) -> float:
+	var padded_rect: Rect2 = _get_structure_padded_rect(attacker, structure_target)
+
+	var clamped_x: float = clamp(
+		attacker.position.x,
+		padded_rect.position.x,
+		padded_rect.position.x + padded_rect.size.x
+	)
+	var clamped_y: float = clamp(
+		attacker.position.y,
+		padded_rect.position.y,
+		padded_rect.position.y + padded_rect.size.y
+	)
+
+	var nearest_point := Vector2(clamped_x, clamped_y)
+	return attacker.position.distance_squared_to(nearest_point)
 
 func validate_or_refresh_target(attacker: UnitRuntime) -> bool:
 	if _validate_current_target(attacker):

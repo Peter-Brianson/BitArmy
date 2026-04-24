@@ -14,7 +14,7 @@ extends Node
 
 @export_group("Broadphase")
 @export var spatial_hash_cell_size: float = 128.0
-@export var retarget_interval: float = 0.20
+@export var retarget_interval: float = 0.08
 
 @export_group("Formation")
 @export var formation_spacing: float = 18.0
