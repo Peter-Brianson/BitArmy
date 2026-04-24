@@ -19,6 +19,7 @@ extends Node2D
 @export_group("Virtual Cursor")
 @export var enable_virtual_cursor: bool = true
 @export var virtual_cursor_visual: Control
+@export var warp_os_mouse_for_virtual_pointer: bool = true
 
 var external_camera_pan: Vector2 = Vector2.ZERO
 var external_zoom_delta: float = 0.0
@@ -27,10 +28,11 @@ var _external_pointer_screen: Vector2 = Vector2.ZERO
 var _has_external_pointer: bool = false
 
 var suppress_mouse_camera_input: bool = false
-
 var _queued_mouse_wheel_zoom: float = 0.0
+
 var ui_mouse_block_rect: Rect2 = Rect2()
 var use_ui_mouse_block_rect: bool = false
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -49,14 +51,17 @@ func _process(delta: float) -> void:
 	var screen_pointer: Vector2 = _get_active_screen_pointer(viewport_size)
 
 	var mouse_edge_pan: Vector2 = Vector2.ZERO
+
 	if not suppress_mouse_camera_input and not is_mouse_over_blocked_ui():
 		mouse_edge_pan = _get_edge_pan_vector(screen_pointer, viewport_size)
 
 	var pan_dir: Vector2 = external_camera_pan + _get_keyboard_pan_vector() + mouse_edge_pan
+
 	if pan_dir.length_squared() > 1.0:
 		pan_dir = pan_dir.normalized()
 
 	var speed: float = max(edge_scroll_speed, keyboard_scroll_speed)
+
 	position += pan_dir * speed * delta
 	position = _get_clamped_camera_position(position, viewport_size)
 
@@ -65,6 +70,7 @@ func _process(delta: float) -> void:
 
 	external_camera_pan = Vector2.ZERO
 	external_zoom_delta = 0.0
+
 
 func set_ui_mouse_block_rect(rect: Rect2) -> void:
 	ui_mouse_block_rect = rect
@@ -83,6 +89,7 @@ func is_mouse_over_blocked_ui() -> bool:
 	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
 	return ui_mouse_block_rect.has_point(mouse_pos)
 
+
 func _unhandled_input(event: InputEvent) -> void:
 	if suppress_mouse_camera_input or is_mouse_over_blocked_ui():
 		return
@@ -91,9 +98,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_queued_mouse_wheel_zoom += 1.0
 			get_viewport().set_input_as_handled()
+
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_queued_mouse_wheel_zoom -= 1.0
 			get_viewport().set_input_as_handled()
+
 
 func set_virtual_pointer_screen(screen_pos: Vector2) -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
@@ -101,9 +110,12 @@ func set_virtual_pointer_screen(screen_pos: Vector2) -> void:
 	_external_pointer_screen = screen_pos
 	_external_pointer_screen.x = clamp(_external_pointer_screen.x, 0.0, viewport_size.x)
 	_external_pointer_screen.y = clamp(_external_pointer_screen.y, 0.0, viewport_size.y)
+
 	_has_external_pointer = true
 
-	Input.warp_mouse(_external_pointer_screen)
+	if warp_os_mouse_for_virtual_pointer:
+		Input.warp_mouse(_external_pointer_screen)
+
 	_update_virtual_cursor_visual()
 
 
@@ -118,7 +130,25 @@ func emit_virtual_mouse_button(button_index: int, pressed: bool) -> void:
 	ev.pressed = pressed
 	ev.position = _external_pointer_screen
 	ev.global_position = _external_pointer_screen
+
 	Input.parse_input_event(ev)
+
+
+func center_on_world(world_pos: Vector2) -> void:
+	position = _get_clamped_camera_position(world_pos, get_viewport_rect().size)
+
+
+func screen_to_world(screen_pos: Vector2) -> Vector2:
+	if camera == null:
+		return global_position
+
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var screen_delta: Vector2 = screen_pos - viewport_size * 0.5
+
+	return camera.global_position + Vector2(
+		screen_delta.x * camera.zoom.x,
+		screen_delta.y * camera.zoom.y
+	)
 
 
 func _apply_zoom() -> void:
@@ -126,7 +156,6 @@ func _apply_zoom() -> void:
 		return
 
 	var block_mouse_zoom: bool = suppress_mouse_camera_input or is_mouse_over_blocked_ui()
-
 	var zoom_delta: float = external_zoom_delta
 
 	if not block_mouse_zoom:
@@ -134,6 +163,7 @@ func _apply_zoom() -> void:
 
 	if Input.is_action_just_pressed("zoom_in"):
 		zoom_delta += 1.0
+
 	if Input.is_action_just_pressed("zoom_out"):
 		zoom_delta -= 1.0
 
@@ -145,8 +175,8 @@ func _apply_zoom() -> void:
 	var new_zoom := camera.zoom + Vector2.ONE * (-zoom_delta * zoom_step)
 	new_zoom.x = clamp(new_zoom.x, min_zoom, max_zoom)
 	new_zoom.y = clamp(new_zoom.y, min_zoom, max_zoom)
-	camera.zoom = new_zoom
 
+	camera.zoom = new_zoom
 
 
 func _get_active_screen_pointer(viewport_size: Vector2) -> Vector2:
@@ -156,6 +186,7 @@ func _get_active_screen_pointer(viewport_size: Vector2) -> Vector2:
 	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
 	mouse_pos.x = clamp(mouse_pos.x, 0.0, viewport_size.x)
 	mouse_pos.y = clamp(mouse_pos.y, 0.0, viewport_size.y)
+
 	return mouse_pos
 
 
@@ -198,6 +229,7 @@ func _get_clamped_camera_position(target_pos: Vector2, viewport_size: Vector2) -
 
 	if max_pos.x < min_pos.x:
 		max_pos.x = min_pos.x
+
 	if max_pos.y < min_pos.y:
 		max_pos.y = min_pos.y
 

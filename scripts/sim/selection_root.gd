@@ -19,10 +19,13 @@ var is_drag_selecting: bool = false
 var drag_start_world: Vector2 = Vector2.ZERO
 var drag_current_world: Vector2 = Vector2.ZERO
 
+var use_external_pointer_world: bool = false
+var external_pointer_world: Vector2 = Vector2.ZERO
+
 
 func _process(_delta: float) -> void:
 	if is_left_dragging:
-		drag_current_world = get_global_mouse_position()
+		drag_current_world = get_pointer_world()
 
 		if not is_drag_selecting and drag_start_world.distance_to(drag_current_world) >= drag_threshold:
 			is_drag_selecting = true
@@ -41,9 +44,73 @@ func _draw() -> void:
 	draw_rect(rect_local, drag_outline_color, false, 2.0)
 
 
+func set_external_pointer_world(world_pos: Vector2) -> void:
+	use_external_pointer_world = true
+	external_pointer_world = world_pos
+
+
+func clear_external_pointer_world() -> void:
+	use_external_pointer_world = false
+
+
+func get_pointer_world() -> Vector2:
+	if use_external_pointer_world:
+		return external_pointer_world
+
+	return get_global_mouse_position()
+
+
+func primary_pointer_pressed(world_pos: Vector2) -> void:
+	set_external_pointer_world(world_pos)
+
+	is_left_dragging = true
+	is_drag_selecting = false
+	drag_start_world = world_pos
+	drag_current_world = world_pos
+
+	queue_redraw()
+
+
+func primary_pointer_released(world_pos: Vector2) -> void:
+	set_external_pointer_world(world_pos)
+
+	drag_current_world = world_pos
+
+	if is_drag_selecting:
+		_finish_drag_selection()
+	else:
+		_select_at(world_pos)
+
+	is_left_dragging = false
+	is_drag_selecting = false
+
+	queue_redraw()
+
+
+func secondary_pointer_pressed(world_pos: Vector2) -> void:
+	set_external_pointer_world(world_pos)
+
+	if not selected_unit_ids.is_empty():
+		_issue_context_command(world_pos)
+		return
+
+	if selected_structure_id != -1:
+		_issue_structure_rally_command(world_pos)
+		return
+
+
+func clear_selection() -> void:
+	selected_unit_ids.clear()
+	selected_structure_id = -1
+	is_left_dragging = false
+	is_drag_selecting = false
+	queue_redraw()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		_handle_mouse_button(event)
+
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.is_action_pressed("select_all_units"):
 			select_all_player_units()
@@ -55,10 +122,10 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 		if event.pressed:
 			is_left_dragging = true
 			is_drag_selecting = false
-			drag_start_world = get_global_mouse_position()
+			drag_start_world = get_pointer_world()
 			drag_current_world = drag_start_world
 		else:
-			var release_world: Vector2 = get_global_mouse_position()
+			var release_world: Vector2 = get_pointer_world()
 
 			if is_drag_selecting:
 				_finish_drag_selection()
@@ -67,10 +134,11 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 
 			is_left_dragging = false
 			is_drag_selecting = false
-			queue_redraw()
+
+		queue_redraw()
 
 	elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-		var world_target: Vector2 = get_global_mouse_position()
+		var world_target: Vector2 = get_pointer_world()
 
 		if not selected_unit_ids.is_empty():
 			_issue_context_command(world_target)
@@ -94,18 +162,23 @@ func _finish_drag_selection() -> void:
 
 	for unit in unit_manager.units.values():
 		var u: UnitRuntime = unit
+
 		if u == null:
 			continue
+
 		if not u.is_alive:
 			continue
+
 		if u.owner_team_id != player_team_id:
 			continue
+
 		if rect.has_point(u.position):
 			selected_unit_ids.append(u.id)
 
 
 func _select_at(world_pos: Vector2) -> void:
 	var own_unit_id: int = _find_own_unit_at(world_pos)
+
 	if own_unit_id != -1:
 		selected_structure_id = -1
 		selected_unit_ids.clear()
@@ -113,6 +186,7 @@ func _select_at(world_pos: Vector2) -> void:
 		return
 
 	var own_structure_id: int = _find_own_structure_at(world_pos)
+
 	if own_structure_id != -1:
 		selected_unit_ids.clear()
 		selected_structure_id = own_structure_id
@@ -132,6 +206,7 @@ func _issue_context_command(world_pos: Vector2) -> void:
 	match str(target_info.get("kind", "")):
 		"enemy_unit":
 			var target_unit_id: int = int(target_info.get("id", -1))
+
 			if _should_use_network_commands():
 				match_net_controller.request_attack_unit(selected_unit_ids, target_unit_id)
 			else:
@@ -139,6 +214,7 @@ func _issue_context_command(world_pos: Vector2) -> void:
 
 		"enemy_structure":
 			var target_structure_id: int = int(target_info.get("id", -1))
+
 			if _should_use_network_commands():
 				match_net_controller.request_attack_structure(selected_unit_ids, target_structure_id)
 			else:
@@ -160,6 +236,7 @@ func _issue_context_command(world_pos: Vector2) -> void:
 func _issue_structure_rally_command(world_pos: Vector2) -> void:
 	if selected_structure_id == -1:
 		return
+
 	if structure_manager == null:
 		return
 
@@ -168,8 +245,10 @@ func _issue_structure_rally_command(world_pos: Vector2) -> void:
 		return
 
 	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+
 	if structure == null:
 		return
+
 	if not structure.is_alive:
 		return
 
@@ -178,6 +257,7 @@ func _issue_structure_rally_command(world_pos: Vector2) -> void:
 
 func _resolve_right_click_target(world_pos: Vector2) -> Dictionary:
 	var enemy_unit_id: int = _find_enemy_unit_at(world_pos)
+
 	if enemy_unit_id != -1:
 		return {
 			"kind": "enemy_unit",
@@ -185,6 +265,7 @@ func _resolve_right_click_target(world_pos: Vector2) -> Dictionary:
 		}
 
 	var enemy_structure_id: int = _find_enemy_structure_at(world_pos)
+
 	if enemy_structure_id != -1:
 		return {
 			"kind": "enemy_structure",
@@ -206,10 +287,13 @@ func _find_own_unit_at(world_pos: Vector2) -> int:
 
 	for unit in unit_manager.units.values():
 		var u: UnitRuntime = unit
+
 		if u == null:
 			continue
+
 		if not u.is_alive:
 			continue
+
 		if u.owner_team_id != player_team_id:
 			continue
 
@@ -232,10 +316,13 @@ func _find_enemy_unit_at(world_pos: Vector2) -> int:
 
 	for unit in unit_manager.units.values():
 		var u: UnitRuntime = unit
+
 		if u == null:
 			continue
+
 		if not u.is_alive:
 			continue
+
 		if u.owner_team_id == player_team_id:
 			continue
 
@@ -258,10 +345,13 @@ func _find_own_structure_at(world_pos: Vector2) -> int:
 
 	for structure in structure_manager.structures.values():
 		var s: StructureRuntime = structure
+
 		if s == null:
 			continue
+
 		if not s.is_alive:
 			continue
+
 		if s.owner_team_id != player_team_id:
 			continue
 
@@ -270,6 +360,7 @@ func _find_own_structure_at(world_pos: Vector2) -> int:
 
 		if rect.has_point(world_pos):
 			var dist_sq: float = world_pos.distance_squared_to(s.position)
+
 			if dist_sq < best_dist_sq:
 				best_dist_sq = dist_sq
 				best_id = s.id
@@ -286,10 +377,13 @@ func _find_enemy_structure_at(world_pos: Vector2) -> int:
 
 	for structure in structure_manager.structures.values():
 		var s: StructureRuntime = structure
+
 		if s == null:
 			continue
+
 		if not s.is_alive:
 			continue
+
 		if s.owner_team_id == player_team_id:
 			continue
 
@@ -298,6 +392,7 @@ func _find_enemy_structure_at(world_pos: Vector2) -> int:
 
 		if rect.has_point(world_pos):
 			var dist_sq: float = world_pos.distance_squared_to(s.position)
+
 			if dist_sq < best_dist_sq:
 				best_dist_sq = dist_sq
 				best_id = s.id
@@ -314,10 +409,13 @@ func select_all_player_units() -> void:
 
 	for unit in unit_manager.units.values():
 		var u: UnitRuntime = unit
+
 		if u == null:
 			continue
+
 		if not u.is_alive:
 			continue
+
 		if u.owner_team_id != player_team_id:
 			continue
 

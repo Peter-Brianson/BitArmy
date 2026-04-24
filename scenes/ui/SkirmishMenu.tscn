@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://dnsugg256osen" path="res://Maps/Ready Maps/Grass Land.tscn" id="3_o8fe3"]
 [ext_resource type="PackedScene" uid="uid://bnl5otydrtl4m" path="res://Maps/Ready Maps/Desert.tscn" id="6_agfac"]
 
-[node name="SkirmishMenu" type="Control" node_paths=PackedStringArray("main_panel", "team_count_option", "team_rows_container", "start_button", "back_button", "starting_credits_spinbox", "income_spinbox", "map_option")]
+[node name="SkirmishMenu" type="Control" node_paths=PackedStringArray("main_panel", "team_count_option", "team_rows_container", "local_players_container", "start_button", "back_button", "starting_credits_spinbox", "income_spinbox", "map_option")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -15,6 +15,7 @@ script = ExtResource("1_05j0a")
 main_panel = NodePath("MainPanel")
 team_count_option = NodePath("MainPanel/VBoxContainer/TeamCountRow/TeamCountOption")
 team_rows_container = NodePath("MainPanel/VBoxContainer/TeamRows")
+local_players_container = NodePath("MainPanel/LocalPlayersContainer")
 start_button = NodePath("MainPanel/VBoxContainer/StartButton")
 back_button = NodePath("MainPanel/VBoxContainer/BackButton")
 starting_credits_spinbox = NodePath("MainPanel/VBoxContainer/EconomyRow1/StartingCreditsSpinBox")
@@ -45,12 +46,18 @@ offset_bottom = 11.5
 grow_horizontal = 2
 grow_vertical = 2
 
+[node name="LocalPlayersContainer" type="VBoxContainer" parent="MainPanel"]
+layout_mode = 2
+alignment = 1
+
 [node name="VBoxContainer" type="VBoxContainer" parent="MainPanel"]
 layout_mode = 2
 
 [node name="TitleLabel" type="Label" parent="MainPanel/VBoxContainer"]
 layout_mode = 2
-text = "TitleLabel"
+text = "Skirmish"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="TeamCountRow" type="HBoxContainer" parent="MainPanel/VBoxContainer"]
 layout_mode = 2
