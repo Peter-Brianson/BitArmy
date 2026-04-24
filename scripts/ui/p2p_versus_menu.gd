@@ -3,6 +3,8 @@ extends Control
 
 @export var match_scene_path: String = "res://scenes/main/MainMatch.tscn"
 
+@export var return_scene_path: String = "res://scenes/ui/P2PVersusMenu.tscn"
+
 @export_group("Main")
 @export var main_panel: Control
 
@@ -813,7 +815,7 @@ func _on_lobby_state_changed() -> void:
 
 
 func _on_start_match_requested() -> void:
-	GameSession.set_meta("last_menu_scene_path", scene_file_path)
+	GameSession.set_meta("last_menu_scene_path", return_scene_path)
 
 	NetworkHub.apply_lobby_to_game_session()
 

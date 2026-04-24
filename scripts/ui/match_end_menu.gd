@@ -2,6 +2,7 @@ class_name MatchEndController
 extends Control
 
 @export var skirmish_scene_path: String = "res://scenes/ui/SkirmishMenu.tscn"
+@export var p2p_versus_scene_path: String = "res://scenes/ui/P2PVersusMenu.tscn"
 
 @export var dimmer: ColorRect
 @export var panel: Control
@@ -24,6 +25,7 @@ func _ready() -> void:
 	if return_to_skirmish_button != null:
 		return_to_skirmish_button.pressed.connect(_on_return_to_skirmish_pressed)
 
+	_refresh_return_button_text()
 	_apply_layout()
 
 
@@ -31,9 +33,12 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		_apply_layout()
 
+
 func show_match_end(winner_name: String, winner_color: Color) -> void:
 	is_showing = true
 	visible = true
+
+	_refresh_return_button_text()
 
 	if result_label != null:
 		result_label.text = "%s Wins" % winner_name
@@ -49,6 +54,8 @@ func show_match_end(winner_name: String, winner_color: Color) -> void:
 func show_draw() -> void:
 	is_showing = true
 	visible = true
+
+	_refresh_return_button_text()
 
 	if result_label != null:
 		result_label.text = "Draw"
@@ -67,6 +74,7 @@ func reset_menu() -> void:
 	if result_label != null:
 		result_label.modulate = Color.WHITE
 
+
 func _on_restart_pressed() -> void:
 	get_tree().paused = false
 	get_tree().reload_current_scene()
@@ -74,7 +82,54 @@ func _on_restart_pressed() -> void:
 
 func _on_return_to_skirmish_pressed() -> void:
 	get_tree().paused = false
-	get_tree().change_scene_to_file(skirmish_scene_path)
+
+	var target_scene_path: String = _get_return_scene_path()
+	var was_online_match: bool = GameSession.match_mode == GameSession.MatchMode.ONLINE_PTP
+
+	if was_online_match and multiplayer.multiplayer_peer != null:
+		NetworkHub.disconnect_from_session()
+
+	get_tree().change_scene_to_file(target_scene_path)
+
+
+func _get_return_scene_path() -> String:
+	var fallback_scene_path: String = skirmish_scene_path
+
+	if GameSession.match_mode == GameSession.MatchMode.ONLINE_PTP:
+		fallback_scene_path = p2p_versus_scene_path
+
+	var saved_scene_path: String = ""
+
+	if GameSession.has_meta("last_menu_scene_path"):
+		saved_scene_path = str(GameSession.get_meta("last_menu_scene_path"))
+
+	if saved_scene_path != "" and ResourceLoader.exists(saved_scene_path):
+		if _saved_scene_matches_current_match_mode(saved_scene_path):
+			return saved_scene_path
+
+	if ResourceLoader.exists(fallback_scene_path):
+		return fallback_scene_path
+
+	return skirmish_scene_path
+
+
+func _saved_scene_matches_current_match_mode(saved_scene_path: String) -> bool:
+	var lower_path: String = saved_scene_path.to_lower()
+
+	if GameSession.match_mode == GameSession.MatchMode.ONLINE_PTP:
+		return lower_path.find("p2p") != -1 or lower_path.find("versus") != -1
+
+	return lower_path.find("skirmish") != -1
+
+
+func _refresh_return_button_text() -> void:
+	if return_to_skirmish_button == null:
+		return
+
+	if GameSession.match_mode == GameSession.MatchMode.ONLINE_PTP:
+		return_to_skirmish_button.text = "Return to P2P Lobby"
+	else:
+		return_to_skirmish_button.text = "Return to Skirmish"
 
 
 func _apply_layout() -> void:

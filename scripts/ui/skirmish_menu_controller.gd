@@ -3,6 +3,8 @@ extends Control
 
 @export var match_scene_path: String = "res://scenes/main/MainMatch.tscn"
 
+@export var return_scene_path: String = "res://scenes/ui/SkirmishMenu.tscn"
+
 @export var main_panel: Control
 @export var team_count_option: OptionButton
 @export var team_rows_container: VBoxContainer
@@ -183,9 +185,9 @@ func _on_team_control_selected(_index: int, team_id: int, option: OptionButton) 
 func _on_start_pressed() -> void:
 	if not GameSession.can_start_skirmish():
 		return
-	GameSession.set_meta("last_menu_scene_path", scene_file_path)
-	get_tree().change_scene_to_file(match_scene_path)
 
+	GameSession.set_meta("last_menu_scene_path", return_scene_path)
+	get_tree().change_scene_to_file(match_scene_path)
 
 func _on_back_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/ui/StartMenu.tscn")
