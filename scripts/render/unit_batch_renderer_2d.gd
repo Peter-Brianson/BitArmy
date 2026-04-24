@@ -62,7 +62,13 @@ func _render_all_units() -> void:
 		if not cull_rect.has_point(u.position):
 			continue
 
-		visible_units_by_team[u.owner_team_id].append(u)
+		var visual_team_id: int = u.owner_team_id
+
+		if team_manager != null:
+			visual_team_id = team_manager.get_visual_team_id(u.owner_team_id)
+
+		if visible_units_by_team.has(visual_team_id):
+			visible_units_by_team[visual_team_id].append(u)
 
 	for team_id in _multimesh_by_team.keys():
 		var units_for_team: Array = visible_units_by_team[team_id]
@@ -85,13 +91,20 @@ func _render_all_units() -> void:
 			mm.set_instance_color(i, _get_unit_render_color(u))
 
 func _get_unit_render_color(unit: UnitRuntime) -> Color:
-	var base: Color = TeamPalette.get_team_color(unit.owner_team_id)
+	var visual_team_id: int = unit.owner_team_id
+
+	if team_manager != null:
+		visual_team_id = team_manager.get_visual_team_id(unit.owner_team_id)
+
+	var base: Color = TeamPalette.get_team_color(visual_team_id)
 
 	match unit.state:
 		UnitRuntime.UnitState.ATTACK:
 			return base.lerp(Color(1, 1, 0.6), 0.35)
+
 		UnitRuntime.UnitState.DEAD:
 			return base.darkened(0.45)
+
 		_:
 			return base
 

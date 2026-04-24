@@ -539,7 +539,12 @@ func _create_view(unit: UnitRuntime) -> void:
 	view.global_position = unit.position
 
 	if view.has_method("apply_unit_runtime_setup"):
-		view.call("apply_unit_runtime_setup", unit.id, unit.stats, unit.owner_team_id)
+		var visual_team_id: int = unit.owner_team_id
+
+		if team_manager != null:
+			visual_team_id = team_manager.get_visual_team_id(unit.owner_team_id)
+
+		view.call("apply_unit_runtime_setup", unit.id, unit.stats, visual_team_id)
 	else:
 		view.set("stats", unit.stats)
 		if view is CanvasItem:

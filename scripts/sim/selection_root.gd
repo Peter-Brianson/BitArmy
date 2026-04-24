@@ -4,6 +4,7 @@ extends Node2D
 @export var unit_manager: UnitSimulationManager
 @export var structure_manager: StructureSimulationManager
 @export var match_net_controller: MatchNetController
+@export var team_manager: TeamManager
 
 @export_group("Selection")
 @export var player_team_id: int = 0
@@ -195,6 +196,11 @@ func _select_at(world_pos: Vector2) -> void:
 	selected_unit_ids.clear()
 	selected_structure_id = -1
 
+func _is_enemy_team(target_team_id: int) -> bool:
+	if team_manager == null:
+		return target_team_id != player_team_id
+
+	return team_manager.is_enemy(player_team_id, target_team_id)
 
 func _issue_context_command(world_pos: Vector2) -> void:
 	if selected_unit_ids.is_empty():
@@ -323,7 +329,7 @@ func _find_enemy_unit_at(world_pos: Vector2) -> int:
 		if not u.is_alive:
 			continue
 
-		if u.owner_team_id == player_team_id:
+		if not _is_enemy_team(u.owner_team_id):
 			continue
 
 		var radius: float = max(u.get_radius(), 6.0)
@@ -384,7 +390,7 @@ func _find_enemy_structure_at(world_pos: Vector2) -> int:
 		if not s.is_alive:
 			continue
 
-		if s.owner_team_id == player_team_id:
+		if not _is_enemy_team(s.owner_team_id):
 			continue
 
 		var half: Vector2 = s.stats.footprint_size * 0.5

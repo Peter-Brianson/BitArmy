@@ -187,41 +187,57 @@ func _rebuild_team_rows() -> void:
 
 	_team_option_buttons.clear()
 
-	for i in range(GameSession.team_count):
+	for member_id in range(GameSession.team_count):
 		var row := HBoxContainer.new()
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 		var label := Label.new()
-		label.text = "Team %d" % (i + 1)
-		label.custom_minimum_size = Vector2(120, 28)
+		label.text = "Slot %d" % (member_id + 1)
+		label.custom_minimum_size = Vector2(90, 28)
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(label)
 
 		var option := OptionButton.new()
-		option.custom_minimum_size = Vector2(180, 32)
+		option.custom_minimum_size = Vector2(150, 32)
 
 		option.add_item("Closed", GameSession.ControlType.CLOSED)
 		option.add_item("Player", GameSession.ControlType.PLAYER)
 		option.add_item("AI", GameSession.ControlType.AI)
 
-		var control_type: int = GameSession.get_team_control_type(i)
+		var control_type: int = GameSession.get_team_control_type(member_id)
 
 		match control_type:
 			GameSession.ControlType.CLOSED:
 				option.select(0)
-
 			GameSession.ControlType.PLAYER:
 				option.select(1)
-
 			GameSession.ControlType.AI:
 				option.select(2)
 
-		option.item_selected.connect(_on_team_control_selected.bind(i, option))
+		option.item_selected.connect(_on_team_control_selected.bind(member_id, option))
 		row.add_child(option)
+
+		var alliance_option := OptionButton.new()
+		alliance_option.custom_minimum_size = Vector2(170, 32)
+
+		for alliance_id in range(GameSession.team_count):
+			alliance_option.add_item("Team %d" % (alliance_id + 1), alliance_id)
+
+		var selected_alliance_id: int = GameSession.get_team_assignment(member_id)
+		alliance_option.select(clamp(selected_alliance_id, 0, GameSession.team_count - 1))
+		alliance_option.item_selected.connect(_on_member_alliance_selected.bind(member_id, alliance_option))
+
+		row.add_child(alliance_option)
 
 		team_rows_container.add_child(row)
 		_team_option_buttons.append(option)
 
+func _on_member_alliance_selected(_index: int, member_id: int, option: OptionButton) -> void:
+	var alliance_team_id: int = option.get_selected_id()
+	GameSession.set_team_assignment(member_id, alliance_team_id)
+
+	_rebuild_team_rows()
+	_rebuild_local_player_rows()
 
 func _rebuild_local_player_rows() -> void:
 	if local_players_container == null:
@@ -231,7 +247,7 @@ func _rebuild_local_player_rows() -> void:
 		child.queue_free()
 
 	var title := Label.new()
-	title.text = "Local Players — press A on controller / Enter or Space on keyboard"
+	title.text = "Local Players — assign each player to a member slot"
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	local_players_container.add_child(title)
 
@@ -250,21 +266,21 @@ func _rebuild_local_player_rows() -> void:
 		player_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(player_label)
 
-		var team_option := OptionButton.new()
-		team_option.custom_minimum_size = Vector2(180, 32)
+		var slot_option := OptionButton.new()
+		slot_option.custom_minimum_size = Vector2(180, 32)
 
-		for team_id in range(GameSession.team_count):
-			team_option.add_item("Team %d" % (team_id + 1), team_id)
+		for member_id in range(GameSession.team_count):
+			slot_option.add_item("Slot %d" % (member_id + 1), member_id)
 
-		var selected_team_id: int = int(player.team_id)
+		var selected_member_id: int = int(player.team_id)
 
-		if selected_team_id < 0 or selected_team_id >= GameSession.team_count:
-			selected_team_id = clamp(i, 0, GameSession.team_count - 1)
+		if selected_member_id < 0 or selected_member_id >= GameSession.team_count:
+			selected_member_id = clamp(i, 0, GameSession.team_count - 1)
 
-		team_option.select(selected_team_id)
-		team_option.item_selected.connect(_on_local_player_team_selected.bind(i, team_option))
+		slot_option.select(selected_member_id)
+		slot_option.item_selected.connect(_on_local_player_slot_selected.bind(i, slot_option))
 
-		row.add_child(team_option)
+		row.add_child(slot_option)
 		local_players_container.add_child(row)
 
 
@@ -273,14 +289,14 @@ func _on_team_control_selected(_index: int, team_id: int, option: OptionButton) 
 	GameSession.set_team_control_type(team_id, selected_item_id)
 
 
-func _on_local_player_team_selected(_index: int, player_index: int, option: OptionButton) -> void:
-	var team_id: int = option.get_selected_id()
+func _on_local_player_slot_selected(_index: int, player_index: int, option: OptionButton) -> void:
+	var member_id: int = option.get_selected_id()
 
-	InputHub.assign_team(player_index, team_id)
-	GameSession.set_team_control_type(team_id, GameSession.ControlType.PLAYER)
+	InputHub.assign_team(player_index, member_id)
+	GameSession.set_team_control_type(member_id, GameSession.ControlType.PLAYER)
 
 	if player_index == 0:
-		GameSession.local_player_team_id = team_id
+		GameSession.local_player_team_id = member_id
 
 	_rebuild_team_rows()
 	_rebuild_local_player_rows()
@@ -302,22 +318,17 @@ func _ensure_joined_player_team_assignments() -> void:
 		if team_count_option != null:
 			team_count_option.select(GameSession.team_count - 2)
 
-	var used_team_ids: Array[int] = []
-
 	for i in range(human_count):
-		var player = players[i]
-		var team_id: int = int(player.team_id)
+		var member_id: int = clamp(i, 0, GameSession.team_count - 1)
 
-		if team_id < 0 or team_id >= GameSession.team_count or used_team_ids.has(team_id):
-			team_id = _find_first_free_team_id(used_team_ids)
-			InputHub.assign_team(i, team_id)
+		InputHub.assign_team(i, member_id)
+		GameSession.set_team_control_type(member_id, GameSession.ControlType.PLAYER)
 
-		used_team_ids.append(team_id)
-
-		GameSession.set_team_control_type(team_id, GameSession.ControlType.PLAYER)
+		if GameSession.get_team_assignment(member_id) < 0:
+			GameSession.set_team_assignment(member_id, member_id)
 
 		if i == 0:
-			GameSession.local_player_team_id = team_id
+			GameSession.local_player_team_id = member_id
 
 
 func _find_first_free_team_id(used_team_ids: Array[int]) -> int:

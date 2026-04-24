@@ -1,7 +1,8 @@
-[gd_scene load_steps=36 format=3 uid="uid://cqum0hu0tuqy0"]
+[gd_scene load_steps=37 format=3 uid="uid://cqum0hu0tuqy0"]
 
 [ext_resource type="Script" path="res://scripts/input/CameraPanController.gd" id="1_m2t5q"]
 [ext_resource type="Script" path="res://data/structures/structure_placement_controller.gd" id="2_723eq"]
+[ext_resource type="Texture2D" uid="uid://iw1e0qbkgs10" path="res://sprites/Effects/virtual curser.png" id="2_xed8e"]
 [ext_resource type="Script" path="res://scripts/sim/selection_underlay.gd" id="2_xldib"]
 [ext_resource type="Script" path="res://scripts/render/unit_batch_renderer_2d.gd" id="3_f6jbf"]
 [ext_resource type="Script" path="res://scripts/sim/selection_root.gd" id="3_l51oj"]
@@ -42,15 +43,23 @@ load_path = "res://.godot/imported/unit_white_rect_8x16.png-0c232b06cf29c5acdbd7
 
 [node name="MatchRoot" type="Node2D" parent="."]
 
-[node name="CameraRig" type="Node2D" parent="MatchRoot" node_paths=PackedStringArray("camera")]
+[node name="CameraRig" type="Node2D" parent="MatchRoot" node_paths=PackedStringArray("camera", "virtual_cursor_visual")]
 script = ExtResource("1_m2t5q")
 camera = NodePath("Camera2D")
+virtual_cursor_visual = NodePath("VirtualCursor")
 
 [node name="Camera2D" type="Camera2D" parent="MatchRoot/CameraRig"]
 limit_left = -10000
 limit_top = -10000
 limit_right = 100000
 limit_bottom = 100000
+
+[node name="VirtualCursor" type="TextureRect" parent="MatchRoot/CameraRig"]
+custom_minimum_size = Vector2(16, 16)
+offset_right = 40.0
+offset_bottom = 40.0
+mouse_filter = 2
+texture = ExtResource("2_xed8e")
 
 [node name="UnitSFX" type="AudioStreamPlayer2D" parent="MatchRoot/CameraRig"]
 bus = &"SFX"
@@ -120,11 +129,12 @@ unit_texture = SubResource("CompressedTexture2D_cw01p")
 
 [node name="EffectsRoot" type="Node2D" parent="MatchRoot/World"]
 
-[node name="SelectionRoot" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("unit_manager", "structure_manager", "match_net_controller")]
+[node name="SelectionRoot" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("unit_manager", "structure_manager", "match_net_controller", "team_manager")]
 script = ExtResource("3_l51oj")
 unit_manager = NodePath("../../Simulation/UnitSimulationManager")
 structure_manager = NodePath("../../Simulation/StructureSimulationManager")
 match_net_controller = NodePath("../../Simulation/MatchNetController")
+team_manager = NodePath("../../Simulation/TeamManager")
 
 [node name="SelectionOverlay" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller")]
 script = ExtResource("4_jukhm")
@@ -188,10 +198,11 @@ camera_pan_controller = NodePath("../../CameraRig")
 team_manager = NodePath("../TeamManager")
 ai_team_manager = NodePath("../AITeamManager")
 
-[node name="CombatResolver" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager", "unit_manager", "structure_manager")]
+[node name="CombatResolver" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager", "unit_manager", "match_net_controller", "structure_manager")]
 script = ExtResource("13_t2dt4")
 team_manager = NodePath("../TeamManager")
 unit_manager = NodePath("../UnitSimulationManager")
+match_net_controller = NodePath("../MatchNetController")
 structure_manager = NodePath("../StructureSimulationManager")
 
 [node name="MatchInputBridge" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("camera_pan_controller", "match_controller", "selection_controller")]
@@ -213,7 +224,7 @@ structure_scene_scenes = Array[PackedScene]([ExtResource("10_jwsqd")])
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="LocalSplitScreenRoot" type="Control" parent="UI" node_paths=PackedStringArray("main_camera_rig", "original_match_input_bridge", "main_selection_controller", "match_controller", "unit_manager", "structure_manager", "match_net_controller")]
+[node name="LocalSplitScreenRoot" type="Control" parent="UI" node_paths=PackedStringArray("main_camera_rig", "original_match_input_bridge", "main_selection_controller", "match_controller", "team_manager", "unit_manager", "structure_manager", "match_net_controller", "unit_batch_renderer")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -225,9 +236,13 @@ main_camera_rig = NodePath("../../MatchRoot/CameraRig")
 original_match_input_bridge = NodePath("../../MatchRoot/Simulation/MatchInputBridge")
 main_selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")
 match_controller = NodePath("../../MatchRoot/Simulation/MatchController")
+team_manager = NodePath("../../MatchRoot/Simulation/TeamManager")
 unit_manager = NodePath("../../MatchRoot/Simulation/UnitSimulationManager")
 structure_manager = NodePath("../../MatchRoot/Simulation/StructureSimulationManager")
 match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
+unit_batch_renderer = NodePath("../../MatchRoot/World/UnitBatchRoot")
+cursor_size = Vector2(16, 16)
+cursor_texture = ExtResource("2_xed8e")
 
 [node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "match_controller", "match_net_controller", "camera_pan_controller", "structure_placement_controller") instance=ExtResource("15_mksec")]
 selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")

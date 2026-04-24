@@ -130,7 +130,12 @@ func register_existing_structure(view: Node2D, stats: StructureStats, team_id: i
 	structure.rally_point = _get_structure_spawn_position(structure)
 
 	if view.has_method("apply_structure_runtime_setup"):
-		view.call("apply_structure_runtime_setup", structure_id, stats, team_id)
+		var visual_team_id: int = team_id
+
+		if team_manager != null:
+			visual_team_id = team_manager.get_visual_team_id(team_id)
+
+		view.call("apply_structure_runtime_setup", structure_id, stats, visual_team_id)
 
 	return structure_id
 
@@ -390,7 +395,10 @@ func _create_view(structure: StructureRuntime, scene_override: PackedScene = nul
 	structure_views[structure.id] = view
 
 	if view.has_method("apply_structure_runtime_setup"):
-		view.call("apply_structure_runtime_setup", structure.id, structure.stats, structure.owner_team_id)
+		var visual_team_id: int = structure.owner_team_id
+		if team_manager != null:
+			visual_team_id = team_manager.get_visual_team_id(structure.owner_team_id)
+		view.call("apply_structure_runtime_setup", structure.id, structure.stats, visual_team_id)
 
 
 func _remove_structure(structure_id: int) -> void:

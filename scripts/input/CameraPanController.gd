@@ -215,7 +215,9 @@ func _update_virtual_cursor_visual() -> void:
 		return
 
 	virtual_cursor_visual.visible = enable_virtual_cursor and _has_external_pointer
-	virtual_cursor_visual.position = _external_pointer_screen
+
+	var visual_size: Vector2 = virtual_cursor_visual.size
+	virtual_cursor_visual.position = _external_pointer_screen - visual_size * 0.5
 
 
 func _get_clamped_camera_position(target_pos: Vector2, viewport_size: Vector2) -> Vector2:

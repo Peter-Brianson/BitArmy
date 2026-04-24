@@ -35,6 +35,9 @@ var match_is_over: bool = false
 
 var current_map_instance: Node = null
 
+var runtime_team_to_alliance_team: Dictionary = {}
+var alliance_team_to_runtime_teams: Dictionary = {}
+
 const TEAM_DISPLAY_NAMES := [
 	"Blue Team",
 	"Red Team",
@@ -115,6 +118,9 @@ func _get_runtime_team_display_name(runtime_team_id: int) -> String:
 
 func _build_match_from_game_session() -> void:
 	runtime_team_to_name.clear()
+	runtime_team_to_alliance_team.clear()
+	alliance_team_to_runtime_teams.clear()
+
 	match_is_over = false
 
 	if match_end_controller != null:
@@ -136,49 +142,67 @@ func _build_match_from_game_session() -> void:
 		push_error("MatchController: hq_scene is not assigned.")
 		return
 
-	var active_teams: Array[Dictionary] = GameSession.get_active_teams()
+	var active_members: Array[Dictionary] = GameSession.get_active_members()
 	var active_runtime_team_ids: Array[int] = []
+	var member_to_alliance: Dictionary = {}
 
-	if active_teams.is_empty():
-		push_error("MatchController: GameSession returned no active teams.")
+	if active_members.is_empty():
+		push_error("MatchController: GameSession returned no active members.")
 		return
 
-	# Clear previous runtime data.
 	runtime_team_to_control_type.clear()
 	runtime_team_to_hq_id.clear()
 	session_team_to_runtime_team.clear()
+
 	local_player_runtime_team_id = -1
 	local_player_hq_id = -1
 
 	if ai_team_manager != null:
 		ai_team_manager.clear_all_ai_teams()
 
-	# Important:
-	# Use the full GameSession team count so chosen team IDs/colors survive online setup.
-	team_manager.setup_free_for_all(GameSession.team_count)
+	for member_data in active_members:
+		var member_id: int = int(member_data.get("member_id", 0))
+		var alliance_team_id: int = int(member_data.get("team_id", member_id))
+
+		member_to_alliance[member_id] = alliance_team_id
+
+	team_manager.setup_alliances(GameSession.team_count, member_to_alliance)
 
 	var fallback_spawn_index: int = 0
 
-	for team_data in active_teams:
-		var session_team_id: int = int(team_data.get("team_id", 0))
-		var control_type: int = int(team_data.get("control_type", GameSession.ControlType.CLOSED))
-		var spawn_position: Vector2 = _get_spawn_position(session_team_id, fallback_spawn_index)
+	for member_data in active_members:
+		var runtime_member_id: int = int(member_data.get("member_id", 0))
+		var alliance_team_id: int = int(member_data.get("team_id", runtime_member_id))
+		var control_type: int = int(member_data.get("control_type", GameSession.ControlType.CLOSED))
 
+		var spawn_position: Vector2 = _get_spawn_position(runtime_member_id, fallback_spawn_index)
 		fallback_spawn_index += 1
 
-		session_team_to_runtime_team[session_team_id] = session_team_id
-		runtime_team_to_control_type[session_team_id] = control_type
-		runtime_team_to_name[session_team_id] = _get_runtime_team_display_name(session_team_id)
+		session_team_to_runtime_team[runtime_member_id] = runtime_member_id
+		runtime_team_to_control_type[runtime_member_id] = control_type
+		runtime_team_to_alliance_team[runtime_member_id] = alliance_team_id
+
+		if not alliance_team_to_runtime_teams.has(alliance_team_id):
+			alliance_team_to_runtime_teams[alliance_team_id] = []
+
+		var alliance_members: Array = alliance_team_to_runtime_teams[alliance_team_id]
+		alliance_members.append(runtime_member_id)
+		alliance_team_to_runtime_teams[alliance_team_id] = alliance_members
+
+		runtime_team_to_name[runtime_member_id] = "%s Member %d" % [
+			_get_alliance_display_name(alliance_team_id),
+			runtime_member_id + 1
+		]
 
 		var hq_id: int = structure_manager.spawn_structure(
 			hq_stats,
-			session_team_id,
+			runtime_member_id,
 			spawn_position,
 			hq_scene
 		)
 
-		runtime_team_to_hq_id[session_team_id] = hq_id
-		active_runtime_team_ids.append(session_team_id)
+		runtime_team_to_hq_id[runtime_member_id] = hq_id
+		active_runtime_team_ids.append(runtime_member_id)
 
 		if queue_starter_unit_on_spawn and starter_unit_stats != null:
 			for _i in range(queue_starter_unit_count):
@@ -186,15 +210,13 @@ func _build_match_from_game_session() -> void:
 
 		if control_type == GameSession.ControlType.AI:
 			if ai_team_manager != null:
-				ai_team_manager.register_ai_team(session_team_id, hq_id)
+				ai_team_manager.register_ai_team(runtime_member_id, hq_id)
 
-	# Use the actual chosen local player team from GameSession.
 	local_player_runtime_team_id = GameSession.local_player_team_id
 
 	if runtime_team_to_hq_id.has(local_player_runtime_team_id):
 		local_player_hq_id = int(runtime_team_to_hq_id[local_player_runtime_team_id])
 	else:
-		# Fallback if something is misconfigured.
 		for runtime_team_id in runtime_team_to_control_type.keys():
 			if int(runtime_team_to_control_type[runtime_team_id]) == GameSession.ControlType.PLAYER:
 				local_player_runtime_team_id = int(runtime_team_id)
@@ -212,28 +234,21 @@ func _build_match_from_game_session() -> void:
 
 
 func _check_match_end() -> void:
-	var alive_runtime_teams: Array[int] = []
+	var alive_alliances: Array[int] = []
 
-	for runtime_team_id in runtime_team_to_hq_id.keys():
-		var hq_id: int = int(runtime_team_to_hq_id[runtime_team_id])
-		var hq: StructureRuntime = structure_manager.get_structure(hq_id)
+	for alliance_team_id in alliance_team_to_runtime_teams.keys():
+		if _is_alliance_alive(int(alliance_team_id)):
+			alive_alliances.append(int(alliance_team_id))
 
-		if hq != null and hq.is_alive:
-			alive_runtime_teams.append(int(runtime_team_id))
-
-	if alive_runtime_teams.size() > 1:
+	if alive_alliances.size() > 1:
 		return
 
 	match_is_over = true
 
-	if alive_runtime_teams.size() == 1:
-		var winner_team_id: int = alive_runtime_teams[0]
-		var winner_name: String = _get_runtime_team_display_name(winner_team_id)
-
-		if runtime_team_to_name.has(winner_team_id):
-			winner_name = str(runtime_team_to_name[winner_team_id])
-
-		var winner_color: Color = TeamPalette.get_team_color(winner_team_id)
+	if alive_alliances.size() == 1:
+		var winner_alliance_id: int = alive_alliances[0]
+		var winner_name: String = _get_alliance_display_name(winner_alliance_id)
+		var winner_color: Color = TeamPalette.get_team_color(winner_alliance_id)
 
 		print("MATCH END: ", winner_name, " wins")
 
@@ -245,6 +260,39 @@ func _check_match_end() -> void:
 		if match_end_controller != null:
 			match_end_controller.show_draw()
 
+
+func _is_alliance_alive(alliance_team_id: int) -> bool:
+	if not alliance_team_to_runtime_teams.has(alliance_team_id):
+		return false
+
+	var members: Array = alliance_team_to_runtime_teams[alliance_team_id]
+
+	for runtime_member_id in members:
+		var hq_id: int = get_hq_id_for_runtime_team(int(runtime_member_id))
+
+		if hq_id == -1:
+			continue
+
+		var hq: StructureRuntime = structure_manager.get_structure(hq_id)
+
+		if hq != null and hq.is_alive:
+			return true
+
+	return false
+
+
+func _get_alliance_display_name(alliance_team_id: int) -> String:
+	if alliance_team_id >= 0 and alliance_team_id < TEAM_DISPLAY_NAMES.size():
+		return TEAM_DISPLAY_NAMES[alliance_team_id]
+
+	return "Team %d" % (alliance_team_id + 1)
+
+
+func get_alliance_team_id_for_runtime_team(runtime_team_id: int) -> int:
+	if runtime_team_to_alliance_team.has(runtime_team_id):
+		return int(runtime_team_to_alliance_team[runtime_team_id])
+
+	return runtime_team_id
 
 func _get_spawn_position(session_team_id: int, fallback_index: int) -> Vector2:
 	# Preferred: use the selected team ID as the marker index so team colors / team slots stay stable.
@@ -320,15 +368,18 @@ func get_control_type_for_runtime_team(runtime_team_id: int) -> int:
 
 func _print_match_summary() -> void:
 	print("--- MatchController _ready ---")
-	print("Active runtime teams: ", runtime_team_to_control_type.size())
+	print("Active runtime members: ", runtime_team_to_control_type.size())
 
 	for runtime_team_id in runtime_team_to_control_type.keys():
 		var control_type: int = int(runtime_team_to_control_type[runtime_team_id])
 		var hq_id: int = int(runtime_team_to_hq_id[runtime_team_id])
+		var alliance_id: int = get_alliance_team_id_for_runtime_team(int(runtime_team_id))
 
 		print(
-			"Runtime team ",
+			"Runtime member ",
 			runtime_team_id,
+			" alliance=",
+			alliance_id,
 			" control_type=",
 			control_type,
 			" hq_id=",
@@ -336,5 +387,5 @@ func _print_match_summary() -> void:
 		)
 
 	if local_player_runtime_team_id != -1:
-		print("Local player runtime team = ", local_player_runtime_team_id)
+		print("Local player runtime member = ", local_player_runtime_team_id)
 		print("Local player HQ = ", local_player_hq_id)

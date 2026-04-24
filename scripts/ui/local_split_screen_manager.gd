@@ -1,24 +1,36 @@
 class_name LocalSplitScreenManager
 extends Control
 
+@export_group("Main Single-Screen Nodes")
 @export var main_camera_rig: CameraPanController
 @export var original_match_input_bridge: MatchInputBridge
 @export var main_selection_controller: SelectionController
 
+@export_group("Match Managers")
 @export var match_controller: MatchController
+@export var team_manager: TeamManager
 @export var unit_manager: UnitSimulationManager
 @export var structure_manager: StructureSimulationManager
-@export var match_net_controller: Node
+@export var match_net_controller: MatchNetController
 
+@export_group("Optional Render Nodes")
+@export var unit_batch_renderer: Node
+
+@export_group("Split Screen")
 @export var max_views: int = 4
 @export var split_only_in_skirmish: bool = true
+@export var show_split_when_player_count_at_least: int = 2
+@export var cursor_size: Vector2 = Vector2(8.0, 8.0)
+@export var cursor_texture: Texture2D
 
 var _views: Array[Dictionary] = []
 var _local_pointers: Dictionary = {}
 
 var _split_active: bool = false
+
 var _saved_unit_camera_controller: CameraPanController
 var _saved_structure_camera_controller: CameraPanController
+var _saved_unit_batch_camera_controller: CameraPanController
 
 
 func _ready() -> void:
@@ -32,6 +44,11 @@ func _ready() -> void:
 
 	if structure_manager != null:
 		_saved_structure_camera_controller = structure_manager.camera_pan_controller
+
+	if unit_batch_renderer != null:
+		var saved_batch_camera = unit_batch_renderer.get("camera_pan_controller")
+		if saved_batch_camera is CameraPanController:
+			_saved_unit_batch_camera_controller = saved_batch_camera
 
 	if InputHub != null:
 		InputHub.player_joined.connect(_on_players_changed)
@@ -87,6 +104,10 @@ func _process(_delta: float) -> void:
 			if player.cancel_just_pressed:
 				selection.clear_selection()
 
+		if player.join_just_pressed:
+			var session_member_id: int = int(view.get("session_member_id", int(player.team_id)))
+			_center_camera_on_player_member(camera_rig, session_member_id)
+
 		if player.pause_just_pressed:
 			_toggle_pause_menu()
 
@@ -99,7 +120,7 @@ func _rebuild_views() -> void:
 	var players: Array = InputHub.get_split_screen_players()
 	var view_count: int = min(players.size(), max_views)
 
-	var should_split: bool = view_count >= 2
+	var should_split: bool = view_count >= show_split_when_player_count_at_least
 
 	if split_only_in_skirmish and GameSession.match_mode != GameSession.MatchMode.SKIRMISH:
 		should_split = false
@@ -130,14 +151,26 @@ func _set_split_active(active: bool) -> void:
 		main_selection_controller.set_process(not active)
 		main_selection_controller.set_process_unhandled_input(not active)
 
+	# Important:
+	# In split-screen, one culling camera is not enough.
+	# Setting these to null lets managers use their full/unculled fallback visibility.
 	if unit_manager != null:
 		unit_manager.camera_pan_controller = null if active else _saved_unit_camera_controller
 
 	if structure_manager != null:
 		structure_manager.camera_pan_controller = null if active else _saved_structure_camera_controller
 
+	if unit_batch_renderer != null:
+		unit_batch_renderer.set(
+			"camera_pan_controller",
+			null if active else _saved_unit_batch_camera_controller
+		)
+
 
 func _create_view(view_index: int, player) -> void:
+	var session_member_id: int = int(player.team_id)
+	var runtime_member_id: int = _get_runtime_member_for_session_member(session_member_id)
+
 	var container := SubViewportContainer.new()
 	container.name = "PlayerView%d" % (view_index + 1)
 	container.stretch = true
@@ -150,7 +183,11 @@ func _create_view(view_index: int, player) -> void:
 	viewport.transparent_bg = false
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	viewport.handle_input_locally = false
+
+	# This is the key piece:
+	# each camera view looks at the same live battlefield, not a copy.
 	viewport.world_2d = get_viewport().world_2d
+
 	container.add_child(viewport)
 
 	var view_root := Node2D.new()
@@ -170,47 +207,52 @@ func _create_view(view_index: int, player) -> void:
 		camera_rig.zoom_step = main_camera_rig.zoom_step
 		camera_rig.min_zoom = main_camera_rig.min_zoom
 		camera_rig.max_zoom = main_camera_rig.max_zoom
+		camera_rig.suppress_mouse_camera_input = true
 
 	view_root.add_child(camera_rig)
 
 	var camera := Camera2D.new()
 	camera.name = "Camera2D"
 	camera.enabled = true
-	camera.zoom = Vector2.ONE
+
+	if main_camera_rig != null and main_camera_rig.camera != null:
+		camera.zoom = main_camera_rig.camera.zoom
+	else:
+		camera.zoom = Vector2.ONE
+
 	camera_rig.camera = camera
 	camera_rig.add_child(camera)
 
-	var cursor := ColorRect.new()
+	var cursor := TextureRect.new()
 	cursor.name = "VirtualCursor"
-	cursor.color = Color(1.0, 1.0, 1.0, 0.95)
-	cursor.size = Vector2(8, 8)
-	cursor.custom_minimum_size = Vector2(8, 8)
+	cursor.texture = cursor_texture
+	cursor.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	cursor.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	cursor.size = cursor_size
+	cursor.custom_minimum_size = cursor_size
 	cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	viewport.add_child(cursor)
+
 	camera_rig.virtual_cursor_visual = cursor
 
 	var selection := SelectionController.new()
 	selection.name = "SelectionRoot_P%d" % (view_index + 1)
 	selection.unit_manager = unit_manager
 	selection.structure_manager = structure_manager
+	selection.match_net_controller = match_net_controller
+	selection.team_manager = team_manager
+	selection.player_team_id = runtime_member_id
 
-	if match_net_controller != null:
-		selection.match_net_controller = match_net_controller
-
-	var session_team_id: int = int(player.team_id)
-	var runtime_team_id: int = _get_runtime_team_for_session_team(session_team_id)
-
-	if runtime_team_id != -1:
-		selection.player_team_id = runtime_team_id
-	else:
-		selection.player_team_id = session_team_id
-
+	# Each split player is controlled manually by this manager.
+	# This prevents every split-screen SelectionRoot from also reading the real OS mouse.
 	selection.set_process_unhandled_input(false)
+
 	view_root.add_child(selection)
 
 	_views.append({
 		"player_index": int(player.player_index),
-		"session_team_id": session_team_id,
+		"session_member_id": session_member_id,
+		"runtime_member_id": runtime_member_id,
 		"container": container,
 		"viewport": viewport,
 		"camera_rig": camera_rig,
@@ -244,13 +286,26 @@ func _apply_layout() -> void:
 			continue
 
 		var r: Rect2 = rects[i]
+
 		container.position = r.position
 		container.size = r.size
-		viewport.size = Vector2i(max(1, int(r.size.x)), max(1, int(r.size.y)))
+
+		viewport.size = Vector2i(
+			max(1, int(r.size.x)),
+			max(1, int(r.size.y))
+		)
 
 		var player_index: int = int(view.get("player_index", -1))
-		if player_index != -1 and not _local_pointers.has(player_index):
+		if player_index == -1:
+			continue
+
+		if not _local_pointers.has(player_index):
 			_local_pointers[player_index] = r.size * 0.5
+		else:
+			_local_pointers[player_index] = _clamp_screen_pos(
+				_local_pointers[player_index],
+				r.size
+			)
 
 
 func _get_split_rects(count: int, total_size: Vector2) -> Array[Rect2]:
@@ -263,12 +318,28 @@ func _get_split_rects(count: int, total_size: Vector2) -> Array[Rect2]:
 	if count == 2:
 		if total_size.x >= total_size.y:
 			var half_w: float = total_size.x * 0.5
-			rects.append(Rect2(Vector2.ZERO, Vector2(half_w, total_size.y)))
-			rects.append(Rect2(Vector2(half_w, 0.0), Vector2(half_w, total_size.y)))
+
+			rects.append(Rect2(
+				Vector2.ZERO,
+				Vector2(half_w, total_size.y)
+			))
+
+			rects.append(Rect2(
+				Vector2(half_w, 0.0),
+				Vector2(half_w, total_size.y)
+			))
 		else:
 			var half_h: float = total_size.y * 0.5
-			rects.append(Rect2(Vector2.ZERO, Vector2(total_size.x, half_h)))
-			rects.append(Rect2(Vector2(0.0, half_h), Vector2(total_size.x, half_h)))
+
+			rects.append(Rect2(
+				Vector2.ZERO,
+				Vector2(total_size.x, half_h)
+			))
+
+			rects.append(Rect2(
+				Vector2(0.0, half_h),
+				Vector2(total_size.x, half_h)
+			))
 
 		return rects
 
@@ -291,10 +362,13 @@ func _get_local_pointer_screen(player, container: SubViewportContainer) -> Vecto
 	if player.is_keyboard_mouse or player.is_touch:
 		var global_rect: Rect2 = container.get_global_rect()
 		var local_pos: Vector2 = player.pointer_screen - global_rect.position
-		_local_pointers[player_index] = _clamp_screen_pos(local_pos, container_size)
-		return _local_pointers[player_index]
+		local_pos = _clamp_screen_pos(local_pos, container_size)
+
+		_local_pointers[player_index] = local_pos
+		return local_pos
 
 	var current: Vector2 = _local_pointers.get(player_index, container_size * 0.5)
+
 	current += player.pointer_delta
 	current = _clamp_screen_pos(current, container_size)
 
@@ -312,26 +386,21 @@ func _clamp_screen_pos(pos: Vector2, viewport_size: Vector2) -> Vector2:
 func _center_all_views() -> void:
 	for view in _views:
 		var camera_rig: CameraPanController = view.get("camera_rig", null)
-		var session_team_id: int = int(view.get("session_team_id", -1))
+		var session_member_id: int = int(view.get("session_member_id", -1))
 
-		_center_camera_on_player_team(camera_rig, session_team_id)
+		_center_camera_on_player_member(camera_rig, session_member_id)
 
 
-func _center_camera_on_player_team(camera_rig: CameraPanController, session_team_id: int) -> void:
+func _center_camera_on_player_member(camera_rig: CameraPanController, session_member_id: int) -> void:
 	if camera_rig == null:
-		return
-
-	if match_controller == null:
 		return
 
 	if structure_manager == null:
 		return
 
-	var runtime_team_id: int = _get_runtime_team_for_session_team(session_team_id)
-	if runtime_team_id == -1:
-		return
+	var runtime_member_id: int = _get_runtime_member_for_session_member(session_member_id)
+	var hq_id: int = _get_hq_id_for_runtime_member(runtime_member_id)
 
-	var hq_id: int = match_controller.get_hq_id_for_runtime_team(runtime_team_id)
 	if hq_id == -1:
 		return
 
@@ -339,20 +408,47 @@ func _center_camera_on_player_team(camera_rig: CameraPanController, session_team
 	if hq == null:
 		return
 
+	if not hq.is_alive:
+		return
+
 	camera_rig.center_on_world(hq.position)
 
 
-func _get_runtime_team_for_session_team(session_team_id: int) -> int:
+func _get_runtime_member_for_session_member(session_member_id: int) -> int:
 	if match_controller == null:
-		return session_team_id
+		return session_member_id
 
 	if match_controller.has_method("get_runtime_team_id_from_session_team_id"):
-		var runtime_team_id: int = match_controller.get_runtime_team_id_from_session_team_id(session_team_id)
+		var runtime_id: int = match_controller.get_runtime_team_id_from_session_team_id(session_member_id)
 
-		if runtime_team_id != -1:
-			return runtime_team_id
+		if runtime_id != -1:
+			return runtime_id
 
-	return session_team_id
+	var mapping_variant = match_controller.get("session_team_to_runtime_team")
+	if mapping_variant is Dictionary:
+		var mapping: Dictionary = mapping_variant
+
+		if mapping.has(session_member_id):
+			return int(mapping[session_member_id])
+
+	return session_member_id
+
+
+func _get_hq_id_for_runtime_member(runtime_member_id: int) -> int:
+	if match_controller == null:
+		return -1
+
+	if match_controller.has_method("get_hq_id_for_runtime_team"):
+		return int(match_controller.get_hq_id_for_runtime_team(runtime_member_id))
+
+	var hq_map_variant = match_controller.get("runtime_team_to_hq_id")
+	if hq_map_variant is Dictionary:
+		var hq_map: Dictionary = hq_map_variant
+
+		if hq_map.has(runtime_member_id):
+			return int(hq_map[runtime_member_id])
+
+	return -1
 
 
 func _toggle_pause_menu() -> void:
