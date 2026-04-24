@@ -29,10 +29,8 @@ var runtime_team_to_hq_id: Dictionary = {}
 var session_team_to_runtime_team: Dictionary = {}
 var local_player_runtime_team_id: int = -1
 var local_player_hq_id: int = -1
-
 var runtime_team_to_name: Dictionary = {}
 var match_is_over: bool = false
-
 var current_map_instance: Node = null
 
 var runtime_team_to_alliance_team: Dictionary = {}
@@ -92,7 +90,6 @@ func _load_selected_map() -> void:
 	print("Loaded map: ", GameSession.selected_map_name, " | ", GameSession.selected_map_path)
 
 
-
 func get_alive_runtime_team_count() -> int:
 	var count: int = 0
 
@@ -108,6 +105,7 @@ func get_alive_runtime_team_count() -> int:
 
 func center_camera_on_local_hq() -> void:
 	_center_camera_on_local_hq()
+	_refresh_map_after_camera_jump()
 
 
 func get_total_runtime_team_count() -> int:
@@ -125,7 +123,6 @@ func _build_match_from_game_session() -> void:
 	runtime_team_to_name.clear()
 	runtime_team_to_alliance_team.clear()
 	alliance_team_to_runtime_teams.clear()
-
 	match_is_over = false
 
 	if match_end_controller != null:
@@ -150,6 +147,7 @@ func _build_match_from_game_session() -> void:
 	var active_members: Array[Dictionary] = GameSession.get_active_members()
 	var active_runtime_team_ids: Array[int] = []
 	var member_to_alliance: Dictionary = {}
+	var player_base_positions_to_reveal: Array[Vector2] = []
 
 	if active_members.is_empty():
 		push_error("MatchController: GameSession returned no active members.")
@@ -168,7 +166,6 @@ func _build_match_from_game_session() -> void:
 	for member_data in active_members:
 		var member_id: int = int(member_data.get("member_id", 0))
 		var alliance_team_id: int = int(member_data.get("team_id", member_id))
-
 		member_to_alliance[member_id] = alliance_team_id
 
 	team_manager.setup_alliances(GameSession.team_count, member_to_alliance)
@@ -179,8 +176,8 @@ func _build_match_from_game_session() -> void:
 		var runtime_member_id: int = int(member_data.get("member_id", 0))
 		var alliance_team_id: int = int(member_data.get("team_id", runtime_member_id))
 		var control_type: int = int(member_data.get("control_type", GameSession.ControlType.CLOSED))
-
 		var spawn_position: Vector2 = _get_spawn_position(runtime_member_id, fallback_spawn_index)
+
 		fallback_spawn_index += 1
 
 		session_team_to_runtime_team[runtime_member_id] = runtime_member_id
@@ -209,6 +206,9 @@ func _build_match_from_game_session() -> void:
 		runtime_team_to_hq_id[runtime_member_id] = hq_id
 		active_runtime_team_ids.append(runtime_member_id)
 
+		if control_type == GameSession.ControlType.PLAYER:
+			player_base_positions_to_reveal.append(spawn_position)
+
 		if queue_starter_unit_on_spawn and starter_unit_stats != null:
 			for _i in range(queue_starter_unit_count):
 				structure_manager.queue_unit_production(hq_id, starter_unit_stats)
@@ -233,12 +233,10 @@ func _build_match_from_game_session() -> void:
 
 	if game_manager != null:
 		game_manager.configure_from_game_session(active_runtime_team_ids)
-		
+
+	_set_map_base_reveal_points(player_base_positions_to_reveal)
 	_center_camera_on_local_hq()
-
-	if current_map_instance != null and current_map_instance.has_method("refresh_visible_chunks"):
-		current_map_instance.call_deferred("refresh_visible_chunks")
-
+	_refresh_map_after_camera_jump()
 	_print_match_summary()
 
 
@@ -303,6 +301,7 @@ func get_alliance_team_id_for_runtime_team(runtime_team_id: int) -> int:
 
 	return runtime_team_id
 
+
 func _get_spawn_position(session_team_id: int, fallback_index: int) -> Vector2:
 	var generated_spawn_position: Vector2 = _get_spawn_position_from_current_map(session_team_id, fallback_index)
 
@@ -322,6 +321,7 @@ func _get_spawn_position(session_team_id: int, fallback_index: int) -> Vector2:
 			return fallback
 
 	return Vector2.ZERO
+
 
 func _get_spawn_position_from_current_map(session_team_id: int, fallback_index: int) -> Vector2:
 	if current_map_instance == null:
@@ -344,15 +344,18 @@ func _get_spawn_position_from_current_map(session_team_id: int, fallback_index: 
 
 	return Vector2.INF
 
+
 func _get_spawn_position_from_marker_index(index: int) -> Vector2:
 	if index < 0 or index >= team_spawn_markers.size():
 		return Vector2.INF
 
 	var marker_path: NodePath = team_spawn_markers[index]
+
 	if marker_path == NodePath():
 		return Vector2.INF
 
 	var node: Node = get_node_or_null(marker_path)
+
 	if node == null:
 		push_error("MatchController: spawn marker path is invalid: %s" % [str(marker_path)])
 		return Vector2.INF
@@ -367,16 +370,47 @@ func _get_spawn_position_from_marker_index(index: int) -> Vector2:
 func _center_camera_on_local_hq() -> void:
 	if local_player_hq_id == -1:
 		return
+
 	if structure_manager == null:
 		return
+
 	if camera_pan_controller == null:
 		return
 
 	var hq: StructureRuntime = structure_manager.get_structure(local_player_hq_id)
+
 	if hq == null:
 		return
 
 	camera_pan_controller.position = hq.position
+
+
+func _set_map_base_reveal_points(base_positions: Array[Vector2]) -> void:
+	if current_map_instance == null:
+		return
+
+	if not is_instance_valid(current_map_instance):
+		return
+
+	if current_map_instance.has_method("set_base_reveal_points"):
+		current_map_instance.call("set_base_reveal_points", base_positions, true)
+		return
+
+	if current_map_instance.has_method("pin_chunks_around_positions"):
+		current_map_instance.call("pin_chunks_around_positions", base_positions, 1, true)
+
+
+func _refresh_map_after_camera_jump() -> void:
+	if current_map_instance == null:
+		return
+
+	if not is_instance_valid(current_map_instance):
+		return
+
+	if not current_map_instance.has_method("refresh_visible_chunks"):
+		return
+
+	current_map_instance.call_deferred("refresh_visible_chunks")
 
 
 func get_runtime_team_id_from_session_team_id(session_team_id: int) -> int:

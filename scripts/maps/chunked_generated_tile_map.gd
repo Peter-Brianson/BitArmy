@@ -26,6 +26,15 @@ const MAX_TEAM_SPAWNS := 8
 @export var max_chunks_built_per_frame: int = 1
 @export var max_chunks_built_on_refresh: int = 4
 
+@export_group("Fog / Reveal")
+@export var use_reveal_based_chunk_loading: bool = true
+@export var fog_background_color: Color = Color(0.07, 0.08, 0.055, 1.0)
+@export var reveal_radius_pixels: float = 900.0
+@export var structure_reveal_radius_pixels: float = 1100.0
+@export var base_reveal_radius_pixels: float = 1600.0
+@export var base_pin_radius_chunks: int = 1
+@export var fog_background_z_index: int = -100
+
 @export_group("Scene Nodes")
 @export var chunks_root_path: NodePath = ^"Chunks"
 @export var spawn_points_path: NodePath = ^"TeamSpawnPoints"
@@ -38,11 +47,17 @@ const MAX_TEAM_SPAWNS := 8
 
 var _chunks_root: Node2D = null
 var _spawn_points: Node2D = null
+var _fog_background: Polygon2D = null
 
 var _loaded_chunks: Dictionary = {}
 var _pending_chunk_builds: Array[Vector2i] = []
 var _pending_chunk_lookup: Dictionary = {}
+var _pinned_chunks: Dictionary = {}
 var _generated_spawn_positions: Dictionary = {}
+
+var _dynamic_reveal_points: Array[Vector2] = []
+var _structure_reveal_points: Array[Vector2] = []
+var _base_reveal_points: Array[Vector2] = []
 
 var _seed_value: int = 12345
 var _tile_size: Vector2i = Vector2i(16, 16)
@@ -80,6 +95,10 @@ func generate_map(force: bool = false) -> void:
 
 	if force:
 		_clear_all_chunks()
+		_pinned_chunks.clear()
+		_dynamic_reveal_points.clear()
+		_structure_reveal_points.clear()
+		_base_reveal_points.clear()
 
 	_resolve_nodes()
 
@@ -95,6 +114,18 @@ func generate_map(force: bool = false) -> void:
 		push_error("ChunkedGeneratedTileMap: generation_set needs at least one ground tile.")
 		return
 
+	if not generation_set.tile_set.has_source(generation_set.ground_source_id):
+		push_error("ChunkedGeneratedTileMap: ground_source_id %d does not exist in the assigned TileSet." % generation_set.ground_source_id)
+		return
+
+	if generation_set.has_patch_tiles() and not generation_set.tile_set.has_source(generation_set.patch_source_id):
+		push_error("ChunkedGeneratedTileMap: patch_source_id %d does not exist in the assigned TileSet." % generation_set.patch_source_id)
+		return
+
+	if generation_set.has_detail_tiles() and not generation_set.tile_set.has_source(generation_set.detail_source_id):
+		push_error("ChunkedGeneratedTileMap: detail_source_id %d does not exist in the assigned TileSet." % generation_set.detail_source_id)
+		return
+
 	_tile_size = generation_set.tile_set.tile_size
 
 	if _tile_size.x <= 0 or _tile_size.y <= 0:
@@ -108,13 +139,21 @@ func generate_map(force: bool = false) -> void:
 	_patch_noise.frequency = generation_set.patch_noise_frequency
 
 	_generated_spawn_positions.clear()
+	_create_or_update_fog_background()
 	_create_spawn_markers()
 
 	_has_setup = true
 	_timer = 0.0
 
 	if debug_chunks:
-		print("ChunkedGeneratedTileMap ready | seed=", _seed_value, " world=", world_size_pixels, " tile_size=", _tile_size)
+		print(
+			"ChunkedGeneratedTileMap ready | seed=",
+			_seed_value,
+			" world=",
+			world_size_pixels,
+			" tile_size=",
+			_tile_size
+		)
 
 
 func refresh_visible_chunks() -> void:
@@ -133,6 +172,51 @@ func get_team_spawn_position(team_id: int, fallback_index: int = -1) -> Vector2:
 		return _generated_spawn_positions[fallback_index]
 
 	return Vector2.INF
+
+
+func set_dynamic_reveal_points(points: Array[Vector2]) -> void:
+	_dynamic_reveal_points = points
+
+
+func set_structure_reveal_points(points: Array[Vector2]) -> void:
+	_structure_reveal_points = points
+
+
+func set_base_reveal_points(points: Array[Vector2], pin_base_chunks: bool = true) -> void:
+	_base_reveal_points = points
+
+	if pin_base_chunks:
+		for position in _base_reveal_points:
+			pin_chunks_around_position(position, base_pin_radius_chunks, true)
+
+
+func pin_chunks_around_position(world_position: Vector2, radius_chunks: int = -1, build_now: bool = true) -> void:
+	if not _has_setup:
+		return
+
+	var radius: int = base_pin_radius_chunks
+
+	if radius_chunks >= 0:
+		radius = radius_chunks
+
+	var center_chunk: Vector2i = _world_to_chunk(world_position)
+
+	for cy in range(center_chunk.y - radius, center_chunk.y + radius + 1):
+		for cx in range(center_chunk.x - radius, center_chunk.x + radius + 1):
+			var chunk_coord := Vector2i(cx, cy)
+
+			if not _chunk_overlaps_world(chunk_coord):
+				continue
+
+			_pinned_chunks[chunk_coord] = true
+
+			if build_now and not _loaded_chunks.has(chunk_coord):
+				_load_chunk(chunk_coord)
+
+
+func pin_chunks_around_positions(world_positions: Array[Vector2], radius_chunks: int = -1, build_now: bool = true) -> void:
+	for position in world_positions:
+		pin_chunks_around_position(position, radius_chunks, build_now)
 
 
 func _resolve_nodes() -> void:
@@ -171,6 +255,28 @@ func _get_seed_value() -> int:
 	return 12345
 
 
+func _create_or_update_fog_background() -> void:
+	if _fog_background == null or not is_instance_valid(_fog_background):
+		_fog_background = Polygon2D.new()
+		_fog_background.name = "FogBackground"
+		add_child(_fog_background)
+
+	_fog_background.z_index = fog_background_z_index
+	_fog_background.color = fog_background_color
+
+	var left: float = _world_rect.position.x
+	var top: float = _world_rect.position.y
+	var right: float = _world_rect.position.x + _world_rect.size.x
+	var bottom: float = _world_rect.position.y + _world_rect.size.y
+
+	_fog_background.polygon = PackedVector2Array([
+		Vector2(left, top),
+		Vector2(right, top),
+		Vector2(right, bottom),
+		Vector2(left, bottom)
+	])
+
+
 func _update_visible_chunks() -> void:
 	var camera_rects: Array[Rect2] = _get_active_camera_rects()
 
@@ -201,10 +307,15 @@ func _update_visible_chunks() -> void:
 				if not _chunk_overlaps_world(chunk_coord):
 					continue
 
+				if not _should_chunk_be_visible(chunk_coord):
+					continue
+
 				wanted_chunks[chunk_coord] = true
 
 				if not _loaded_chunks.has(chunk_coord):
 					_enqueue_chunk_build(chunk_coord)
+
+	_apply_pinned_chunks_to_wanted(wanted_chunks)
 
 	var chunks_to_remove: Array[Vector2i] = []
 
@@ -225,6 +336,58 @@ func _update_visible_chunks() -> void:
 	if debug_chunks and _last_debug_chunk_count != _loaded_chunks.size():
 		_last_debug_chunk_count = _loaded_chunks.size()
 		print("Map chunks loaded: ", _loaded_chunks.size(), " pending: ", _pending_chunk_builds.size())
+
+
+func _apply_pinned_chunks_to_wanted(wanted_chunks: Dictionary) -> void:
+	for chunk_coord in _pinned_chunks.keys():
+		if not _chunk_overlaps_world(chunk_coord):
+			continue
+
+		wanted_chunks[chunk_coord] = true
+
+		if not _loaded_chunks.has(chunk_coord):
+			_load_chunk(chunk_coord)
+
+
+func _should_chunk_be_visible(chunk_coord: Vector2i) -> bool:
+	if _pinned_chunks.has(chunk_coord):
+		return true
+
+	if not use_reveal_based_chunk_loading:
+		return true
+
+	var chunk_center: Vector2 = _get_chunk_center_world(chunk_coord)
+
+	if _is_point_near_any(chunk_center, _base_reveal_points, base_reveal_radius_pixels):
+		return true
+
+	if _is_point_near_any(chunk_center, _structure_reveal_points, structure_reveal_radius_pixels):
+		return true
+
+	if _is_point_near_any(chunk_center, _dynamic_reveal_points, reveal_radius_pixels):
+		return true
+
+	return false
+
+
+func _is_point_near_any(point: Vector2, points: Array[Vector2], radius: float) -> bool:
+	var radius_squared: float = radius * radius
+
+	for reveal_point in points:
+		if point.distance_squared_to(reveal_point) <= radius_squared:
+			return true
+
+	return false
+
+
+func _get_chunk_center_world(chunk_coord: Vector2i) -> Vector2:
+	var chunk_min_cell: Vector2i = chunk_coord * chunk_size_tiles
+	var chunk_max_cell: Vector2i = chunk_min_cell + Vector2i(chunk_size_tiles, chunk_size_tiles)
+
+	var min_world: Vector2 = _cell_to_world(chunk_min_cell)
+	var max_world: Vector2 = _cell_to_world(chunk_max_cell)
+
+	return (min_world + max_world) * 0.5
 
 
 func _enqueue_chunk_build(chunk_coord: Vector2i) -> void:
@@ -321,6 +484,7 @@ func _load_chunk(chunk_coord: Vector2i) -> void:
 	var tile_map := TileMap.new()
 	tile_map.name = "Chunk_%d_%d" % [chunk_coord.x, chunk_coord.y]
 	tile_map.tile_set = generation_set.tile_set
+	tile_map.z_index = 0
 
 	while tile_map.get_layers_count() < 2:
 		tile_map.add_layer(tile_map.get_layers_count())
@@ -345,6 +509,9 @@ func _load_chunk(chunk_coord: Vector2i) -> void:
 
 
 func _unload_chunk(chunk_coord: Vector2i) -> void:
+	if _pinned_chunks.has(chunk_coord):
+		return
+
 	if not _loaded_chunks.has(chunk_coord):
 		return
 
