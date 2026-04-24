@@ -39,6 +39,7 @@ func process_unit_attack(attacker: UnitRuntime, delta: float) -> void:
 					attacker.state = UnitRuntime.UnitState.WALK
 				else:
 					attacker.state = UnitRuntime.UnitState.IDLE
+
 		return
 
 	if not is_current_target_in_attack_range(attacker):
@@ -55,6 +56,7 @@ func process_unit_attack(attacker: UnitRuntime, delta: float) -> void:
 
 	if attacker.attack_windup_left > 0.0:
 		attacker.attack_windup_left -= delta
+
 		if attacker.attack_windup_left <= 0.0 and not attacker.attack_has_landed:
 			_land_attack(attacker)
 			attacker.attack_has_landed = true
@@ -82,6 +84,7 @@ func try_find_target_for_unit(attacker: UnitRuntime) -> bool:
 				continue
 
 			var target: UnitRuntime = unit_manager.get_unit(target_id)
+
 			if not _is_valid_unit_target(attacker, target):
 				continue
 
@@ -98,6 +101,7 @@ func try_find_target_for_unit(attacker: UnitRuntime) -> bool:
 
 		for structure_id: int in nearby_structure_ids:
 			var target: StructureRuntime = structure_manager.get_structure(structure_id)
+
 			if not _is_valid_structure_target(attacker, target):
 				continue
 
@@ -110,7 +114,9 @@ func try_find_target_for_unit(attacker: UnitRuntime) -> bool:
 
 	attacker.target_unit_id = best_unit_id
 	attacker.target_structure_id = best_structure_id
+
 	return attacker.has_valid_target()
+
 
 func _get_structure_target_distance_sq(attacker: UnitRuntime, structure_target: StructureRuntime) -> float:
 	var padded_rect: Rect2 = _get_structure_padded_rect(attacker, structure_target)
@@ -120,6 +126,7 @@ func _get_structure_target_distance_sq(attacker: UnitRuntime, structure_target: 
 		padded_rect.position.x,
 		padded_rect.position.x + padded_rect.size.x
 	)
+
 	var clamped_y: float = clamp(
 		attacker.position.y,
 		padded_rect.position.y,
@@ -128,6 +135,7 @@ func _get_structure_target_distance_sq(attacker: UnitRuntime, structure_target: 
 
 	var nearest_point := Vector2(clamped_x, clamped_y)
 	return attacker.position.distance_squared_to(nearest_point)
+
 
 func validate_or_refresh_target(attacker: UnitRuntime) -> bool:
 	if _validate_current_target(attacker):
@@ -140,6 +148,7 @@ func validate_or_refresh_target(attacker: UnitRuntime) -> bool:
 func is_current_target_in_attack_range(attacker: UnitRuntime) -> bool:
 	if attacker.target_unit_id != -1:
 		var target: UnitRuntime = unit_manager.get_unit(attacker.target_unit_id)
+
 		if target == null:
 			return false
 
@@ -153,6 +162,7 @@ func is_current_target_in_attack_range(attacker: UnitRuntime) -> bool:
 
 	if attacker.target_structure_id != -1 and structure_manager != null:
 		var target: StructureRuntime = structure_manager.get_structure(attacker.target_structure_id)
+
 		if target == null:
 			return false
 
@@ -164,11 +174,13 @@ func is_current_target_in_attack_range(attacker: UnitRuntime) -> bool:
 func get_current_target_position(attacker: UnitRuntime) -> Vector2:
 	if attacker.target_unit_id != -1:
 		var unit_target: UnitRuntime = unit_manager.get_unit(attacker.target_unit_id)
+
 		if unit_target != null:
 			return unit_target.position
 
 	if attacker.target_structure_id != -1 and structure_manager != null:
 		var structure_target: StructureRuntime = structure_manager.get_structure(attacker.target_structure_id)
+
 		if structure_target != null:
 			return structure_target.position
 
@@ -178,6 +190,7 @@ func get_current_target_position(attacker: UnitRuntime) -> Vector2:
 func get_current_target_approach_position(attacker: UnitRuntime) -> Vector2:
 	if attacker.target_unit_id != -1:
 		var unit_target: UnitRuntime = unit_manager.get_unit(attacker.target_unit_id)
+
 		if unit_target != null:
 			return _get_circular_approach_position(
 				attacker.position,
@@ -189,6 +202,7 @@ func get_current_target_approach_position(attacker: UnitRuntime) -> Vector2:
 
 	if attacker.target_structure_id != -1 and structure_manager != null:
 		var structure_target: StructureRuntime = structure_manager.get_structure(attacker.target_structure_id)
+
 		if structure_target != null:
 			return _get_structure_approach_position(attacker, structure_target)
 
@@ -210,33 +224,59 @@ func _validate_current_target(attacker: UnitRuntime) -> bool:
 func _is_valid_unit_target(attacker: UnitRuntime, target: UnitRuntime) -> bool:
 	if target == null:
 		return false
+
 	if not target.is_alive:
 		return false
+
 	if attacker.id == target.id:
 		return false
+
 	if not attacker.can_target_units():
 		return false
+
 	if not _is_enemy(attacker.owner_team_id, target.owner_team_id):
 		return false
-	if target.has_keyword(UnitStats.KW_FLYING, team_manager) and not attacker.has_keyword(UnitStats.KW_ANTI_AIR, team_manager):
-		return false
-	if not _can_damage_target(attacker, target):
+
+	# Flying is target/hit eligibility.
+	# If the attacker does not have Anti Air, this target should be ignored completely.
+	if not _can_hit_unit_target(attacker, target):
 		return false
 
+	# Physical/magical immunity is NOT target eligibility.
+	# Immune units should still be chased and attacked by matching damage types;
+	# the matching damage type simply becomes 0 in _get_final_damage_vs_unit().
 	return true
 
 
 func _is_valid_structure_target(attacker: UnitRuntime, target: StructureRuntime) -> bool:
 	if target == null:
 		return false
+
 	if not target.is_alive:
 		return false
+
 	if not attacker.can_target_structures():
 		return false
+
 	if not _is_enemy(attacker.owner_team_id, target.owner_team_id):
 		return false
-	if not _can_damage_target(attacker, target):
+
+	# Immunity does not affect target selection for structures.
+	# It only affects final damage.
+	return true
+
+
+func _can_hit_unit_target(attacker: UnitRuntime, target: UnitRuntime) -> bool:
+	if attacker == null:
 		return false
+
+	if target == null:
+		return false
+
+	# Flying cannot be hit by anything except Anti Air.
+	# True damage, magic, explosive, physical, and AOE do not bypass this.
+	if target.has_keyword(UnitStats.KW_FLYING, team_manager):
+		return attacker.has_keyword(UnitStats.KW_ANTI_AIR, team_manager)
 
 	return true
 
@@ -264,6 +304,7 @@ func _can_damage_target(attacker: UnitRuntime, target) -> bool:
 func _land_attack(attacker: UnitRuntime) -> void:
 	if attacker.target_unit_id != -1:
 		var unit_target: UnitRuntime = unit_manager.get_unit(attacker.target_unit_id)
+
 		if not _is_valid_unit_target(attacker, unit_target):
 			return
 
@@ -277,14 +318,18 @@ func _land_attack(attacker: UnitRuntime) -> void:
 			return
 
 		unit_manager.notify_attack_flash(attacker.id)
+
 		if match_net_controller != null:
 			match_net_controller.broadcast_unit_attack_flash(attacker.id)
+
 		AudioHub.play_unit_shoot(attacker.position, get_tree().current_scene)
 
 		var impact_position: Vector2 = unit_target.position
 		var unit_damage: int = _get_final_damage_vs_unit(attacker, unit_target)
+
 		unit_target.apply_damage(unit_damage)
 		unit_manager.notify_hit_flash(unit_target.id)
+
 		if match_net_controller != null:
 			match_net_controller.broadcast_unit_hit_flash(unit_target.id)
 
@@ -299,6 +344,7 @@ func _land_attack(attacker: UnitRuntime) -> void:
 
 	if attacker.target_structure_id != -1 and structure_manager != null:
 		var structure_target: StructureRuntime = structure_manager.get_structure(attacker.target_structure_id)
+
 		if not _is_valid_structure_target(attacker, structure_target):
 			return
 
@@ -306,14 +352,18 @@ func _land_attack(attacker: UnitRuntime) -> void:
 			return
 
 		unit_manager.notify_attack_flash(attacker.id)
+
 		if match_net_controller != null:
 			match_net_controller.broadcast_unit_attack_flash(attacker.id)
+
 		AudioHub.play_unit_shoot(attacker.position, get_tree().current_scene)
 
 		var impact_position: Vector2 = _get_structure_contact_point(attacker, structure_target)
 		var structure_damage: int = _get_final_damage_vs_structure(attacker, structure_target)
+
 		structure_target.apply_damage(structure_damage)
 		structure_manager.notify_hit_flash(structure_target.id)
+
 		if match_net_controller != null:
 			match_net_controller.broadcast_structure_hit_flash(structure_target.id)
 
@@ -327,52 +377,76 @@ func _land_attack(attacker: UnitRuntime) -> void:
 
 func _apply_aoe_splash(attacker: UnitRuntime, impact_position: Vector2, skip_unit_id: int, skip_structure_id: int) -> void:
 	var radius: float = attacker.stats.aoe_radius
+
 	if radius <= 0.0:
 		return
 
 	if unit_manager != null:
 		var nearby_unit_ids: Array[int] = unit_manager.spatial_hash.query_unit_ids_in_radius(impact_position, radius)
+
 		for unit_id: int in nearby_unit_ids:
 			if unit_id == skip_unit_id:
 				continue
 
 			var target: UnitRuntime = unit_manager.get_unit(unit_id)
+
 			if not _is_valid_unit_target(attacker, target):
 				continue
+
 			if impact_position.distance_squared_to(target.position) > radius * radius:
 				continue
 
 			var splash_damage: int = _get_final_damage_vs_unit(attacker, target)
+
 			target.apply_damage(splash_damage)
 			unit_manager.notify_hit_flash(target.id)
+
 			if match_net_controller != null:
 				match_net_controller.broadcast_unit_hit_flash(target.id)
+
 	if unit_manager != null and structure_manager != null:
 		var nearby_structure_ids: Array[int] = unit_manager.spatial_hash.query_structure_ids_in_radius(impact_position, radius)
+
 		for structure_id: int in nearby_structure_ids:
 			if structure_id == skip_structure_id:
 				continue
 
 			var structure_target: StructureRuntime = structure_manager.get_structure(structure_id)
+
 			if not _is_valid_structure_target(attacker, structure_target):
 				continue
+
 			if impact_position.distance_squared_to(structure_target.position) > radius * radius:
 				continue
 
 			var splash_structure_damage: int = _get_final_damage_vs_structure(attacker, structure_target)
+
 			structure_target.apply_damage(splash_structure_damage)
 			structure_manager.notify_hit_flash(structure_target.id)
+
 			if match_net_controller != null:
 				match_net_controller.broadcast_structure_hit_flash(structure_target.id)
 
 
 func _get_final_damage_vs_unit(attacker: UnitRuntime, target: UnitRuntime) -> int:
+	# Flying is absolute hit eligibility.
+	# True damage, explosive damage, magic damage, physical damage, and AOE do not bypass it.
+	if not _can_hit_unit_target(attacker, target):
+		return 0
+
 	var amount: int = attacker.get_effective_damage(team_manager)
+
+	# True damage ignores immunity, armor, resistance, reductions, and modifiers.
+	# It still requires the unit to be hittable first, so it does not bypass Flying.
+	if attacker.stats.damage_type == UnitStats.DamageType.TRUE:
+		return amount
+
+	if not _can_damage_target(attacker, target):
+		return 0
 
 	if attacker.stats.damage_type == UnitStats.DamageType.PHYSICAL:
 		if target.has_keyword(UnitStats.KW_ARMORED, team_manager):
 			amount = max(amount - 1, 1)
-
 	elif attacker.stats.damage_type == UnitStats.DamageType.EXPLOSIVE:
 		if target.has_keyword(UnitStats.KW_ARMORED, team_manager):
 			amount = max(1, int(floor(float(amount) * 0.25)))
@@ -380,8 +454,15 @@ func _get_final_damage_vs_unit(attacker: UnitRuntime, target: UnitRuntime) -> in
 	return amount
 
 
-func _get_final_damage_vs_structure(attacker: UnitRuntime, _target: StructureRuntime) -> int:
+func _get_final_damage_vs_structure(attacker: UnitRuntime, target: StructureRuntime) -> int:
 	var amount: int = attacker.get_effective_damage(team_manager)
+
+	# True damage ignores immunity, armor, resistance, reductions, and modifiers.
+	if attacker.stats.damage_type == UnitStats.DamageType.TRUE:
+		return amount
+
+	if not _can_damage_target(attacker, target):
+		return 0
 
 	if attacker.stats.damage_type == UnitStats.DamageType.EXPLOSIVE:
 		amount = max(1, amount * 2)
@@ -414,6 +495,7 @@ func _spawn_sprite_fx(texture: Texture2D, world_pos: Vector2, modulate_color: Co
 		return
 
 	var scene_root: Node = get_tree().current_scene
+
 	if scene_root == null:
 		return
 
@@ -466,6 +548,7 @@ func _get_circular_approach_position(
 	target_radius: float
 ) -> Vector2:
 	var dir: Vector2 = attacker_position.direction_to(target_position)
+
 	if dir.length_squared() <= 0.0001:
 		dir = Vector2.RIGHT
 
@@ -481,6 +564,7 @@ func _get_structure_approach_position(attacker: UnitRuntime, structure_target: S
 
 	var clamped_x: float = clamp(attacker.position.x, padded_rect.position.x, padded_rect.position.x + padded_rect.size.x)
 	var clamped_y: float = clamp(attacker.position.y, padded_rect.position.y, padded_rect.position.y + padded_rect.size.y)
+
 	return Vector2(clamped_x, clamped_y)
 
 
@@ -490,6 +574,7 @@ func _get_structure_contact_point(attacker: UnitRuntime, structure_target: Struc
 
 	var clamped_x: float = clamp(attacker.position.x, rect.position.x, rect.position.x + rect.size.x)
 	var clamped_y: float = clamp(attacker.position.y, rect.position.y, rect.position.y + rect.size.y)
+
 	return Vector2(clamped_x, clamped_y)
 
 

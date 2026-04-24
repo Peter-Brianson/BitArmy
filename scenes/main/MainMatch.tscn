@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=3 uid="uid://cqum0hu0tuqy0"]
+[gd_scene load_steps=35 format=3 uid="uid://cqum0hu0tuqy0"]
 
 [ext_resource type="Script" path="res://scripts/input/CameraPanController.gd" id="1_m2t5q"]
 [ext_resource type="Script" path="res://data/structures/structure_placement_controller.gd" id="2_723eq"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/render/unit_batch_renderer_2d.gd" id="3_f6jbf"]
 [ext_resource type="Script" path="res://scripts/sim/selection_root.gd" id="3_l51oj"]
 [ext_resource type="Script" path="res://scripts/ui/selection_overlay.gd" id="4_jukhm"]
+[ext_resource type="Texture2D" uid="uid://36c3w7laq2ac" path="res://sprites/Effects/rally flag.png" id="4_k8g1g"]
 [ext_resource type="Script" path="res://scenes/main/game_manager.gd" id="5_w68uw"]
 [ext_resource type="Script" path="res://scenes/main/match_controller.gd" id="5_xvb1v"]
 [ext_resource type="Resource" uid="uid://c8ehm6364nus1" path="res://data/units/basic_soldier.tres" id="6_71p1s"]
@@ -102,6 +103,7 @@ script = ExtResource("2_xldib")
 selection_controller = NodePath("../SelectionRoot")
 unit_manager = NodePath("../../Simulation/UnitSimulationManager")
 structure_manager = NodePath("../../Simulation/StructureSimulationManager")
+rally_marker_texture = ExtResource("4_k8g1g")
 
 [node name="StructureRoot" type="Node2D" parent="MatchRoot/World"]
 
@@ -185,11 +187,10 @@ camera_pan_controller = NodePath("../../CameraRig")
 team_manager = NodePath("../TeamManager")
 ai_team_manager = NodePath("../AITeamManager")
 
-[node name="CombatResolver" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager", "unit_manager", "match_net_controller", "structure_manager")]
+[node name="CombatResolver" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager", "unit_manager", "structure_manager")]
 script = ExtResource("13_t2dt4")
 team_manager = NodePath("../TeamManager")
 unit_manager = NodePath("../UnitSimulationManager")
-match_net_controller = NodePath("../MatchNetController")
 structure_manager = NodePath("../StructureSimulationManager")
 
 [node name="MatchInputBridge" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("camera_pan_controller", "match_controller", "selection_controller")]

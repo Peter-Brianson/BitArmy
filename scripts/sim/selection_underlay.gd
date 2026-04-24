@@ -16,12 +16,30 @@ extends Node2D
 @export var rally_line_width: float = 2.0
 @export var rally_dash_length: float = 4.0
 @export var rally_gap_length: float = 6.0
+
+# This makes the line begin farther away from the structure center.
+# It uses the structure footprint plus this padding.
+@export var rally_line_start_padding: float = 18.0
+
+# This prevents tiny structures from starting the rally line too close.
+@export var rally_line_min_start_distance: float = 34.0
+
+# This keeps the dotted line from drawing through the rally marker sprite/flag.
+@export var rally_line_end_padding: float = 14.0
+
 @export var rally_marker_radius: float = 11.0
 @export var rally_marker_pole_height: float = 22.0
 @export var rally_marker_flag_width: float = 12.0
 @export var rally_marker_flag_height: float = 8.0
 @export var rally_marker_shadow_offset: Vector2 = Vector2(1.0, 1.0)
 @export var rally_marker_shadow_color: Color = Color(0, 0, 0, 0.35)
+
+@export_group("Rally Marker Sprite")
+@export var rally_marker_texture: Texture2D
+@export var rally_marker_texture_scale: float = 1.0
+@export var rally_marker_texture_offset: Vector2 = Vector2.ZERO
+@export var rally_marker_texture_modulate: Color = Color.WHITE
+@export var rally_marker_texture_draw_shadow: bool = true
 
 
 func _ready() -> void:
@@ -112,7 +130,7 @@ func _draw_structure_selection() -> void:
 	if structure.stats != null and not structure.stats.show_rally_marker:
 		return
 
-	_draw_flag_rally_marker(structure)
+	_draw_rally_marker(structure)
 
 
 func _draw_structure_selection_texture(structure: StructureRuntime) -> bool:
@@ -132,9 +150,20 @@ func _draw_structure_selection_texture(structure: StructureRuntime) -> bool:
 	return true
 
 
-func _draw_flag_rally_marker(structure: StructureRuntime) -> void:
+func _draw_rally_marker(structure: StructureRuntime) -> void:
 	var local_center: Vector2 = to_local(structure.position)
 	var local_rally: Vector2 = to_local(structure.rally_point)
+
+	var delta: Vector2 = local_rally - local_center
+	var distance: float = delta.length()
+
+	if distance <= 0.001:
+		_draw_rally_marker_at(local_rally)
+		return
+
+	var direction: Vector2 = delta / distance
+	var line_start_distance: float = _get_rally_line_start_distance(structure)
+	var line_start: Vector2 = local_center + direction * line_start_distance
 
 	var line_color := Color(
 		fallback_rally_color.r,
@@ -150,29 +179,69 @@ func _draw_flag_rally_marker(structure: StructureRuntime) -> void:
 		rally_marker_shadow_color.a * 0.75
 	)
 
-	if local_center.distance_squared_to(local_rally) > 4.0:
+	if line_start.distance_squared_to(local_rally) > 4.0:
 		_draw_dashed_line(
-			local_center + rally_marker_shadow_offset,
+			line_start + rally_marker_shadow_offset,
 			local_rally + rally_marker_shadow_offset,
 			shadow_line_color,
 			rally_line_width,
 			rally_dash_length,
 			rally_gap_length,
-			rally_marker_radius + 4.0
+			rally_line_end_padding
 		)
 
 		_draw_dashed_line(
-			local_center,
+			line_start,
 			local_rally,
 			line_color,
 			rally_line_width,
 			rally_dash_length,
 			rally_gap_length,
-			rally_marker_radius + 4.0
+			rally_line_end_padding
 		)
 
-	_draw_rally_flag(local_rally + rally_marker_shadow_offset, rally_marker_shadow_color)
-	_draw_rally_flag(local_rally, fallback_rally_color)
+	_draw_rally_marker_at(local_rally)
+
+
+func _get_rally_line_start_distance(structure: StructureRuntime) -> float:
+	if structure == null or structure.stats == null:
+		return rally_line_min_start_distance
+
+	var footprint_size: Vector2 = structure.stats.footprint_size
+	var footprint_radius: float = max(footprint_size.x, footprint_size.y) * 0.5
+
+	return max(footprint_radius + rally_line_start_padding, rally_line_min_start_distance)
+
+
+func _draw_rally_marker_at(center: Vector2) -> void:
+	if rally_marker_texture != null:
+		_draw_rally_marker_texture(center)
+		return
+
+	_draw_rally_flag(center + rally_marker_shadow_offset, rally_marker_shadow_color)
+	_draw_rally_flag(center, fallback_rally_color)
+
+
+func _draw_rally_marker_texture(center: Vector2) -> void:
+	var texture_size: Vector2 = rally_marker_texture.get_size() * max(rally_marker_texture_scale, 0.01)
+	var draw_center: Vector2 = center + rally_marker_texture_offset
+	var rect := Rect2(draw_center - texture_size * 0.5, texture_size)
+
+	if rally_marker_texture_draw_shadow:
+		var shadow_rect := Rect2(rect.position + rally_marker_shadow_offset, rect.size)
+		draw_texture_rect(
+			rally_marker_texture,
+			shadow_rect,
+			false,
+			rally_marker_shadow_color
+		)
+
+	draw_texture_rect(
+		rally_marker_texture,
+		rect,
+		false,
+		rally_marker_texture_modulate
+	)
 
 
 func _draw_dashed_line(
