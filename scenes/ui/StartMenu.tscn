@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3 uid="uid://cjvyao1pe4ouq"]
+[gd_scene load_steps=5 format=3 uid="uid://cjvyao1pe4ouq"]
 
 [ext_resource type="Script" path="res://scripts/ui/start_menu_controller.gd" id="1_3a4qe"]
 [ext_resource type="PackedScene" uid="uid://cxlq05ocsi0rt" path="res://scenes/ui/OptionsPanel.tscn" id="2_tebxw"]
+[ext_resource type="Script" path="res://scenes/ui/main_menu_background.gd" id="3_27x84"]
+[ext_resource type="Texture2D" uid="uid://3wcqax0yskhi" path="res://fonts/BitArmy_wordmark_transparent.png" id="4_fi8jy"]
 
 [node name="StartMenu" type="Control" node_paths=PackedStringArray("center_panel", "options_host", "skirmish_button", "versus_button", "options_button", "quit_button")]
 layout_mode = 3
@@ -19,14 +21,30 @@ versus_button = NodePath("CenterPanel/VBoxContainer/OnlineVersusButton")
 options_button = NodePath("CenterPanel/VBoxContainer/OptionsButton")
 quit_button = NodePath("CenterPanel/VBoxContainer/QuitButton")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.109804, 0.8, 0.819608, 1)
+script = ExtResource("3_27x84")
+
+[node name="TextureRect" type="TextureRect" parent="Background"]
+layout_direction = 1
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.505
+anchor_top = 0.204
+anchor_right = 0.505
+anchor_bottom = 0.204
+offset_left = -209.76
+offset_top = -105.192
+offset_right = 210.24
+offset_bottom = 104.808
+grow_horizontal = 2
+texture = ExtResource("4_fi8jy")
+expand_mode = 2
 
 [node name="CenterPanel" type="PanelContainer" parent="."]
 layout_mode = 1
@@ -47,7 +65,7 @@ layout_mode = 2
 
 [node name="TitleLabel" type="Label" parent="CenterPanel/VBoxContainer"]
 layout_mode = 2
-text = "BitArmy!"
+text = "Main Menu"
 horizontal_alignment = 1
 
 [node name="SkirmishButton" type="Button" parent="CenterPanel/VBoxContainer"]

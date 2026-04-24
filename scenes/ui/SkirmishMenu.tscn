@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=3 uid="uid://cfd8xpplx8rcs"]
+[gd_scene load_steps=5 format=3 uid="uid://cfd8xpplx8rcs"]
 
 [ext_resource type="Script" path="res://scripts/ui/skirmish_menu_controller.gd" id="1_05j0a"]
 [ext_resource type="PackedScene" uid="uid://dnsugg256osen" path="res://Maps/Ready Maps/Grass Land.tscn" id="3_o8fe3"]
+[ext_resource type="Script" path="res://scenes/ui/main_menu_background.gd" id="4_3tuot"]
 [ext_resource type="PackedScene" uid="uid://bnl5otydrtl4m" path="res://Maps/Ready Maps/Desert.tscn" id="6_agfac"]
 
 [node name="SkirmishMenu" type="Control" node_paths=PackedStringArray("main_panel", "team_count_option", "team_rows_container", "local_players_container", "start_button", "back_button", "starting_credits_spinbox", "income_spinbox", "map_option")]
@@ -23,14 +24,24 @@ income_spinbox = NodePath("MainPanel/VBoxContainer/EconomyRow2/IncomeSpinBox")
 map_option = NodePath("MainPanel/VBoxContainer/MapRow/MapOption")
 available_maps = Array[PackedScene]([ExtResource("3_o8fe3"), ExtResource("6_agfac")])
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.462291, 0.462291, 0.462291, 1)
+script = ExtResource("4_3tuot")
+
+[node name="TextureRect" type="TextureRect" parent="Background"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_right = 20.0
+offset_bottom = 40.0
+grow_horizontal = 2
 
 [node name="MainPanel" type="PanelContainer" parent="."]
 layout_mode = 1

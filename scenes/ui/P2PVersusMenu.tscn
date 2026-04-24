@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://bv52lyexw1yts"]
+[gd_scene load_steps=5 format=3 uid="uid://bv52lyexw1yts"]
 
 [ext_resource type="Script" path="res://scripts/ui/p2p_versus_menu.gd" id="1_ov1cc"]
 [ext_resource type="PackedScene" uid="uid://dnsugg256osen" path="res://Maps/Ready Maps/Grass Land.tscn" id="2_famib"]
 [ext_resource type="PackedScene" uid="uid://bnl5otydrtl4m" path="res://Maps/Ready Maps/Desert.tscn" id="3_lfjff"]
+[ext_resource type="Script" path="res://scenes/ui/main_menu_background.gd" id="4_djyqa"]
 
 [node name="P2PVersusMenu" type="Control" node_paths=PackedStringArray("main_panel", "transport_option", "signaling_url_line_edit", "room_code_line_edit", "host_button", "join_button", "disconnect_button", "ip_line_edit", "port_spinbox", "connection_status_label", "map_option", "team_count_option", "starting_credits_spinbox", "income_spinbox", "help_label", "seat_rows_container", "start_match_button", "back_button")]
 layout_mode = 3
@@ -32,14 +33,24 @@ seat_rows_container = NodePath("RootMargin/MainVBox/SeatsPanel/SeatsVBox/SeatRow
 start_match_button = NodePath("RootMargin/MainVBox/BottomButtonsRow/StartMatchButton")
 back_button = NodePath("RootMargin/MainVBox/BottomButtonsRow/BackButton")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.462291, 0.462291, 0.462291, 1)
+script = ExtResource("4_djyqa")
+
+[node name="TextureRect" type="TextureRect" parent="Background"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_right = 20.0
+offset_bottom = 40.0
+grow_horizontal = 2
 
 [node name="RootMargin" type="PanelContainer" parent="."]
 layout_mode = 1
