@@ -24,6 +24,12 @@ extends Node
 @export var match_end_controller: MatchEndController
 @export var map_host: Node2D
 
+@export_group("Map Reveal")
+@export var map_reveal_update_interval: float = 0.25
+@export var reveal_friendly_units: bool = true
+@export var reveal_friendly_structures: bool = true
+@export var max_unit_reveal_points: int = 600
+
 var runtime_team_to_control_type: Dictionary = {}
 var runtime_team_to_hq_id: Dictionary = {}
 var session_team_to_runtime_team: Dictionary = {}
@@ -35,6 +41,8 @@ var current_map_instance: Node = null
 
 var runtime_team_to_alliance_team: Dictionary = {}
 var alliance_team_to_runtime_teams: Dictionary = {}
+
+var _map_reveal_timer: float = 0.0
 
 const TEAM_DISPLAY_NAMES := [
 	"Blue Team",
@@ -55,9 +63,15 @@ func _ready() -> void:
 	_build_match_from_game_session()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if match_is_over:
 		return
+
+	_map_reveal_timer -= delta
+
+	if _map_reveal_timer <= 0.0:
+		_map_reveal_timer = map_reveal_update_interval
+		_update_map_reveal_points()
 
 	_check_match_end()
 
@@ -105,6 +119,7 @@ func get_alive_runtime_team_count() -> int:
 
 func center_camera_on_local_hq() -> void:
 	_center_camera_on_local_hq()
+	_update_map_reveal_points()
 	_refresh_map_after_camera_jump()
 
 
@@ -124,6 +139,7 @@ func _build_match_from_game_session() -> void:
 	runtime_team_to_alliance_team.clear()
 	alliance_team_to_runtime_teams.clear()
 	match_is_over = false
+	_map_reveal_timer = 0.0
 
 	if match_end_controller != null:
 		match_end_controller.reset_menu()
@@ -235,6 +251,7 @@ func _build_match_from_game_session() -> void:
 		game_manager.configure_from_game_session(active_runtime_team_ids)
 
 	_set_map_base_reveal_points(player_base_positions_to_reveal)
+	_update_map_reveal_points()
 	_center_camera_on_local_hq()
 	_refresh_map_after_camera_jump()
 	_print_match_summary()
@@ -411,6 +428,105 @@ func _refresh_map_after_camera_jump() -> void:
 		return
 
 	current_map_instance.call_deferred("refresh_visible_chunks")
+
+
+func _update_map_reveal_points() -> void:
+	if current_map_instance == null:
+		return
+
+	if not is_instance_valid(current_map_instance):
+		return
+
+	var unit_points: Array[Vector2] = []
+	var structure_points: Array[Vector2] = []
+
+	if reveal_friendly_units:
+		unit_points = _collect_friendly_unit_reveal_points()
+
+	if reveal_friendly_structures:
+		structure_points = _collect_friendly_structure_reveal_points()
+
+	if current_map_instance.has_method("set_dynamic_reveal_points"):
+		current_map_instance.call("set_dynamic_reveal_points", unit_points)
+
+	if current_map_instance.has_method("set_structure_reveal_points"):
+		current_map_instance.call("set_structure_reveal_points", structure_points)
+
+	if current_map_instance.has_method("refresh_visible_chunks"):
+		current_map_instance.call("refresh_visible_chunks")
+
+
+func _collect_friendly_unit_reveal_points() -> Array[Vector2]:
+	var result: Array[Vector2] = []
+
+	if unit_manager == null:
+		return result
+
+	if local_player_runtime_team_id == -1:
+		return result
+
+	for unit_value in unit_manager.units.values():
+		var unit: UnitRuntime = unit_value as UnitRuntime
+
+		if unit == null:
+			continue
+
+		if not unit.is_alive:
+			continue
+
+		if not _is_team_revealed_to_local_players(unit.owner_team_id):
+			continue
+
+		result.append(unit.position)
+
+		if max_unit_reveal_points > 0 and result.size() >= max_unit_reveal_points:
+			break
+
+	return result
+
+
+func _collect_friendly_structure_reveal_points() -> Array[Vector2]:
+	var result: Array[Vector2] = []
+
+	if structure_manager == null:
+		return result
+
+	if local_player_runtime_team_id == -1:
+		return result
+
+	for structure_value in structure_manager.structures.values():
+		var structure: StructureRuntime = structure_value as StructureRuntime
+
+		if structure == null:
+			continue
+
+		if not structure.is_alive:
+			continue
+
+		if not _is_team_revealed_to_local_players(structure.owner_team_id):
+			continue
+
+		result.append(structure.position)
+
+	return result
+
+
+func _is_team_revealed_to_local_players(owner_team_id: int) -> bool:
+	for runtime_team_id in runtime_team_to_control_type.keys():
+		var control_type: int = int(runtime_team_to_control_type[runtime_team_id])
+
+		if control_type != GameSession.ControlType.PLAYER:
+			continue
+
+		var player_team_id: int = int(runtime_team_id)
+
+		if team_manager == null:
+			return owner_team_id == player_team_id
+
+		if not team_manager.is_enemy(player_team_id, owner_team_id):
+			return true
+
+	return owner_team_id == local_player_runtime_team_id
 
 
 func get_runtime_team_id_from_session_team_id(session_team_id: int) -> int:
