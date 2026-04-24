@@ -199,6 +199,7 @@ func _connect_signaling_socket() -> Error:
 
 func _get_signaling_room_url() -> String:
 	var base: String = webrtc_signaling_url.strip_edges()
+
 	if base == "":
 		return ""
 
@@ -206,10 +207,11 @@ func _get_signaling_room_url() -> String:
 		base = base.substr(0, base.length() - 1)
 
 	var room: String = webrtc_room_code.strip_edges()
+
 	if room == "":
 		room = "default"
 
-	return "%s/room/%s" % [base, room]
+	return "%s/room/%s/ws" % [base, room]
 
 
 func _poll_signaling_socket() -> void:
@@ -217,11 +219,13 @@ func _poll_signaling_socket() -> void:
 		return
 
 	_signaling_socket.poll()
+
 	var state: int = _signaling_socket.get_ready_state()
 
 	if state == WebSocketPeer.STATE_OPEN:
 		if not _signaling_join_sent:
 			_signaling_join_sent = true
+
 			_send_signaling_message({
 				"type": "join_room",
 				"role": "host" if is_host else "client",
@@ -240,6 +244,14 @@ func _poll_signaling_socket() -> void:
 		if multiplayer.multiplayer_peer == null:
 			return
 
+		var was_host: bool = is_host
+
+		_close_existing_peer()
+
+		if was_host:
+			disconnected.emit()
+		else:
+			join_failed.emit()
 
 func _poll_webrtc_connections() -> void:
 	for remote_peer_id in _webrtc_connections.keys():

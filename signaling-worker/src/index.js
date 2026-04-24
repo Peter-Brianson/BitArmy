@@ -1,72 +1,75 @@
 import { DurableObject } from "cloudflare:workers";
 
 export class SignalRoom extends DurableObject {
-  constructor(ctx, env) {
-    super(ctx, env);
-    this.sessions = new Map();
-  }
+	constructor(ctx, env) {
+		super(ctx, env);
+		this.sessions = new Map();
+	}
 
-  async fetch(request) {
-    const url = new URL(request.url);
+	async fetch(request) {
+		const upgradeHeader = request.headers.get("Upgrade");
 
-    if (url.pathname === "/ws") {
-      const pair = new WebSocketPair();
-      const client = pair[0];
-      const server = pair[1];
+		if (upgradeHeader !== "websocket") {
+			return new Response("BitArmy signaling room online");
+		}
 
-      server.accept();
+		const pair = new WebSocketPair();
+		const client = pair[0];
+		const server = pair[1];
 
-      const id = crypto.randomUUID();
-      this.sessions.set(id, server);
+		server.accept();
 
-      server.addEventListener("message", (event) => {
-        let data = null;
+		const id = crypto.randomUUID();
+		this.sessions.set(id, server);
 
-        try {
-          data = JSON.parse(event.data);
-        } catch {
-          return;
-        }
+		server.addEventListener("message", (event) => {
+			let data = null;
 
-        for (const [otherId, socket] of this.sessions.entries()) {
-          if (otherId === id) {
-            continue;
-          }
+			try {
+				data = JSON.parse(event.data);
+			} catch {
+				return;
+			}
 
-          try {
-            socket.send(JSON.stringify(data));
-          } catch {}
-        }
-      });
+			for (const [otherId, socket] of this.sessions.entries()) {
+				if (otherId === id) {
+					continue;
+				}
 
-      const cleanup = () => {
-        this.sessions.delete(id);
-      };
+				try {
+					socket.send(JSON.stringify(data));
+				} catch {}
+			}
+		});
 
-      server.addEventListener("close", cleanup);
-      server.addEventListener("error", cleanup);
+		const cleanup = () => {
+			this.sessions.delete(id);
+		};
 
-      return new Response(null, {
-        status: 101,
-        webSocket: client
-      });
-    }
+		server.addEventListener("close", cleanup);
+		server.addEventListener("error", cleanup);
 
-    return new Response("BitArmy signaling worker online");
-  }
+		return new Response(null, {
+			status: 101,
+			webSocket: client
+		});
+	}
 }
 
 export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
+	async fetch(request, env) {
+		const url = new URL(request.url);
 
-    if (url.pathname.startsWith("/room/")) {
-      const roomCode = url.pathname.slice("/room/".length) || "default";
-      const id = env.SIGNAL_ROOMS.idFromName(roomCode);
-      const stub = env.SIGNAL_ROOMS.get(id);
-      return stub.fetch(request);
-    }
+		if (url.pathname.startsWith("/room/")) {
+			const roomPath = url.pathname.slice("/room/".length);
+			const roomCode = roomPath.split("/")[0] || "default";
 
-    return new Response("BitArmy signaling root online");
-  }
+			const id = env.SIGNAL_ROOMS.idFromName(roomCode);
+			const stub = env.SIGNAL_ROOMS.get(id);
+
+			return stub.fetch(request);
+		}
+
+		return new Response("BitArmy signaling root online");
+	}
 };
