@@ -458,8 +458,19 @@ func set_seat_control_type(seat_id: int, control_type: int) -> void:
 
 
 func apply_lobby_to_game_session() -> void:
-	GameSession.apply_online_lobby_state(_serialize_lobby_state(), multiplayer.get_unique_id())
+	GameSession.apply_online_lobby_state(_serialize_lobby_state(), _get_local_peer_id_for_lobby())
 
+func _get_local_peer_id_for_lobby() -> int:
+	if transport_mode == TransportMode.WEBRTC:
+		return _webrtc_local_peer_id
+
+	if multiplayer.multiplayer_peer != null:
+		return multiplayer.get_unique_id()
+
+	if is_host:
+		return 1
+
+	return 2
 
 func request_start_match() -> void:
 	if not is_host:

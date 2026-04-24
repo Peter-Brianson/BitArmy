@@ -250,12 +250,36 @@ func _build_match_from_game_session() -> void:
 	if game_manager != null:
 		game_manager.configure_from_game_session(active_runtime_team_ids)
 
-	_set_map_base_reveal_points(player_base_positions_to_reveal)
+	_set_map_base_reveal_points(_collect_local_base_reveal_positions())
 	_update_map_reveal_points()
 	_center_camera_on_local_hq()
 	_refresh_map_after_camera_jump()
 	_print_match_summary()
 
+func _collect_local_base_reveal_positions() -> Array[Vector2]:
+	var result: Array[Vector2] = []
+
+	if structure_manager == null:
+		return result
+
+	for runtime_team_id in runtime_team_to_hq_id.keys():
+		var team_id: int = int(runtime_team_id)
+
+		if not _is_team_revealed_to_local_players(team_id):
+			continue
+
+		var hq_id: int = int(runtime_team_to_hq_id[team_id])
+		var hq: StructureRuntime = structure_manager.get_structure(hq_id)
+
+		if hq == null:
+			continue
+
+		if not hq.is_alive:
+			continue
+
+		result.append(hq.position)
+
+	return result
 
 func _check_match_end() -> void:
 	var alive_alliances: Array[int] = []
@@ -461,14 +485,14 @@ func _apply_fog_visibility_context_to_sim_managers(
 	unit_points: Array[Vector2],
 	structure_points: Array[Vector2]
 ) -> void:
-	var player_team_ids: Array[int] = _get_player_controlled_runtime_team_ids()
+	var fog_player_team_ids: Array[int] = _get_fog_player_runtime_team_ids()
 
 	if unit_manager != null and unit_manager.has_method("set_fog_of_war_context"):
 		unit_manager.call(
 			"set_fog_of_war_context",
 			unit_points,
 			structure_points,
-			player_team_ids
+			fog_player_team_ids
 		)
 
 	if structure_manager != null and structure_manager.has_method("set_fog_of_war_context"):
@@ -476,12 +500,18 @@ func _apply_fog_visibility_context_to_sim_managers(
 			"set_fog_of_war_context",
 			unit_points,
 			structure_points,
-			player_team_ids
+			fog_player_team_ids
 		)
 
 
-func _get_player_controlled_runtime_team_ids() -> Array[int]:
+func _get_fog_player_runtime_team_ids() -> Array[int]:
 	var result: Array[int] = []
+
+	if GameSession.match_mode == GameSession.MatchMode.ONLINE_PTP:
+		if local_player_runtime_team_id != -1:
+			result.append(local_player_runtime_team_id)
+
+		return result
 
 	for runtime_team_id in runtime_team_to_control_type.keys():
 		var control_type: int = int(runtime_team_to_control_type[runtime_team_id])
@@ -547,19 +577,15 @@ func _collect_friendly_structure_reveal_points() -> Array[Vector2]:
 
 
 func _is_team_revealed_to_local_players(owner_team_id: int) -> bool:
-	for runtime_team_id in runtime_team_to_control_type.keys():
-		var control_type: int = int(runtime_team_to_control_type[runtime_team_id])
+	var fog_player_team_ids: Array[int] = _get_fog_player_runtime_team_ids()
 
-		if control_type != GameSession.ControlType.PLAYER:
-			continue
-
-		var player_team_id: int = int(runtime_team_id)
-
+	for player_team_id in fog_player_team_ids:
 		if team_manager == null:
-			return owner_team_id == player_team_id
-
-		if not team_manager.is_enemy(player_team_id, owner_team_id):
-			return true
+			if owner_team_id == player_team_id:
+				return true
+		else:
+			if not team_manager.is_enemy(player_team_id, owner_team_id):
+				return true
 
 	return owner_team_id == local_player_runtime_team_id
 
