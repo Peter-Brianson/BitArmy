@@ -452,9 +452,44 @@ func _update_map_reveal_points() -> void:
 	if current_map_instance.has_method("set_structure_reveal_points"):
 		current_map_instance.call("set_structure_reveal_points", structure_points)
 
+	_apply_fog_visibility_context_to_sim_managers(unit_points, structure_points)
+
 	if current_map_instance.has_method("refresh_visible_chunks"):
 		current_map_instance.call("refresh_visible_chunks")
 
+func _apply_fog_visibility_context_to_sim_managers(
+	unit_points: Array[Vector2],
+	structure_points: Array[Vector2]
+) -> void:
+	var player_team_ids: Array[int] = _get_player_controlled_runtime_team_ids()
+
+	if unit_manager != null and unit_manager.has_method("set_fog_of_war_context"):
+		unit_manager.call(
+			"set_fog_of_war_context",
+			unit_points,
+			structure_points,
+			player_team_ids
+		)
+
+	if structure_manager != null and structure_manager.has_method("set_fog_of_war_context"):
+		structure_manager.call(
+			"set_fog_of_war_context",
+			unit_points,
+			structure_points,
+			player_team_ids
+		)
+
+
+func _get_player_controlled_runtime_team_ids() -> Array[int]:
+	var result: Array[int] = []
+
+	for runtime_team_id in runtime_team_to_control_type.keys():
+		var control_type: int = int(runtime_team_to_control_type[runtime_team_id])
+
+		if control_type == GameSession.ControlType.PLAYER:
+			result.append(int(runtime_team_id))
+
+	return result
 
 func _collect_friendly_unit_reveal_points() -> Array[Vector2]:
 	var result: Array[Vector2] = []
