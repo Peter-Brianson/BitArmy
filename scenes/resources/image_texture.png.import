@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dv6vcri1p0rto"
-path="res://.godot/imported/Desert_pixel.png-4d8521219ef23c68d5256dc421490f3c.ctex"
+uid="uid://cvigcxdgiliuk"
+path="res://.godot/imported/image_texture.png-c4c36d4c40bf7da520b886eb59b0ee40.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Maps/Desert_pixel.png"
-dest_files=["res://.godot/imported/Desert_pixel.png-4d8521219ef23c68d5256dc421490f3c.ctex"]
+source_file="res://scenes/resources/image_texture.png"
+dest_files=["res://.godot/imported/image_texture.png-c4c36d4c40bf7da520b886eb59b0ee40.ctex"]
 
 [params]
 

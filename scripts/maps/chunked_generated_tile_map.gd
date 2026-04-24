@@ -28,6 +28,9 @@ const MAX_TEAM_SPAWNS := 8
 @export var chunks_root_path: NodePath = ^"Chunks"
 @export var spawn_points_path: NodePath = ^"TeamSpawnPoints"
 
+@export_group("Runtime")
+@export var auto_generate_on_ready: bool = false
+
 @export_group("Debug")
 @export var debug_chunks: bool = false
 
@@ -42,7 +45,8 @@ var _has_setup: bool = false
 
 
 func _ready() -> void:
-	generate_map()
+	if auto_generate_on_ready:
+		generate_map()
 
 
 func _process(delta: float) -> void:

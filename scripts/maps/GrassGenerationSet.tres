@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="MapGenerationSet" load_steps=3 format=3 uid="uid://b1ceb3gu8ffv5"]
+
+[ext_resource type="Script" path="res://scripts/maps/map_generation_set.gd" id="1_om7lh"]
+[ext_resource type="TileSet" uid="uid://dhjryluwijm52" path="res://scripts/maps/bitarmy_ground_tileset.tres" id="2_wxcr1"]
+
+[resource]
+script = ExtResource("1_om7lh")
+display_name = "Generated Set"
+tile_set = ExtResource("2_wxcr1")
+ground_source_id = 0
+ground_tiles = Array[Vector2i]([Vector2i(0, 0)])
+patch_source_id = 0
+patch_tiles = Array[Vector2i]([])
+patch_noise_cutoff = 0.25
+patch_noise_frequency = 0.035
+detail_source_id = 0
+detail_tiles = Array[Vector2i]([])
+detail_chance = 0.05

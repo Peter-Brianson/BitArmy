@@ -1,7 +1,7 @@
 [gd_scene load_steps=5 format=3 uid="uid://cfd8xpplx8rcs"]
 
 [ext_resource type="Script" path="res://scripts/ui/skirmish_menu_controller.gd" id="1_05j0a"]
-[ext_resource type="PackedScene" uid="uid://dnsugg256osen" path="res://Maps/Ready Maps/Grass Land.tscn" id="3_o8fe3"]
+[ext_resource type="PackedScene" uid="uid://ca0h8ftleut5e" path="res://Maps/Ready Maps/generated_grass_map.tscn" id="2_hk30p"]
 [ext_resource type="Script" path="res://scenes/ui/main_menu_background.gd" id="4_3tuot"]
 [ext_resource type="PackedScene" uid="uid://bnl5otydrtl4m" path="res://Maps/Ready Maps/Desert.tscn" id="6_agfac"]
 
@@ -22,7 +22,7 @@ back_button = NodePath("MainPanel/VBoxContainer/BackButton")
 starting_credits_spinbox = NodePath("MainPanel/VBoxContainer/EconomyRow1/StartingCreditsSpinBox")
 income_spinbox = NodePath("MainPanel/VBoxContainer/EconomyRow2/IncomeSpinBox")
 map_option = NodePath("MainPanel/VBoxContainer/MapRow/MapOption")
-available_maps = Array[PackedScene]([ExtResource("3_o8fe3"), ExtResource("6_agfac")])
+available_maps = Array[PackedScene]([ExtResource("2_hk30p"), ExtResource("6_agfac")])
 
 [node name="Background" type="Control" parent="."]
 layout_mode = 1

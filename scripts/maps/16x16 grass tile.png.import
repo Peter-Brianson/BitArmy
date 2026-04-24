@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dv6vcri1p0rto"
-path="res://.godot/imported/Desert_pixel.png-4d8521219ef23c68d5256dc421490f3c.ctex"
+uid="uid://cnqf3oft7i7fy"
+path="res://.godot/imported/16x16 grass tile.png-ec0ba4c656fb2feca0ffe7e238e86e83.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Maps/Desert_pixel.png"
-dest_files=["res://.godot/imported/Desert_pixel.png-4d8521219ef23c68d5256dc421490f3c.ctex"]
+source_file="res://scripts/maps/16x16 grass tile.png"
+dest_files=["res://.godot/imported/16x16 grass tile.png-ec0ba4c656fb2feca0ffe7e238e86e83.ctex"]
 
 [params]
 
@@ -31,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1
