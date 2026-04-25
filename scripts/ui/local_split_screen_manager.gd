@@ -430,8 +430,7 @@ func _create_view(view_index: int, player) -> void:
 
 	_wire_selection_underlay(selection_underlay, selection)
 
-	var player_hud: HUDController = _create_player_hud(container, selection, camera_rig)
-
+	var player_hud: HUDController = _create_player_hud(container, selection, camera_rig, player)
 	_views.append({
 		"player_index": int(player.player_index),
 		"session_member_id": session_member_id,
@@ -475,13 +474,13 @@ func _wire_selection_underlay(underlay: Node2D, selection: SelectionController) 
 func _create_player_hud(
 	container: SubViewportContainer,
 	selection: SelectionController,
-	camera_rig: CameraPanController
+	camera_rig: CameraPanController,
+	player
 ) -> HUDController:
 	if not show_per_player_hud:
 		return null
 
 	var hud: HUDController = null
-
 	if hud_scene != null:
 		hud = hud_scene.instantiate() as HUDController
 	elif main_hud_controller != null:
@@ -501,6 +500,8 @@ func _create_player_hud(
 	hud.structure_placement_controller = structure_placement_controller
 	hud.ui_scale = split_hud_scale
 	hud.virtual_pointer_owner_player_index = int(player.player_index)
+
+	_copy_main_hud_build_options(hud)
 	_copy_main_hud_build_options(hud)
 
 	container.add_child(hud)

@@ -251,19 +251,10 @@ match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 game_manager = NodePath("../../MatchRoot/Simulation/GameManager")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
 unit_batch_renderer = NodePath("../../MatchRoot/World/UnitBatchRoot")
-max_views = null
-split_only_in_skirmish = null
-show_split_when_player_count_at_least = null
 cursor_size = Vector2(16, 16)
 cursor_texture = ExtResource("2_xed8e")
-cursor_hotspot = null
-keep_cursor_world_anchored_while_panning = null
 debug_split_input = true
-controller_cursor_speed = null
-controller_cursor_deadzone = null
 hud_scene = ExtResource("15_mksec")
-show_per_player_hud = null
-split_hud_scale = null
 
 [node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "match_controller", "match_net_controller", "camera_pan_controller", "structure_placement_controller") instance=ExtResource("15_mksec")]
 selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")
