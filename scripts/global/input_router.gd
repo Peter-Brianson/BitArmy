@@ -11,7 +11,6 @@ const TOUCH_DEVICE_ID := MOBILE_TOUCH_DEVICE_ID
 const MAX_LOCAL_PLAYERS := 8
 const MAX_SPLIT_SCREEN_PLAYERS := 4
 
-
 class PlayerState:
 	var player_index: int = -1
 	var device_id: int = -1
@@ -40,9 +39,6 @@ class PlayerState:
 	var zoom_out_pressed: bool = false
 	var zoom_delta: float = 0.0
 	
-	@export var controller_cursor_speed: float = 360.0
-	@export var controller_camera_pan_scale: float = 0.45
-	
 	var _primary_down_last: bool = false
 	var _secondary_down_last: bool = false
 	var _join_down_last: bool = false
@@ -62,8 +58,10 @@ class PlayerState:
 
 
 @export var stick_deadzone: float = 0.20
-@export var controller_cursor_speed: float = 900.0
+@export var controller_cursor_speed: float = 360.0
+@export var controller_camera_pan_scale: float = 0.45
 @export var allow_keyboard_mouse_player: bool = true
+
 
 @export_group("Player Join / Leave")
 @export var allow_global_player_leave: bool = false
@@ -97,6 +95,7 @@ var _mobile_zoom_delta_frame: float = 0.0
 
 var _transient_clear_queued: bool = false
 var _last_transient_clear_frame: int = -1
+
 
 
 func _ready() -> void:
@@ -275,15 +274,15 @@ func _poll_desktop_and_controller_axes(delta: float) -> void:
 		if player.camera_pan.length() < stick_deadzone:
 			player.camera_pan = Vector2.ZERO
 
-		player.cursor_velocity = Vector2(
-			Input.get_joy_axis(device_id, JOY_AXIS_RIGHT_X),
-			Input.get_joy_axis(device_id, JOY_AXIS_RIGHT_Y)
+		player.camera_pan = Vector2(
+			Input.get_joy_axis(device_id, JOY_AXIS_LEFT_X),
+			Input.get_joy_axis(device_id, JOY_AXIS_LEFT_Y)
 		)
 
-		if player.cursor_velocity.length() < stick_deadzone:
-			player.cursor_velocity = Vector2.ZERO
-
-		player.camera_pan *= controller_camera_pan_scale
+		if player.camera_pan.length() < stick_deadzone:
+			player.camera_pan = Vector2.ZERO
+		else:
+			player.camera_pan *= controller_camera_pan_scale
 
 		player.pointer_delta = player.cursor_velocity * controller_cursor_speed * delta
 		player.pointer_screen += player.pointer_delta
