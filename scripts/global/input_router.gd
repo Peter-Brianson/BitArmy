@@ -136,8 +136,6 @@ func _input(event: InputEvent) -> void:
 			MOUSE_BUTTON_RIGHT:
 				_apply_press_release(player, false, event.pressed)
 
-			# Mouse wheel zoom is handled by CameraPanController only when its
-			# options menu toggle is enabled.
 			MOUSE_BUTTON_WHEEL_UP:
 				pass
 

@@ -16,6 +16,7 @@ var _direct_pause_latch: bool = false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	add_to_group("match_input_bridge")
 
 
 func _process(_delta: float) -> void:
@@ -54,7 +55,7 @@ func _apply_camera_and_pointer_inputs(player) -> void:
 
 	_apply_camera_inputs(player)
 
-	if should_anchor_cursor:
+	if should_anchor_cursor and camera_pan_controller.has_method("world_to_screen"):
 		var corrected_screen_position: Vector2 = camera_pan_controller.world_to_screen(cursor_world_before_pan)
 		player.pointer_screen = corrected_screen_position
 

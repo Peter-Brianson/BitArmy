@@ -114,10 +114,6 @@ func _process(_delta: float) -> void:
 			elif player.cancel_just_pressed:
 				selection.clear_selection()
 
-		# Do not use player.join_just_pressed here.
-		# Controller A is click/select in runtime. Using join_just_pressed here
-		# makes A recenter the camera or create drag-like behavior.
-
 		if player.pause_just_pressed:
 			_toggle_pause_menu()
 
@@ -150,8 +146,7 @@ func _set_split_active(active: bool) -> void:
 	_split_active = active
 	visible = active
 
-	if original_match_input_bridge != null:
-		original_match_input_bridge.set_process(not active)
+	_set_all_match_input_bridges_enabled(not active)
 
 	if main_camera_rig != null:
 		main_camera_rig.set_process(not active)
@@ -160,8 +155,6 @@ func _set_split_active(active: bool) -> void:
 		main_selection_controller.set_process(not active)
 		main_selection_controller.set_process_unhandled_input(not active)
 
-	# In split-screen, one culling camera is not enough.
-	# Setting these to null lets managers use their full/unculled fallback visibility.
 	if unit_manager != null:
 		unit_manager.camera_pan_controller = null if active else _saved_unit_camera_controller
 
@@ -173,6 +166,15 @@ func _set_split_active(active: bool) -> void:
 			"camera_pan_controller",
 			null if active else _saved_unit_batch_camera_controller
 		)
+
+
+func _set_all_match_input_bridges_enabled(enabled: bool) -> void:
+	for node in get_tree().get_nodes_in_group("match_input_bridge"):
+		if node is MatchInputBridge:
+			node.set_process(enabled)
+
+	if original_match_input_bridge != null:
+		original_match_input_bridge.set_process(enabled)
 
 
 func _create_view(view_index: int, player) -> void:
@@ -191,8 +193,6 @@ func _create_view(view_index: int, player) -> void:
 	viewport.transparent_bg = false
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	viewport.handle_input_locally = false
-
-	# Each camera view looks at the same live battlefield, not a copy.
 	viewport.world_2d = get_viewport().world_2d
 
 	container.add_child(viewport)
@@ -234,8 +234,6 @@ func _create_view(view_index: int, player) -> void:
 	camera_rig.add_child(camera)
 
 	var cursor: Control = _create_virtual_cursor_control()
-
-	# Keep the cursor as a screen-space overlay above this player's viewport.
 	container.add_child(cursor)
 	camera_rig.virtual_cursor_visual = cursor
 
@@ -246,8 +244,6 @@ func _create_view(view_index: int, player) -> void:
 	selection.match_net_controller = match_net_controller
 	selection.team_manager = team_manager
 	selection.player_team_id = runtime_member_id
-
-	# This prevents every split-screen SelectionRoot from also reading the real OS mouse.
 	selection.set_process_unhandled_input(false)
 
 	view_root.add_child(selection)
@@ -347,28 +343,12 @@ func _get_split_rects(count: int, total_size: Vector2) -> Array[Rect2]:
 	if count == 2:
 		if total_size.x >= total_size.y:
 			var half_w: float = total_size.x * 0.5
-
-			rects.append(Rect2(
-				Vector2.ZERO,
-				Vector2(half_w, total_size.y)
-			))
-
-			rects.append(Rect2(
-				Vector2(half_w, 0.0),
-				Vector2(half_w, total_size.y)
-			))
+			rects.append(Rect2(Vector2.ZERO, Vector2(half_w, total_size.y)))
+			rects.append(Rect2(Vector2(half_w, 0.0), Vector2(half_w, total_size.y)))
 		else:
 			var half_h: float = total_size.y * 0.5
-
-			rects.append(Rect2(
-				Vector2.ZERO,
-				Vector2(total_size.x, half_h)
-			))
-
-			rects.append(Rect2(
-				Vector2(0.0, half_h),
-				Vector2(total_size.x, half_h)
-			))
+			rects.append(Rect2(Vector2.ZERO, Vector2(total_size.x, half_h)))
+			rects.append(Rect2(Vector2(0.0, half_h), Vector2(total_size.x, half_h)))
 
 		return rects
 
