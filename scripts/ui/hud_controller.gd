@@ -60,6 +60,7 @@ var _dynamic_production_buttons: Array = []
 
 var _has_last_virtual_pointer_world: bool = false
 var _last_virtual_pointer_world: Vector2 = Vector2.ZERO
+var _last_virtual_pointer_player_index: int = -1
 
 
 func _ready() -> void:
@@ -101,6 +102,7 @@ func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
 
 	_has_last_virtual_pointer_world = true
 	_last_virtual_pointer_world = pointer.world_pos
+	_last_virtual_pointer_player_index = pointer.player_index
 
 	if structure_placement_controller != null:
 		if structure_placement_controller.has_method("set_external_pointer_world"):
@@ -552,7 +554,8 @@ func _on_build_structure_option_pressed(structure_index: int) -> void:
 		structure.owner_team_id,
 		build_stats,
 		build_scene,
-		selected_structure_id
+		selected_structure_id,
+		_last_virtual_pointer_player_index
 	)
 
 

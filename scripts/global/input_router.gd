@@ -39,7 +39,10 @@ class PlayerState:
 	var zoom_in_pressed: bool = false
 	var zoom_out_pressed: bool = false
 	var zoom_delta: float = 0.0
-
+	
+	@export var controller_cursor_speed: float = 360.0
+	@export var controller_camera_pan_scale: float = 0.45
+	
 	var _primary_down_last: bool = false
 	var _secondary_down_last: bool = false
 	var _join_down_last: bool = false
@@ -279,6 +282,8 @@ func _poll_desktop_and_controller_axes(delta: float) -> void:
 
 		if player.cursor_velocity.length() < stick_deadzone:
 			player.cursor_velocity = Vector2.ZERO
+
+		player.camera_pan *= controller_camera_pan_scale
 
 		player.pointer_delta = player.cursor_velocity * controller_cursor_speed * delta
 		player.pointer_screen += player.pointer_delta

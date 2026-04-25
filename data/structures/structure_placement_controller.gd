@@ -25,6 +25,7 @@ extends Node2D
 
 var is_placing: bool = false
 var placement_owner_team_id: int = -1
+var placement_owner_player_index: int = -1
 var placement_builder_structure_id: int = -1
 var placement_stats: StructureStats = null
 var placement_scene: PackedScene = null
@@ -53,8 +54,7 @@ func _process(_delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	# When a virtual pointer is active, placement input should come from
-	# handle_virtual_pointer(), not from the real OS mouse.
+	# If a virtual pointer owns placement, raw mouse must not drive placement.
 	if _has_external_pointer_world:
 		return
 
@@ -78,55 +78,18 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-func set_external_pointer_world(world_pos: Vector2) -> void:
-	_has_external_pointer_world = true
-	_external_pointer_world = world_pos
-
-
-func clear_external_pointer_world() -> void:
-	_has_external_pointer_world = false
-
-
-func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
-	set_external_pointer_world(pointer.world_pos)
-
-	if not is_placing:
-		return false
-
-	preview_world_pos = _get_snapped_world_position(pointer.world_pos)
-	preview_is_valid = _can_place_at(preview_world_pos)
-	_update_preview_visual()
-
-	if pointer.primary_just_pressed:
-		_confirm_placement()
-		return true
-
-	if pointer.secondary_just_pressed or pointer.cancel_just_pressed:
-		cancel_placement()
-		return true
-
-	# While placing, consume pointer input so selection does not also fire.
-	return true
-
-
-func confirm_external_placement() -> void:
-	_confirm_placement()
-
-
-func cancel_external_placement() -> void:
-	cancel_placement()
-
-
 func begin_placement(
 	owner_team_id: int,
 	build_stats: StructureStats,
 	build_scene: PackedScene,
-	builder_structure_id: int = -1
+	builder_structure_id: int = -1,
+	owner_player_index: int = -1
 ) -> void:
 	if build_stats == null or build_scene == null:
 		return
 
 	placement_owner_team_id = owner_team_id
+	placement_owner_player_index = owner_player_index
 	placement_stats = build_stats
 	placement_scene = build_scene
 	placement_builder_structure_id = builder_structure_id
@@ -141,14 +104,47 @@ func begin_placement(
 	_create_preview()
 
 
+func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
+	if not is_placing:
+		return false
+
+	if placement_owner_player_index != -1 and pointer.player_index != placement_owner_player_index:
+		return false
+
+	set_external_pointer_world(pointer.world_pos)
+
+	if pointer.primary_just_pressed:
+		_confirm_placement()
+		return true
+
+	if pointer.secondary_just_pressed or pointer.cancel_just_pressed:
+		cancel_placement()
+		return true
+
+	# While placing, consume the owning player's pointer so selection does not fire.
+	return true
+
+
+func set_external_pointer_world(world_pos: Vector2) -> void:
+	_has_external_pointer_world = true
+	_external_pointer_world = world_pos
+
+
+func clear_external_pointer_world() -> void:
+	_has_external_pointer_world = false
+
+
 func cancel_placement() -> void:
 	is_placing = false
 	placement_owner_team_id = -1
+	placement_owner_player_index = -1
 	placement_builder_structure_id = -1
 	placement_stats = null
 	placement_scene = null
 	preview_is_valid = false
 	preview_world_pos = Vector2.ZERO
+	_has_external_pointer_world = false
+	_external_pointer_world = Vector2.ZERO
 
 	if preview_instance != null and is_instance_valid(preview_instance):
 		preview_instance.queue_free()
@@ -169,13 +165,6 @@ func _confirm_placement() -> void:
 	if placement_scene == null:
 		cancel_placement()
 		return
-
-	if structure_manager == null:
-		cancel_placement()
-		return
-
-	preview_world_pos = _get_snapped_world_position(_get_current_pointer_world())
-	preview_is_valid = _can_place_at(preview_world_pos)
 
 	if not preview_is_valid:
 		return
@@ -225,7 +214,6 @@ func _create_preview() -> void:
 	root.global_position = preview_world_pos
 
 	parent_node.add_child(root)
-
 	preview_instance = root
 
 	_create_preview_sprite(root)
@@ -289,10 +277,7 @@ func _create_preview_outline(root: Node2D) -> void:
 
 
 func _apply_sprite_footprint_scale(sprite: Sprite2D, texture: Texture2D) -> void:
-	if placement_stats == null:
-		return
-
-	if texture == null:
+	if placement_stats == null or texture == null:
 		return
 
 	var texture_size: Vector2 = texture.get_size()
@@ -325,15 +310,11 @@ func _update_preview_visual() -> void:
 
 
 func _apply_preview_tint(tint: Color) -> void:
-	if preview_instance == null or not is_instance_valid(preview_instance):
-		return
-
 	if preview_sprite != null and is_instance_valid(preview_sprite):
 		preview_sprite.modulate = tint
 
 	if preview_outline != null and is_instance_valid(preview_outline):
 		preview_outline.default_color = tint
-		preview_outline.modulate = Color.WHITE
 
 
 func _get_current_pointer_world() -> Vector2:
@@ -367,6 +348,11 @@ func _can_place_at(world_pos: Vector2) -> bool:
 		if not camera_pan_controller.world_rect.encloses(placement_rect):
 			return false
 
+	var candidate_rect := Rect2(
+		world_pos - placement_stats.footprint_size * 0.5,
+		placement_stats.footprint_size
+	)
+
 	for structure in structure_manager.structures.values():
 		var s: StructureRuntime = structure
 
@@ -379,11 +365,6 @@ func _can_place_at(world_pos: Vector2) -> bool:
 		var existing_rect := Rect2(
 			s.position - s.stats.footprint_size * 0.5 - Vector2(placement_padding, placement_padding),
 			s.stats.footprint_size + Vector2(placement_padding * 2.0, placement_padding * 2.0)
-		)
-
-		var candidate_rect := Rect2(
-			world_pos - placement_stats.footprint_size * 0.5,
-			placement_stats.footprint_size
 		)
 
 		if candidate_rect.intersects(existing_rect):

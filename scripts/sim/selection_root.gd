@@ -12,6 +12,12 @@ extends Node2D
 @export var drag_fill_color: Color = Color(0.2, 0.8, 1.0, 0.12)
 @export var drag_outline_color: Color = Color(0.5, 0.9, 1.0, 0.9)
 
+@export_group("Selection Visuals")
+@export var draw_selection_visuals: bool = true
+@export var selection_ring_color: Color = Color(0.45, 0.95, 1.0, 0.95)
+@export var rally_line_color: Color = Color(0.5, 1.0, 0.45, 0.85)
+@export var structure_ring_color: Color = Color(1.0, 0.9, 0.35, 0.95)
+
 @export_group("Debug")
 @export var debug_external_input: bool = false
 
@@ -27,6 +33,7 @@ var _has_external_pointer_world: bool = false
 var _external_pointer_world: Vector2 = Vector2.ZERO
 
 
+
 func _process(_delta: float) -> void:
 	if is_left_dragging:
 		drag_current_world = _get_pointer_world()
@@ -34,19 +41,80 @@ func _process(_delta: float) -> void:
 		if not is_drag_selecting and drag_start_world.distance_to(drag_current_world) >= drag_threshold:
 			is_drag_selecting = true
 
-		queue_redraw()
-
+	queue_redraw()
 
 func _draw() -> void:
-	if not is_left_dragging or not is_drag_selecting:
+	if draw_selection_visuals:
+		_draw_selection_rings()
+		_draw_structure_rally_visual()
+
+	if is_left_dragging and is_drag_selecting:
+		var rect_world := Rect2(drag_start_world, drag_current_world - drag_start_world).abs()
+		var rect_local := Rect2(to_local(rect_world.position), rect_world.size)
+
+		draw_rect(rect_local, drag_fill_color, true)
+		draw_rect(rect_local, drag_outline_color, false, 2.0)
+
+func _draw_selection_rings() -> void:
+	if unit_manager != null:
+		for unit_id in selected_unit_ids:
+			var unit: UnitRuntime = unit_manager.get_unit(unit_id)
+
+			if unit == null:
+				continue
+
+			if not unit.is_alive:
+				continue
+
+			var radius: float = max(unit.get_radius(), 8.0)
+			draw_arc(
+				to_local(unit.position),
+				radius + 3.0,
+				0.0,
+				TAU,
+				32,
+				selection_ring_color,
+				2.0
+			)
+
+	if selected_structure_id != -1 and structure_manager != null:
+		var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+
+		if structure == null:
+			return
+
+		if not structure.is_alive:
+			return
+
+		var half: Vector2 = structure.stats.footprint_size * 0.5
+		var rect := Rect2(to_local(structure.position - half), structure.stats.footprint_size)
+
+		draw_rect(rect, structure_ring_color, false, 2.0)
+
+
+func _draw_structure_rally_visual() -> void:
+	if selected_structure_id == -1:
 		return
 
-	var rect_world := Rect2(drag_start_world, drag_current_world - drag_start_world).abs()
-	var rect_local := Rect2(to_local(rect_world.position), rect_world.size)
+	if structure_manager == null:
+		return
 
-	draw_rect(rect_local, drag_fill_color, true)
-	draw_rect(rect_local, drag_outline_color, false, 2.0)
+	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
 
+	if structure == null:
+		return
+
+	if not structure.is_alive:
+		return
+
+	if structure.rally_point.distance_squared_to(structure.position) <= 4.0:
+		return
+
+	var start_local: Vector2 = to_local(structure.position)
+	var end_local: Vector2 = to_local(structure.rally_point)
+
+	draw_line(start_local, end_local, rally_line_color, 2.0)
+	draw_circle(end_local, 5.0, rally_line_color)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _has_external_pointer_world:

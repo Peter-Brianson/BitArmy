@@ -98,15 +98,5 @@ func setup_runtime_buttons(
 	pause_just_pressed = pause_now and not pause_last
 
 
-func was_primary_clicked() -> bool:
-	return primary_just_pressed or primary_just_released
-
-
-func clear_handlers() -> void:
-	handled_by_ui = false
-	handled_by_placement = false
-	handled_by_selection = false
-
-
 func is_consumed() -> bool:
 	return handled_by_ui or handled_by_placement or handled_by_selection

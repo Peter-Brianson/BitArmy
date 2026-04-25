@@ -23,6 +23,7 @@ extends Node2D
 @export var enable_virtual_cursor: bool = true
 @export var virtual_cursor_visual: Control
 @export var warp_os_mouse_for_virtual_pointer: bool = true
+@export var virtual_cursor_hotspot: Vector2 = Vector2.ZERO
 
 const SETTINGS_PATH := "user://settings.cfg"
 const SETTINGS_SECTION := "camera_input"
@@ -293,9 +294,7 @@ func _update_virtual_cursor_visual() -> void:
 		return
 
 	virtual_cursor_visual.visible = enable_virtual_cursor and _has_external_pointer
-
-	var visual_size: Vector2 = virtual_cursor_visual.size
-	virtual_cursor_visual.position = _external_pointer_screen - visual_size * 0.5
+	virtual_cursor_visual.position = _external_pointer_screen - virtual_cursor_hotspot
 
 
 func _get_clamped_camera_position(target_pos: Vector2, viewport_size: Vector2) -> Vector2:

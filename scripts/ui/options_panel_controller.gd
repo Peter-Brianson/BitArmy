@@ -28,6 +28,14 @@ var hud_controller: HUDController = null
 var mouse_wheel_zoom_enabled: bool = false
 var mouse_edge_pan_enabled: bool = false
 
+const KEY_CONTROLLER_CURSOR_SPEED := "controller_cursor_speed"
+const KEY_CONTROLLER_CAMERA_PAN_SCALE := "controller_camera_pan_scale"
+
+@export var controller_cursor_speed_slider: HSlider
+@export var controller_pan_scale_slider: HSlider
+
+var controller_cursor_speed: float = 360.0
+var controller_camera_pan_scale: float = 0.45
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -72,6 +80,22 @@ func _ready() -> void:
 	if mouse_edge_pan_check_box != null:
 		mouse_edge_pan_check_box.button_pressed = mouse_edge_pan_enabled
 		mouse_edge_pan_check_box.toggled.connect(_on_mouse_edge_pan_toggled)
+
+
+	if controller_cursor_speed_slider != null:
+		controller_cursor_speed_slider.min_value = 120.0
+		controller_cursor_speed_slider.max_value = 900.0
+		controller_cursor_speed_slider.step = 10.0
+		controller_cursor_speed_slider.value = controller_cursor_speed
+		controller_cursor_speed_slider.value_changed.connect(_on_controller_cursor_speed_changed)
+
+	if controller_pan_scale_slider != null:
+		controller_pan_scale_slider.min_value = 0.15
+		controller_pan_scale_slider.max_value = 1.0
+		controller_pan_scale_slider.step = 0.05
+		controller_pan_scale_slider.value = controller_camera_pan_scale
+		controller_pan_scale_slider.value_changed.connect(_on_controller_pan_scale_changed)
+
 
 	if close_button != null:
 		close_button.pressed.connect(_on_close_pressed)
@@ -211,6 +235,17 @@ func _load_camera_mouse_settings() -> void:
 		KEY_MOUSE_EDGE_PAN,
 		false
 	))
+	controller_cursor_speed = float(config.get_value(
+	CAMERA_INPUT_SECTION,
+	KEY_CONTROLLER_CURSOR_SPEED,
+	360.0
+	))
+
+	controller_camera_pan_scale = float(config.get_value(
+		CAMERA_INPUT_SECTION,
+		KEY_CONTROLLER_CAMERA_PAN_SCALE,
+		0.45
+	))
 
 
 func _save_camera_mouse_settings() -> void:
@@ -228,12 +263,44 @@ func _save_camera_mouse_settings() -> void:
 		KEY_MOUSE_EDGE_PAN,
 		mouse_edge_pan_enabled
 	)
+	config.set_value(
+	CAMERA_INPUT_SECTION,
+	KEY_CONTROLLER_CURSOR_SPEED,
+	controller_cursor_speed
+	)
+
+	config.set_value(
+		CAMERA_INPUT_SECTION,
+		KEY_CONTROLLER_CAMERA_PAN_SCALE,
+		controller_camera_pan_scale
+	)
 
 	var err: Error = config.save(SETTINGS_PATH)
 
 	if err != OK:
 		push_warning("OptionsPanelController: failed to save camera mouse settings.")
 
+
+func _on_controller_cursor_speed_changed(value: float) -> void:
+	controller_cursor_speed = value
+	_save_camera_mouse_settings()
+	_apply_input_router_settings()
+
+
+func _on_controller_pan_scale_changed(value: float) -> void:
+	controller_camera_pan_scale = value
+	_save_camera_mouse_settings()
+	_apply_input_router_settings()
+
+
+func _apply_input_router_settings() -> void:
+	if InputHub == null:
+		return
+
+	InputHub.controller_cursor_speed = controller_cursor_speed
+
+	if "controller_camera_pan_scale" in InputHub:
+		InputHub.controller_camera_pan_scale = controller_camera_pan_scale
 
 func _on_mouse_wheel_zoom_toggled(enabled: bool) -> void:
 	mouse_wheel_zoom_enabled = enabled
