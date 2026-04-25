@@ -53,6 +53,7 @@ var _cancel_down_last: Dictionary = {}
 var _pause_down_last: Dictionary = {}
 
 
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -352,6 +353,7 @@ func _create_view(view_index: int, player) -> void:
 	var runtime_member_id: int = _get_runtime_member_for_session_member(session_member_id)
 
 	var container := SubViewportContainer.new()
+	container.clip_contents = true
 	container.name = "PlayerView%d" % (view_index + 1)
 	container.stretch = true
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -364,6 +366,8 @@ func _create_view(view_index: int, player) -> void:
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	viewport.handle_input_locally = false
 	viewport.world_2d = get_viewport().world_2d
+
+	
 
 	container.add_child(viewport)
 
@@ -496,7 +500,7 @@ func _create_player_hud(
 	hud.camera_pan_controller = camera_rig
 	hud.structure_placement_controller = structure_placement_controller
 	hud.ui_scale = split_hud_scale
-
+	hud.virtual_pointer_owner_player_index = int(player.player_index)
 	_copy_main_hud_build_options(hud)
 
 	container.add_child(hud)
