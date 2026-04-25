@@ -23,6 +23,9 @@ extends Node2D
 @export var enable_virtual_cursor: bool = true
 @export var virtual_cursor_visual: Control
 @export var warp_os_mouse_for_virtual_pointer: bool = true
+
+# For an arrow cursor with the tip at top-left, use Vector2.ZERO.
+# For an 8x8 square/crosshair cursor centered on the click point, use Vector2(4, 4).
 @export var virtual_cursor_hotspot: Vector2 = Vector2.ZERO
 
 const SETTINGS_PATH := "user://settings.cfg"
@@ -179,6 +182,7 @@ func emit_virtual_mouse_button(button_index: int, pressed: bool) -> void:
 	ev.pressed = pressed
 	ev.position = _external_pointer_screen
 	ev.global_position = _external_pointer_screen
+
 	Input.parse_input_event(ev)
 
 

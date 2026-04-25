@@ -25,8 +25,13 @@ extends Control
 @export var show_split_when_player_count_at_least: int = 2
 @export var cursor_size: Vector2 = Vector2(8.0, 8.0)
 @export var cursor_texture: Texture2D
+@export var cursor_hotspot: Vector2 = Vector2(4.0, 4.0)
 @export var keep_cursor_world_anchored_while_panning: bool = true
 @export var debug_split_input: bool = false
+
+@export_group("Controller Cursor")
+@export var controller_cursor_speed: float = 360.0
+@export var controller_cursor_deadzone: float = 0.18
 
 @export_group("Per Player HUD")
 @export var hud_scene: PackedScene
@@ -77,7 +82,7 @@ func _notification(what: int) -> void:
 		_apply_layout()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not _split_active:
 		return
 
@@ -96,12 +101,12 @@ func _process(_delta: float) -> void:
 		if container == null or camera_rig == null:
 			continue
 
-		var local_screen_pos: Vector2 = _get_local_pointer_screen(player, container)
+		var local_screen_pos: Vector2 = _get_local_pointer_screen(player, container, delta)
 
 		var cursor_world_before_pan: Vector2 = camera_rig.screen_to_world(local_screen_pos)
 		var should_anchor_cursor: bool = keep_cursor_world_anchored_while_panning
 		should_anchor_cursor = should_anchor_cursor and player.camera_pan.length_squared() > 0.001
-		should_anchor_cursor = should_anchor_cursor and player.pointer_delta.length_squared() <= 0.001
+		should_anchor_cursor = should_anchor_cursor and _get_controller_cursor_vector(player).length_squared() <= 0.001
 
 		camera_rig.external_camera_pan = player.camera_pan
 		camera_rig.external_zoom_delta = player.zoom_delta
@@ -121,12 +126,14 @@ func _process(_delta: float) -> void:
 		_apply_runtime_button_poll(pointer, player, container)
 
 		if debug_split_input:
-			if pointer.primary_just_pressed or pointer.secondary_just_pressed or pointer.pause_just_pressed:
+			if pointer.primary_just_pressed or pointer.primary_just_released or pointer.secondary_just_pressed or pointer.pause_just_pressed:
 				print(
 					"Virtual pointer P",
 					pointer.player_index,
-					" primary=",
+					" primary_press=",
 					pointer.primary_just_pressed,
+					" primary_release=",
+					pointer.primary_just_released,
 					" secondary=",
 					pointer.secondary_just_pressed,
 					" pause=",
@@ -184,7 +191,7 @@ func _apply_runtime_button_poll(
 			cancel_last,
 			pause_now,
 			pause_last,
-			true
+			false
 		)
 
 		_primary_down_last[player_index] = primary_now
@@ -206,6 +213,8 @@ func _apply_runtime_button_poll(
 	var cancel_controller_last: bool = bool(_cancel_down_last.get(player_index, false))
 	var pause_controller_last: bool = bool(_pause_down_last.get(player_index, false))
 
+	# Controller A is intentionally NOT click-pulsed here.
+	# It must be holdable so controller drag-select works.
 	pointer.setup_runtime_buttons(
 		primary_controller_now,
 		primary_controller_last,
@@ -215,13 +224,54 @@ func _apply_runtime_button_poll(
 		cancel_controller_last,
 		pause_controller_now,
 		pause_controller_last,
-		true
+		false
 	)
 
 	_primary_down_last[player_index] = primary_controller_now
 	_secondary_down_last[player_index] = secondary_controller_now
 	_cancel_down_last[player_index] = cancel_controller_now
 	_pause_down_last[player_index] = pause_controller_now
+
+
+func _get_controller_cursor_vector(player) -> Vector2:
+	if player.is_keyboard_mouse or player.is_touch:
+		return Vector2.ZERO
+
+	var device_id: int = int(player.device_id)
+	var stick := Vector2(
+		Input.get_joy_axis(device_id, JOY_AXIS_RIGHT_X),
+		Input.get_joy_axis(device_id, JOY_AXIS_RIGHT_Y)
+	)
+
+	var stick_length: float = stick.length()
+
+	if stick_length < controller_cursor_deadzone:
+		return Vector2.ZERO
+
+	var adjusted_length: float = inverse_lerp(controller_cursor_deadzone, 1.0, min(stick_length, 1.0))
+	return stick.normalized() * adjusted_length
+
+
+func _get_local_pointer_screen(player, container: SubViewportContainer, delta: float) -> Vector2:
+	var player_index: int = int(player.player_index)
+	var container_size: Vector2 = container.size
+
+	if player.is_keyboard_mouse or player.is_touch:
+		var global_rect: Rect2 = container.get_global_rect()
+		var local_pos: Vector2 = player.pointer_screen - global_rect.position
+
+		local_pos = _clamp_screen_pos(local_pos, container_size)
+		_local_pointers[player_index] = local_pos
+
+		return local_pos
+
+	var current: Vector2 = _local_pointers.get(player_index, container_size * 0.5)
+	current += _get_controller_cursor_vector(player) * controller_cursor_speed * delta
+	current = _clamp_screen_pos(current, container_size)
+
+	_local_pointers[player_index] = current
+
+	return current
 
 
 func _rebuild_views() -> void:
@@ -325,6 +375,7 @@ func _create_view(view_index: int, player) -> void:
 	camera_rig.suppress_mouse_camera_input = true
 	camera_rig.mouse_edge_pan_enabled = false
 	camera_rig.mouse_wheel_zoom_enabled = false
+	camera_rig.virtual_cursor_hotspot = cursor_hotspot
 
 	if main_camera_rig != null:
 		camera_rig.world_rect = main_camera_rig.world_rect
@@ -522,28 +573,6 @@ func _get_split_rects(count: int, total_size: Vector2) -> Array[Rect2]:
 		rects.append(Rect2(cell_size, cell_size))
 
 	return rects
-
-
-func _get_local_pointer_screen(player, container: SubViewportContainer) -> Vector2:
-	var player_index: int = int(player.player_index)
-	var container_size: Vector2 = container.size
-
-	if player.is_keyboard_mouse or player.is_touch:
-		var global_rect: Rect2 = container.get_global_rect()
-		var local_pos: Vector2 = player.pointer_screen - global_rect.position
-
-		local_pos = _clamp_screen_pos(local_pos, container_size)
-		_local_pointers[player_index] = local_pos
-
-		return local_pos
-
-	var current: Vector2 = _local_pointers.get(player_index, container_size * 0.5)
-	current += player.pointer_delta
-	current = _clamp_screen_pos(current, container_size)
-
-	_local_pointers[player_index] = current
-
-	return current
 
 
 func _clamp_screen_pos(pos: Vector2, viewport_size: Vector2) -> Vector2:

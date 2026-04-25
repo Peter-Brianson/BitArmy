@@ -1,4 +1,4 @@
-[gd_scene load_steps=40 format=3 uid="uid://cqum0hu0tuqy0"]
+[gd_scene load_steps=39 format=3 uid="uid://cqum0hu0tuqy0"]
 
 [ext_resource type="Script" path="res://scripts/input/CameraPanController.gd" id="1_m2t5q"]
 [ext_resource type="Script" path="res://data/structures/structure_placement_controller.gd" id="2_723eq"]
@@ -12,7 +12,6 @@
 [ext_resource type="Script" path="res://scenes/main/match_controller.gd" id="5_xvb1v"]
 [ext_resource type="Resource" uid="uid://c8ehm6364nus1" path="res://data/units/basic_soldier.tres" id="6_71p1s"]
 [ext_resource type="Resource" uid="uid://i01u6sx8dsme" path="res://data/structures/hq_basic.tres" id="7_hn723"]
-[ext_resource type="Texture2D" uid="uid://2fxil8j6p66x" path="res://sprites/select ring/select ring.png" id="8_dxh1p"]
 [ext_resource type="Script" path="res://scripts/ai/ai_team_manager.gd" id="9_levw5"]
 [ext_resource type="Script" path="res://scripts/sim/team_manager.gd" id="9_witlm"]
 [ext_resource type="Script" path="res://scripts/sim/unit_simulation_manager.gd" id="10_gvb8p"]
@@ -140,8 +139,6 @@ unit_manager = NodePath("../../Simulation/UnitSimulationManager")
 structure_manager = NodePath("../../Simulation/StructureSimulationManager")
 match_net_controller = NodePath("../../Simulation/MatchNetController")
 team_manager = NodePath("../../Simulation/TeamManager")
-unit_selection_texture = ExtResource("8_dxh1p")
-structure_selection_texture = ExtResource("8_dxh1p")
 rally_point_texture = ExtResource("4_k8g1g")
 
 [node name="SelectionOverlay" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller")]
@@ -257,6 +254,7 @@ unit_batch_renderer = NodePath("../../MatchRoot/World/UnitBatchRoot")
 cursor_size = Vector2(16, 16)
 cursor_texture = ExtResource("2_xed8e")
 debug_split_input = true
+hud_scene = ExtResource("15_mksec")
 
 [node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "match_controller", "match_net_controller", "camera_pan_controller", "structure_placement_controller") instance=ExtResource("15_mksec")]
 selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")
