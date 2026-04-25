@@ -110,19 +110,42 @@ func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
 	_last_virtual_pointer_world = pointer.world_pos
 	_last_virtual_pointer_player_index = pointer.player_index
 
-	if not pointer.primary_just_pressed:
+	# Any click over this HUD should be consumed, even if it is not directly
+	# on a button. This prevents HUD clicks from falling through as ground clicks.
+	var pointer_over_hud: bool = _is_virtual_pointer_over_visible_control(self, pointer.screen_pos)
+
+	if not pointer_over_hud:
 		return false
+
+	if not pointer.primary_just_pressed and not pointer.secondary_just_pressed and not pointer.cancel_just_pressed:
+		return true
 
 	var button: BaseButton = _find_button_at_global_position(self, pointer.screen_pos)
 
 	if button == null:
-		return false
+		return true
 
 	if button.disabled:
 		return true
 
-	button.emit_signal("pressed")
+	if pointer.primary_just_pressed:
+		button.emit_signal("pressed")
+
 	return true
+
+func _is_virtual_pointer_over_visible_control(node: Node, global_pos: Vector2) -> bool:
+	if node is Control:
+		var control := node as Control
+
+		if control.visible and control.is_visible_in_tree():
+			if control.get_global_rect().has_point(global_pos):
+				return true
+
+	for child in node.get_children():
+		if _is_virtual_pointer_over_visible_control(child, global_pos):
+			return true
+
+	return false
 
 func _find_button_at_global_position(node: Node, global_pos: Vector2) -> BaseButton:
 	var best_button: BaseButton = null

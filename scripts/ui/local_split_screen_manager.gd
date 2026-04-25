@@ -375,8 +375,8 @@ func _create_view(view_index: int, player) -> void:
 	view_root.name = "ViewRoot"
 	viewport.add_child(view_root)
 
-	var selection_underlay: Node2D = _create_selection_underlay_for_view(view_index)
-	view_root.add_child(selection_underlay)
+	var selection_underlay: SelectionUnderlay = _create_selection_underlay_for_view(view_index)
+	_configure_selection_underlay_layer(selection_underlay)
 
 	var camera_rig := CameraPanController.new()
 	camera_rig.name = "CameraRig_P%d" % (view_index + 1)
@@ -444,31 +444,69 @@ func _create_view(view_index: int, player) -> void:
 	})
 
 
-func _create_selection_underlay_for_view(view_index: int) -> Node2D:
-	var underlay: Node2D = null
+func _create_selection_underlay_for_view(view_index: int) -> SelectionUnderlay:
+	var underlay: SelectionUnderlay = null
 
 	if main_selection_underlay != null:
-		underlay = main_selection_underlay.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as Node2D
+		underlay = main_selection_underlay.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as SelectionUnderlay
 
 	if underlay == null:
-		underlay = Node2D.new()
+		underlay = SelectionUnderlay.new()
 
 	underlay.name = "SelectionUnderlay_P%d" % (view_index + 1)
-	underlay.z_as_relative = false
-	underlay.z_index = -1000
 	underlay.visible = true
 	underlay.set_process(true)
 
+	_configure_selection_underlay_layer(underlay)
+
+	var parent_node: Node = _get_selection_underlay_world_parent()
+
+	if parent_node != null:
+		parent_node.add_child(underlay)
+	else:
+		add_child(underlay)
+
 	return underlay
 
+func _get_selection_underlay_world_parent() -> Node:
+	if main_selection_underlay != null and main_selection_underlay.get_parent() != null:
+		return main_selection_underlay.get_parent()
 
-func _wire_selection_underlay(underlay: Node2D, selection: SelectionController) -> void:
+	if main_selection_controller != null and main_selection_controller.get_parent() != null:
+		return main_selection_controller.get_parent()
+
+	return null
+
+
+func _configure_selection_underlay_layer(underlay: SelectionUnderlay) -> void:
 	if underlay == null:
 		return
 
-	underlay.set("selection_controller", selection)
-	underlay.set("unit_manager", unit_manager)
-	underlay.set("structure_manager", structure_manager)
+	if main_selection_underlay != null:
+		underlay.z_as_relative = main_selection_underlay.z_as_relative
+		underlay.z_index = main_selection_underlay.z_index
+		underlay.y_sort_enabled = main_selection_underlay.y_sort_enabled
+		underlay.show_behind_parent = main_selection_underlay.show_behind_parent
+	else:
+		underlay.z_as_relative = false
+		underlay.z_index = -100
+
+
+
+func _wire_selection_underlay(
+	underlay: SelectionUnderlay,
+	selection: SelectionController
+) -> void:
+	if underlay == null:
+		return
+
+	underlay.selection_controller = selection
+	underlay.unit_manager = unit_manager
+	underlay.structure_manager = structure_manager
+	underlay.visible = true
+	underlay.set_process(true)
+	underlay.queue_redraw()
+
 
 
 func _create_player_hud(
@@ -502,17 +540,19 @@ func _create_player_hud(
 	hud.virtual_pointer_owner_player_index = int(player.player_index)
 
 	_copy_main_hud_build_options(hud)
-	_copy_main_hud_build_options(hud)
 
 	container.add_child(hud)
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.visible = true
+	call_deferred("_disable_real_gui_input_for_split_hud", hud)
 
 	return hud
 
-
 func _copy_main_hud_build_options(hud: HUDController) -> void:
-	if hud == null or main_hud_controller == null:
+	if hud == null:
+		return
+
+	if main_hud_controller == null:
 		return
 
 	var stats_variant: Variant = main_hud_controller.get("buildable_structure_stats")
@@ -523,6 +563,26 @@ func _copy_main_hud_build_options(hud: HUDController) -> void:
 
 	if scenes_variant is Array:
 		hud.set("buildable_structure_scenes", (scenes_variant as Array).duplicate())
+
+
+func _disable_real_gui_input_for_split_hud(hud: HUDController) -> void:
+	if hud == null:
+		return
+
+	if not is_instance_valid(hud):
+		return
+
+	_disable_real_gui_input_recursive(hud)
+
+
+func _disable_real_gui_input_recursive(node: Node) -> void:
+	if node is Control:
+		var control := node as Control
+		control.focus_mode = Control.FOCUS_NONE
+		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	for child in node.get_children():
+		_disable_real_gui_input_recursive(child)
 
 
 func _create_virtual_cursor_control() -> Control:
@@ -556,6 +616,11 @@ func _clear_views() -> void:
 
 		if container != null and is_instance_valid(container):
 			container.queue_free()
+
+		var selection_underlay: Node2D = view.get("selection_underlay", null)
+
+		if selection_underlay != null and is_instance_valid(selection_underlay):
+			selection_underlay.queue_free()
 
 	_views.clear()
 	_local_pointers.clear()

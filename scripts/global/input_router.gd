@@ -338,9 +338,12 @@ func _poll_controller_buttons(player: PlayerState) -> void:
 	if primary_now and not primary_was_pressed:
 		player.join_just_pressed = true
 
+	# B is secondary/right-click only.
+	# Do NOT also set cancel_just_pressed here.
 	if secondary_now and not secondary_was_pressed:
-		player.cancel_just_pressed = true
+		pass
 
+	# Back/View button is cancel/back.
 	if cancel_now and not cancel_was_pressed:
 		player.cancel_just_pressed = true
 
