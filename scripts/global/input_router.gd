@@ -56,6 +56,9 @@ class PlayerState:
 @export var controller_cursor_speed: float = 900.0
 @export var allow_keyboard_mouse_player: bool = true
 
+@export_group("Player Join / Leave")
+@export var allow_global_player_leave: bool = false
+
 @export_group("Mobile Touch")
 @export var mobile_hold_seconds: float = 0.28
 @export var mobile_tap_max_movement_pixels: float = 18.0
@@ -112,6 +115,7 @@ func _input(event: InputEvent) -> void:
 
 	if _is_leave_event(event):
 		_unregister_device(device_id)
+		return
 
 	var player: PlayerState = _get_player_by_device(device_id)
 
@@ -128,28 +132,28 @@ func _input(event: InputEvent) -> void:
 		match event.button_index:
 			MOUSE_BUTTON_LEFT:
 				_apply_press_release(player, true, event.pressed)
+
 			MOUSE_BUTTON_RIGHT:
 				_apply_press_release(player, false, event.pressed)
 
-			# Mouse wheel zoom is intentionally not routed here.
-			# CameraPanController handles mouse wheel zoom only when its option is enabled.
+			# Mouse wheel zoom is handled by CameraPanController only when its
+			# options menu toggle is enabled.
 			MOUSE_BUTTON_WHEEL_UP:
 				pass
+
 			MOUSE_BUTTON_WHEEL_DOWN:
 				pass
 
 	elif event is InputEventJoypadButton:
 		match event.button_index:
 			JOY_BUTTON_A:
-				_apply_press_release(player, true, event.pressed)
-
 				if event.pressed:
+					_emit_primary_click(player)
 					player.join_just_pressed = true
 
 			JOY_BUTTON_B:
-				_apply_press_release(player, false, event.pressed)
-
 				if event.pressed:
+					_emit_secondary_click(player)
 					player.cancel_just_pressed = true
 
 			JOY_BUTTON_BACK:
@@ -439,8 +443,7 @@ func _poll_mobile_state(delta: float) -> void:
 
 func _emit_mobile_tap_click(player: PlayerState, screen_position: Vector2) -> void:
 	player.pointer_screen = screen_position
-	_apply_press_release(player, true, true)
-	_apply_press_release(player, true, false)
+	_emit_primary_click(player)
 
 
 func _cancel_mobile_primary_touch(player: PlayerState) -> void:
@@ -584,7 +587,6 @@ func _unregister_device(device_id: int) -> void:
 	var removed: PlayerState = _players[remove_index]
 
 	_players.remove_at(remove_index)
-	_device_to_player.erase(device_id)
 
 	_device_to_player.clear()
 
@@ -605,6 +607,20 @@ func _get_player_by_device(device_id: int) -> PlayerState:
 		return null
 
 	return _players[index]
+
+
+func _emit_primary_click(player: PlayerState) -> void:
+	player.primary_pressed = false
+	player.primary_just_pressed = true
+	player.primary_just_released = true
+	player.pointer_delta = Vector2.ZERO
+
+
+func _emit_secondary_click(player: PlayerState) -> void:
+	player.secondary_pressed = false
+	player.secondary_just_pressed = true
+	player.secondary_just_released = true
+	player.pointer_delta = Vector2.ZERO
 
 
 func _apply_press_release(player: PlayerState, is_primary: bool, pressed: bool) -> void:
@@ -637,6 +653,9 @@ func _is_join_event(event: InputEvent) -> bool:
 
 
 func _is_leave_event(event: InputEvent) -> bool:
+	if not allow_global_player_leave:
+		return false
+
 	if event is InputEventJoypadButton:
 		return event.pressed and event.button_index == JOY_BUTTON_B
 

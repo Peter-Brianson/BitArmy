@@ -178,7 +178,6 @@ func emit_virtual_mouse_button(button_index: int, pressed: bool) -> void:
 	ev.pressed = pressed
 	ev.position = _external_pointer_screen
 	ev.global_position = _external_pointer_screen
-
 	Input.parse_input_event(ev)
 
 

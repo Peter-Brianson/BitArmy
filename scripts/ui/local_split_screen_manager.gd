@@ -22,10 +22,10 @@ extends Control
 @export var show_split_when_player_count_at_least: int = 2
 @export var cursor_size: Vector2 = Vector2(8.0, 8.0)
 @export var cursor_texture: Texture2D
+@export var keep_cursor_world_anchored_while_panning: bool = true
 
 var _views: Array[Dictionary] = []
 var _local_pointers: Dictionary = {}
-
 var _split_active: bool = false
 
 var _saved_unit_camera_controller: CameraPanController
@@ -36,7 +36,6 @@ var _saved_unit_batch_camera_controller: CameraPanController
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	if unit_manager != null:
@@ -47,6 +46,7 @@ func _ready() -> void:
 
 	if unit_batch_renderer != null:
 		var saved_batch_camera = unit_batch_renderer.get("camera_pan_controller")
+
 		if saved_batch_camera is CameraPanController:
 			_saved_unit_batch_camera_controller = saved_batch_camera
 
@@ -83,8 +83,19 @@ func _process(_delta: float) -> void:
 
 		var local_screen_pos: Vector2 = _get_local_pointer_screen(player, container)
 
+		var cursor_world_before_pan: Vector2 = camera_rig.screen_to_world(local_screen_pos)
+		var should_anchor_cursor: bool = keep_cursor_world_anchored_while_panning
+		should_anchor_cursor = should_anchor_cursor and player.camera_pan.length_squared() > 0.001
+		should_anchor_cursor = should_anchor_cursor and player.pointer_delta.length_squared() <= 0.001
+
 		camera_rig.external_camera_pan = player.camera_pan
 		camera_rig.external_zoom_delta = player.zoom_delta
+
+		if should_anchor_cursor and camera_rig.has_method("world_to_screen"):
+			local_screen_pos = camera_rig.world_to_screen(cursor_world_before_pan)
+			local_screen_pos = _clamp_screen_pos(local_screen_pos, container.size)
+			_local_pointers[int(player.player_index)] = local_screen_pos
+
 		camera_rig.set_virtual_pointer_screen(local_screen_pos)
 
 		var world_pos: Vector2 = camera_rig.screen_to_world(local_screen_pos)
@@ -100,13 +111,12 @@ func _process(_delta: float) -> void:
 
 			if player.secondary_just_pressed:
 				selection.secondary_pointer_pressed(world_pos)
-
-			if player.cancel_just_pressed:
+			elif player.cancel_just_pressed:
 				selection.clear_selection()
 
-		if player.join_just_pressed:
-			var session_member_id: int = int(view.get("session_member_id", int(player.team_id)))
-			_center_camera_on_player_member(camera_rig, session_member_id)
+		# Do not use player.join_just_pressed here.
+		# Controller A is click/select in runtime. Using join_just_pressed here
+		# makes A recenter the camera or create drag-like behavior.
 
 		if player.pause_just_pressed:
 			_toggle_pause_menu()
@@ -119,7 +129,6 @@ func _rebuild_views() -> void:
 
 	var players: Array = InputHub.get_split_screen_players()
 	var view_count: int = min(players.size(), max_views)
-
 	var should_split: bool = view_count >= show_split_when_player_count_at_least
 
 	if split_only_in_skirmish and GameSession.match_mode != GameSession.MatchMode.SKIRMISH:
@@ -136,29 +145,6 @@ func _rebuild_views() -> void:
 	_apply_layout()
 	call_deferred("_center_all_views")
 
-func _create_virtual_cursor_control() -> Control:
-	var cursor: Control = null
-
-	if cursor_texture != null:
-		var texture_cursor := TextureRect.new()
-		texture_cursor.texture = cursor_texture
-		texture_cursor.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		texture_cursor.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		cursor = texture_cursor
-	else:
-		var fallback_cursor := ColorRect.new()
-		fallback_cursor.color = Color(1.0, 1.0, 1.0, 0.95)
-		cursor = fallback_cursor
-
-	cursor.name = "VirtualCursor"
-	cursor.size = cursor_size
-	cursor.custom_minimum_size = cursor_size
-	cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cursor.z_index = 4096
-	cursor.visible = false
-	cursor.set_anchors_preset(Control.PRESET_TOP_LEFT)
-
-	return cursor
 
 func _set_split_active(active: bool) -> void:
 	_split_active = active
@@ -174,7 +160,6 @@ func _set_split_active(active: bool) -> void:
 		main_selection_controller.set_process(not active)
 		main_selection_controller.set_process_unhandled_input(not active)
 
-	# Important:
 	# In split-screen, one culling camera is not enough.
 	# Setting these to null lets managers use their full/unculled fallback visibility.
 	if unit_manager != null:
@@ -207,8 +192,7 @@ func _create_view(view_index: int, player) -> void:
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	viewport.handle_input_locally = false
 
-	# This is the key piece:
-	# each camera view looks at the same live battlefield, not a copy.
+	# Each camera view looks at the same live battlefield, not a copy.
 	viewport.world_2d = get_viewport().world_2d
 
 	container.add_child(viewport)
@@ -221,6 +205,9 @@ func _create_view(view_index: int, player) -> void:
 	camera_rig.name = "CameraRig_P%d" % (view_index + 1)
 	camera_rig.enable_virtual_cursor = true
 	camera_rig.warp_os_mouse_for_virtual_pointer = false
+	camera_rig.suppress_mouse_camera_input = true
+	camera_rig.mouse_edge_pan_enabled = false
+	camera_rig.mouse_wheel_zoom_enabled = false
 
 	if main_camera_rig != null:
 		camera_rig.world_rect = main_camera_rig.world_rect
@@ -230,7 +217,6 @@ func _create_view(view_index: int, player) -> void:
 		camera_rig.zoom_step = main_camera_rig.zoom_step
 		camera_rig.min_zoom = main_camera_rig.min_zoom
 		camera_rig.max_zoom = main_camera_rig.max_zoom
-		camera_rig.suppress_mouse_camera_input = true
 
 	view_root.add_child(camera_rig)
 
@@ -249,10 +235,8 @@ func _create_view(view_index: int, player) -> void:
 
 	var cursor: Control = _create_virtual_cursor_control()
 
-	# Add the cursor to the SubViewportContainer, not the SubViewport.
-	# This keeps it as a screen-space overlay above that player's view.
+	# Keep the cursor as a screen-space overlay above this player's viewport.
 	container.add_child(cursor)
-
 	camera_rig.virtual_cursor_visual = cursor
 
 	var selection := SelectionController.new()
@@ -263,7 +247,6 @@ func _create_view(view_index: int, player) -> void:
 	selection.team_manager = team_manager
 	selection.player_team_id = runtime_member_id
 
-	# Each split player is controlled manually by this manager.
 	# This prevents every split-screen SelectionRoot from also reading the real OS mouse.
 	selection.set_process_unhandled_input(false)
 
@@ -278,6 +261,31 @@ func _create_view(view_index: int, player) -> void:
 		"camera_rig": camera_rig,
 		"selection": selection
 	})
+
+
+func _create_virtual_cursor_control() -> Control:
+	var cursor: Control = null
+
+	if cursor_texture != null:
+		var texture_cursor := TextureRect.new()
+		texture_cursor.texture = cursor_texture
+		texture_cursor.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		texture_cursor.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		cursor = texture_cursor
+	else:
+		var fallback_cursor := ColorRect.new()
+		fallback_cursor.color = Color(1.0, 1.0, 1.0, 0.95)
+		cursor = fallback_cursor
+
+	cursor.name = "VirtualCursor"
+	cursor.size = cursor_size
+	cursor.custom_minimum_size = cursor_size
+	cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cursor.z_index = 4096
+	cursor.visible = false
+	cursor.set_anchors_preset(Control.PRESET_TOP_LEFT)
+
+	return cursor
 
 
 func _clear_views() -> void:
@@ -316,6 +324,7 @@ func _apply_layout() -> void:
 		)
 
 		var player_index: int = int(view.get("player_index", -1))
+
 		if player_index == -1:
 			continue
 
@@ -382,17 +391,18 @@ func _get_local_pointer_screen(player, container: SubViewportContainer) -> Vecto
 	if player.is_keyboard_mouse or player.is_touch:
 		var global_rect: Rect2 = container.get_global_rect()
 		var local_pos: Vector2 = player.pointer_screen - global_rect.position
-		local_pos = _clamp_screen_pos(local_pos, container_size)
 
+		local_pos = _clamp_screen_pos(local_pos, container_size)
 		_local_pointers[player_index] = local_pos
+
 		return local_pos
 
 	var current: Vector2 = _local_pointers.get(player_index, container_size * 0.5)
-
 	current += player.pointer_delta
 	current = _clamp_screen_pos(current, container_size)
 
 	_local_pointers[player_index] = current
+
 	return current
 
 
@@ -425,6 +435,7 @@ func _center_camera_on_player_member(camera_rig: CameraPanController, session_me
 		return
 
 	var hq: StructureRuntime = structure_manager.get_structure(hq_id)
+
 	if hq == null:
 		return
 
@@ -445,6 +456,7 @@ func _get_runtime_member_for_session_member(session_member_id: int) -> int:
 			return runtime_id
 
 	var mapping_variant = match_controller.get("session_team_to_runtime_team")
+
 	if mapping_variant is Dictionary:
 		var mapping: Dictionary = mapping_variant
 
@@ -462,6 +474,7 @@ func _get_hq_id_for_runtime_member(runtime_member_id: int) -> int:
 		return int(match_controller.get_hq_id_for_runtime_team(runtime_member_id))
 
 	var hq_map_variant = match_controller.get("runtime_team_to_hq_id")
+
 	if hq_map_variant is Dictionary:
 		var hq_map: Dictionary = hq_map_variant
 
