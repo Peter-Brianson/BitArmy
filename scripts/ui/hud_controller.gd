@@ -110,42 +110,24 @@ func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
 	_last_virtual_pointer_world = pointer.world_pos
 	_last_virtual_pointer_player_index = pointer.player_index
 
-	# Any click over this HUD should be consumed, even if it is not directly
-	# on a button. This prevents HUD clicks from falling through as ground clicks.
-	var pointer_over_hud: bool = _is_virtual_pointer_over_visible_control(self, pointer.screen_pos)
-
-	if not pointer_over_hud:
-		return false
-
-	if not pointer.primary_just_pressed and not pointer.secondary_just_pressed and not pointer.cancel_just_pressed:
-		return true
-
 	var button: BaseButton = _find_button_at_global_position(self, pointer.screen_pos)
 
-	if button == null:
+	if button != null:
+		if button.disabled:
+			return true
+
+		if pointer.primary_just_pressed:
+			button.emit_signal("pressed")
+
 		return true
 
-	if button.disabled:
-		return true
-
-	if pointer.primary_just_pressed:
-		button.emit_signal("pressed")
-
-	return true
-
-func _is_virtual_pointer_over_visible_control(node: Node, global_pos: Vector2) -> bool:
-	if node is Control:
-		var control := node as Control
-
-		if control.visible and control.is_visible_in_tree():
-			if control.get_global_rect().has_point(global_pos):
-				return true
-
-	for child in node.get_children():
-		if _is_virtual_pointer_over_visible_control(child, global_pos):
+	# Consume clicks over real HUD panels/menus, but DO NOT consume the full-screen HUD root.
+	if _is_pointer_over_hud_panel(self, pointer.screen_pos, self):
+		if pointer.primary_just_pressed or pointer.secondary_just_pressed or pointer.cancel_just_pressed:
 			return true
 
 	return false
+
 
 func _find_button_at_global_position(node: Node, global_pos: Vector2) -> BaseButton:
 	var best_button: BaseButton = null
@@ -163,6 +145,74 @@ func _find_button_at_global_position(node: Node, global_pos: Vector2) -> BaseBut
 			best_button = button
 
 	return best_button
+
+
+func _is_pointer_over_hud_panel(node: Node, global_pos: Vector2, root_control: Control) -> bool:
+	for child in node.get_children():
+		if _is_pointer_over_hud_panel(child, global_pos, root_control):
+			return true
+
+	if not (node is Control):
+		return false
+
+	var control := node as Control
+
+	if control == root_control:
+		return false
+
+	if not control.visible or not control.is_visible_in_tree():
+		return false
+
+	if not control.get_global_rect().has_point(global_pos):
+		return false
+
+	# Avoid full-screen/root-like containers consuming world clicks.
+	var root_area: float = max(root_control.size.x * root_control.size.y, 1.0)
+	var control_area: float = control.size.x * control.size.y
+
+	if control_area >= root_area * 0.85:
+		return false
+
+	# These are real HUD surfaces/menus that should block ground clicks.
+	if control is Panel or control is PanelContainer:
+		return true
+
+	var lowered_name: String = control.name.to_lower()
+
+	if lowered_name.contains("panel"):
+		return true
+
+	if lowered_name.contains("menu"):
+		return true
+
+	if lowered_name.contains("grid"):
+		return true
+
+	if lowered_name.contains("production"):
+		return true
+
+	if lowered_name.contains("build"):
+		return true
+
+	if lowered_name.contains("selection"):
+		return true
+
+	return false
+
+func _is_virtual_pointer_over_visible_control(node: Node, global_pos: Vector2) -> bool:
+	if node is Control:
+		var control := node as Control
+
+		if control.visible and control.is_visible_in_tree():
+			if control.get_global_rect().has_point(global_pos):
+				return true
+
+	for child in node.get_children():
+		if _is_virtual_pointer_over_visible_control(child, global_pos):
+			return true
+
+	return false
+
 
 func _refresh_all() -> void:
 	_refresh_selection_panel()

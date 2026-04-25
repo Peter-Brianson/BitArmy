@@ -444,20 +444,26 @@ func _create_view(view_index: int, player) -> void:
 	})
 
 
-func _create_selection_underlay_for_view(view_index: int) -> SelectionUnderlay:
-	var underlay: SelectionUnderlay = null
+func _create_selection_underlay_for_view(view_index: int) -> Node2D:
+	var underlay: Node2D = null
 
 	if main_selection_underlay != null:
-		underlay = main_selection_underlay.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as SelectionUnderlay
+		underlay = main_selection_underlay.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as Node2D
 
 	if underlay == null:
-		underlay = SelectionUnderlay.new()
+		underlay = Node2D.new()
 
 	underlay.name = "SelectionUnderlay_P%d" % (view_index + 1)
 	underlay.visible = true
 	underlay.set_process(true)
 
-	_configure_selection_underlay_layer(underlay)
+	if main_selection_underlay != null:
+		underlay.z_as_relative = main_selection_underlay.z_as_relative
+		underlay.z_index = main_selection_underlay.z_index
+		underlay.y_sort_enabled = main_selection_underlay.y_sort_enabled
+	else:
+		underlay.z_as_relative = false
+		underlay.z_index = -10
 
 	var parent_node: Node = _get_selection_underlay_world_parent()
 
@@ -467,6 +473,7 @@ func _create_selection_underlay_for_view(view_index: int) -> SelectionUnderlay:
 		add_child(underlay)
 
 	return underlay
+
 
 func _get_selection_underlay_world_parent() -> Node:
 	if main_selection_underlay != null and main_selection_underlay.get_parent() != null:

@@ -69,7 +69,6 @@ bus = &"SFX"
 [node name="World" type="Node2D" parent="MatchRoot"]
 
 [node name="Ground" type="Node2D" parent="MatchRoot/World"]
-z_index = -1000
 
 [node name="MapHost" type="Node2D" parent="MatchRoot/World/Ground"]
 
@@ -112,7 +111,6 @@ grid_size = 4.0
 placement_padding = 1.0
 
 [node name="SelectionUnderlay" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager")]
-z_index = -100
 script = ExtResource("2_xldib")
 selection_controller = NodePath("../SelectionRoot")
 unit_manager = NodePath("../../Simulation/UnitSimulationManager")
