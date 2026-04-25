@@ -10,11 +10,13 @@ extends Node2D
 @export var edge_margin: float = 24.0
 @export var edge_scroll_speed: float = 650.0
 @export var keyboard_scroll_speed: float = 650.0
+@export var edge_pan_with_virtual_pointer: bool = false
 
 @export_group("Zoom")
 @export var zoom_step: float = 0.08
 @export var min_zoom: float = 0.5
 @export var max_zoom: float = 2.0
+
 
 @export_group("Virtual Cursor")
 @export var enable_virtual_cursor: bool = true
@@ -53,8 +55,12 @@ func _process(delta: float) -> void:
 	var screen_pointer: Vector2 = _get_active_screen_pointer(viewport_size)
 
 	var mouse_edge_pan: Vector2 = Vector2.ZERO
+	var can_edge_pan: bool = not suppress_mouse_camera_input and not is_mouse_over_blocked_ui()
 
-	if not suppress_mouse_camera_input and not is_mouse_over_blocked_ui():
+	if _has_external_pointer and not edge_pan_with_virtual_pointer:
+		can_edge_pan = false
+
+	if can_edge_pan:
 		mouse_edge_pan = _get_edge_pan_vector(screen_pointer, viewport_size)
 
 	var pan_dir: Vector2 = external_camera_pan + _get_keyboard_pan_vector() + mouse_edge_pan
@@ -242,7 +248,6 @@ func _get_clamped_camera_position(target_pos: Vector2, viewport_size: Vector2) -
 	if safe_zoom.y <= 0.0:
 		safe_zoom.y = 1.0
 
-	# Camera2D visible world gets larger when zoom is smaller.
 	var half_extents := Vector2(
 		(viewport_size.x / safe_zoom.x) * 0.5,
 		(viewport_size.y / safe_zoom.y) * 0.5
