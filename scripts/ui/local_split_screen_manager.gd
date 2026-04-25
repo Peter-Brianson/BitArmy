@@ -23,6 +23,7 @@ extends Control
 @export var cursor_size: Vector2 = Vector2(8.0, 8.0)
 @export var cursor_texture: Texture2D
 @export var keep_cursor_world_anchored_while_panning: bool = true
+@export var debug_split_input: bool = false
 
 var _views: Array[Dictionary] = []
 var _local_pointers: Dictionary = {}
@@ -100,6 +101,21 @@ func _process(_delta: float) -> void:
 
 		var world_pos: Vector2 = camera_rig.screen_to_world(local_screen_pos)
 
+		if debug_split_input:
+			if player.primary_just_pressed or player.secondary_just_pressed or player.pause_just_pressed:
+				print(
+					"Split input P",
+					player.player_index,
+					" A=",
+					player.primary_just_pressed,
+					" B=",
+					player.secondary_just_pressed,
+					" Pause=",
+					player.pause_just_pressed,
+					" world=",
+					world_pos
+				)
+
 		if selection != null:
 			selection.set_external_pointer_world(world_pos)
 
@@ -173,8 +189,18 @@ func _set_all_match_input_bridges_enabled(enabled: bool) -> void:
 		if node is MatchInputBridge:
 			node.set_process(enabled)
 
+	_set_match_input_bridges_enabled_recursive(get_tree().root, enabled)
+
 	if original_match_input_bridge != null:
 		original_match_input_bridge.set_process(enabled)
+
+
+func _set_match_input_bridges_enabled_recursive(node: Node, enabled: bool) -> void:
+	if node is MatchInputBridge:
+		node.set_process(enabled)
+
+	for child in node.get_children():
+		_set_match_input_bridges_enabled_recursive(child, enabled)
 
 
 func _create_view(view_index: int, player) -> void:

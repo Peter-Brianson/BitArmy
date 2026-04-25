@@ -40,6 +40,12 @@ class PlayerState:
 	var zoom_out_pressed: bool = false
 	var zoom_delta: float = 0.0
 
+	var _primary_down_last: bool = false
+	var _secondary_down_last: bool = false
+	var _join_down_last: bool = false
+	var _cancel_down_last: bool = false
+	var _pause_down_last: bool = false
+
 	func clear_transients() -> void:
 		pointer_delta = Vector2.ZERO
 		primary_just_pressed = false
@@ -89,6 +95,7 @@ var _mobile_zoom_delta_frame: float = 0.0
 var _transient_clear_queued: bool = false
 var _last_transient_clear_frame: int = -1
 
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
@@ -130,56 +137,17 @@ func _input(event: InputEvent) -> void:
 
 	elif event is InputEventMouseButton:
 		player.pointer_screen = event.position
-
-		match event.button_index:
-			MOUSE_BUTTON_LEFT:
-				_apply_press_release(player, true, event.pressed)
-
-			MOUSE_BUTTON_RIGHT:
-				_apply_press_release(player, false, event.pressed)
-
-			MOUSE_BUTTON_WHEEL_UP:
-				pass
-
-			MOUSE_BUTTON_WHEEL_DOWN:
-				pass
+		# Runtime mouse button edges are polled in _process().
+		# This prevents one-frame clicks from being cleared before split-screen reads them.
 
 	elif event is InputEventJoypadButton:
-		match event.button_index:
-			JOY_BUTTON_A:
-				if event.pressed:
-					_emit_primary_click(player)
-					player.join_just_pressed = true
-
-			JOY_BUTTON_B:
-				if event.pressed:
-					_emit_secondary_click(player)
-					player.cancel_just_pressed = true
-
-			JOY_BUTTON_BACK:
-				if event.pressed:
-					player.cancel_just_pressed = true
-
-			JOY_BUTTON_START:
-				if event.pressed:
-					player.pause_just_pressed = true
-
-			JOY_BUTTON_LEFT_SHOULDER:
-				player.zoom_out_pressed = event.pressed
-
-			JOY_BUTTON_RIGHT_SHOULDER:
-				player.zoom_in_pressed = event.pressed
+		# Runtime controller button edges are polled in _process().
+		# _input() only helps register controllers through _is_join_event().
+		pass
 
 	elif event is InputEventKey:
-		if event.pressed and not event.echo:
-			if event.is_action_pressed("join_confirm"):
-				player.join_just_pressed = true
-
-			if event.is_action_pressed("cancel_back"):
-				player.cancel_just_pressed = true
-
-			if event.is_action_pressed("pause_game"):
-				player.pause_just_pressed = true
+		# Runtime keyboard edges are polled in _process().
+		pass
 
 
 func _process(delta: float) -> void:
@@ -291,10 +259,7 @@ func _poll_desktop_and_controller_axes(delta: float) -> void:
 		if player.is_keyboard_mouse:
 			player.camera_pan = Input.get_vector("cam_left", "cam_right", "cam_up", "cam_down")
 			player.pointer_screen = viewport.get_mouse_position()
-
-			if Input.is_action_just_pressed("pause_game"):
-				player.pause_just_pressed = true
-
+			_poll_keyboard_mouse_buttons(player)
 			continue
 
 		var device_id: int = player.device_id
@@ -323,13 +288,88 @@ func _poll_desktop_and_controller_axes(delta: float) -> void:
 		player.pointer_screen.x = clamp(player.pointer_screen.x, 0.0, viewport_size.x)
 		player.pointer_screen.y = clamp(player.pointer_screen.y, 0.0, viewport_size.y)
 
-		player.zoom_delta = 0.0
+		_poll_controller_buttons(player)
 
-		if player.zoom_in_pressed:
-			player.zoom_delta += 1.0
 
-		if player.zoom_out_pressed:
-			player.zoom_delta -= 1.0
+func _poll_keyboard_mouse_buttons(player: PlayerState) -> void:
+	var primary_now: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var secondary_now: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	var join_now: bool = Input.is_action_pressed("join_confirm")
+	var cancel_now: bool = Input.is_action_pressed("cancel_back")
+	var pause_now: bool = Input.is_action_pressed("pause_game")
+
+	_poll_hold_button_edges(player, primary_now, secondary_now)
+
+	if join_now and not player._join_down_last:
+		player.join_just_pressed = true
+
+	if cancel_now and not player._cancel_down_last:
+		player.cancel_just_pressed = true
+
+	if pause_now and not player._pause_down_last:
+		player.pause_just_pressed = true
+
+	player._join_down_last = join_now
+	player._cancel_down_last = cancel_now
+	player._pause_down_last = pause_now
+
+	player.zoom_delta = 0.0
+
+
+func _poll_controller_buttons(player: PlayerState) -> void:
+	var device_id: int = player.device_id
+
+	var primary_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_A)
+	var secondary_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_B)
+	var cancel_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_BACK)
+	var pause_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_START)
+
+	if primary_now and not player._primary_down_last:
+		_emit_primary_click(player)
+		player.join_just_pressed = true
+
+	if secondary_now and not player._secondary_down_last:
+		_emit_secondary_click(player)
+		player.cancel_just_pressed = true
+
+	if cancel_now and not player._cancel_down_last:
+		player.cancel_just_pressed = true
+
+	if pause_now and not player._pause_down_last:
+		player.pause_just_pressed = true
+
+	player._primary_down_last = primary_now
+	player._secondary_down_last = secondary_now
+	player._cancel_down_last = cancel_now
+	player._pause_down_last = pause_now
+
+	player.zoom_delta = 0.0
+
+	if Input.is_joy_button_pressed(device_id, JOY_BUTTON_RIGHT_SHOULDER):
+		player.zoom_delta += 1.0
+
+	if Input.is_joy_button_pressed(device_id, JOY_BUTTON_LEFT_SHOULDER):
+		player.zoom_delta -= 1.0
+
+
+func _poll_hold_button_edges(player: PlayerState, primary_now: bool, secondary_now: bool) -> void:
+	if primary_now and not player._primary_down_last:
+		player.primary_just_pressed = true
+
+	if not primary_now and player._primary_down_last:
+		player.primary_just_released = true
+
+	player.primary_pressed = primary_now
+	player._primary_down_last = primary_now
+
+	if secondary_now and not player._secondary_down_last:
+		player.secondary_just_pressed = true
+
+	if not secondary_now and player._secondary_down_last:
+		player.secondary_just_released = true
+
+	player.secondary_pressed = secondary_now
+	player._secondary_down_last = secondary_now
 
 
 func _handle_mobile_event(event: InputEvent) -> void:
@@ -657,7 +697,6 @@ func _apply_press_release(player: PlayerState, is_primary: bool, pressed: bool) 
 			player.secondary_just_released = true
 
 		player.secondary_pressed = pressed
-
 
 
 func _is_join_event(event: InputEvent) -> bool:
