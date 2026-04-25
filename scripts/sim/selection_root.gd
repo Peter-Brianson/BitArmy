@@ -12,6 +12,9 @@ extends Node2D
 @export var drag_fill_color: Color = Color(0.2, 0.8, 1.0, 0.12)
 @export var drag_outline_color: Color = Color(0.5, 0.9, 1.0, 0.9)
 
+@export_group("Debug")
+@export var debug_external_input: bool = false
+
 var selected_unit_ids: Array[int] = []
 var selected_structure_id: int = -1
 
@@ -20,13 +23,13 @@ var is_drag_selecting: bool = false
 var drag_start_world: Vector2 = Vector2.ZERO
 var drag_current_world: Vector2 = Vector2.ZERO
 
-var use_external_pointer_world: bool = false
-var external_pointer_world: Vector2 = Vector2.ZERO
+var _has_external_pointer_world: bool = false
+var _external_pointer_world: Vector2 = Vector2.ZERO
 
 
 func _process(_delta: float) -> void:
 	if is_left_dragging:
-		drag_current_world = get_pointer_world()
+		drag_current_world = _get_pointer_world()
 
 		if not is_drag_selecting and drag_start_world.distance_to(drag_current_world) >= drag_threshold:
 			is_drag_selecting = true
@@ -45,20 +48,28 @@ func _draw() -> void:
 	draw_rect(rect_local, drag_outline_color, false, 2.0)
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if _has_external_pointer_world:
+		return
+
+	if event is InputEventMouseButton:
+		_handle_mouse_button(event)
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.is_action_pressed("select_all_units"):
+			select_all_player_units()
+			get_viewport().set_input_as_handled()
+
+
 func set_external_pointer_world(world_pos: Vector2) -> void:
-	use_external_pointer_world = true
-	external_pointer_world = world_pos
+	_has_external_pointer_world = true
+	_external_pointer_world = world_pos
+
+	if is_left_dragging:
+		drag_current_world = world_pos
 
 
 func clear_external_pointer_world() -> void:
-	use_external_pointer_world = false
-
-
-func get_pointer_world() -> Vector2:
-	if use_external_pointer_world:
-		return external_pointer_world
-
-	return get_global_mouse_position()
+	_has_external_pointer_world = false
 
 
 func primary_pointer_pressed(world_pos: Vector2) -> void:
@@ -69,11 +80,19 @@ func primary_pointer_pressed(world_pos: Vector2) -> void:
 	drag_start_world = world_pos
 	drag_current_world = world_pos
 
+	if debug_external_input:
+		print("Selection pressed team=", player_team_id, " world=", world_pos)
+
 	queue_redraw()
 
 
 func primary_pointer_released(world_pos: Vector2) -> void:
 	set_external_pointer_world(world_pos)
+
+	if not is_left_dragging:
+		_select_at(world_pos)
+		queue_redraw()
+		return
 
 	drag_current_world = world_pos
 
@@ -84,6 +103,18 @@ func primary_pointer_released(world_pos: Vector2) -> void:
 
 	is_left_dragging = false
 	is_drag_selecting = false
+
+	if debug_external_input:
+		print(
+			"Selection released team=",
+			player_team_id,
+			" world=",
+			world_pos,
+			" units=",
+			selected_unit_ids,
+			" structure=",
+			selected_structure_id
+		)
 
 	queue_redraw()
 
@@ -108,48 +139,27 @@ func clear_selection() -> void:
 	queue_redraw()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		_handle_mouse_button(event)
+func _get_pointer_world() -> Vector2:
+	if _has_external_pointer_world:
+		return _external_pointer_world
 
-	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.is_action_pressed("select_all_units"):
-			select_all_player_units()
-			get_viewport().set_input_as_handled()
+	return get_global_mouse_position()
 
 
 func _handle_mouse_button(event: InputEventMouseButton) -> void:
 	if event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			is_left_dragging = true
-			is_drag_selecting = false
-			drag_start_world = get_pointer_world()
-			drag_current_world = drag_start_world
+			primary_pointer_pressed(get_global_mouse_position())
 		else:
-			var release_world: Vector2 = get_pointer_world()
+			primary_pointer_released(get_global_mouse_position())
 
-			if is_drag_selecting:
-				_finish_drag_selection()
-			else:
-				_select_at(release_world)
+		get_viewport().set_input_as_handled()
+		return
 
-			is_left_dragging = false
-			is_drag_selecting = false
-
-		queue_redraw()
-
-	elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-		var world_target: Vector2 = get_pointer_world()
-
-		if not selected_unit_ids.is_empty():
-			_issue_context_command(world_target)
-			get_viewport().set_input_as_handled()
-			return
-
-		if selected_structure_id != -1:
-			_issue_structure_rally_command(world_target)
-			get_viewport().set_input_as_handled()
-			return
+	if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		secondary_pointer_pressed(get_global_mouse_position())
+		get_viewport().set_input_as_handled()
+		return
 
 
 func _finish_drag_selection() -> void:
@@ -170,7 +180,7 @@ func _finish_drag_selection() -> void:
 		if not u.is_alive:
 			continue
 
-		if u.owner_team_id != player_team_id:
+		if not _is_owner_friendly(u.owner_team_id):
 			continue
 
 		if rect.has_point(u.position):
@@ -196,11 +206,6 @@ func _select_at(world_pos: Vector2) -> void:
 	selected_unit_ids.clear()
 	selected_structure_id = -1
 
-func _is_enemy_team(target_team_id: int) -> bool:
-	if team_manager == null:
-		return target_team_id != player_team_id
-
-	return team_manager.is_enemy(player_team_id, target_team_id)
 
 func _issue_context_command(world_pos: Vector2) -> void:
 	if selected_unit_ids.is_empty():
@@ -300,10 +305,10 @@ func _find_own_unit_at(world_pos: Vector2) -> int:
 		if not u.is_alive:
 			continue
 
-		if u.owner_team_id != player_team_id:
+		if not _is_owner_friendly(u.owner_team_id):
 			continue
 
-		var radius: float = max(u.get_radius(), 6.0)
+		var radius: float = max(u.get_radius(), 8.0)
 		var dist_sq: float = world_pos.distance_squared_to(u.position)
 
 		if dist_sq <= radius * radius and dist_sq < best_dist_sq:
@@ -329,10 +334,10 @@ func _find_enemy_unit_at(world_pos: Vector2) -> int:
 		if not u.is_alive:
 			continue
 
-		if not _is_enemy_team(u.owner_team_id):
+		if not _is_owner_enemy(u.owner_team_id):
 			continue
 
-		var radius: float = max(u.get_radius(), 6.0)
+		var radius: float = max(u.get_radius(), 8.0)
 		var dist_sq: float = world_pos.distance_squared_to(u.position)
 
 		if dist_sq <= radius * radius and dist_sq < best_dist_sq:
@@ -358,7 +363,7 @@ func _find_own_structure_at(world_pos: Vector2) -> int:
 		if not s.is_alive:
 			continue
 
-		if s.owner_team_id != player_team_id:
+		if not _is_owner_friendly(s.owner_team_id):
 			continue
 
 		var half: Vector2 = s.stats.footprint_size * 0.5
@@ -390,7 +395,7 @@ func _find_enemy_structure_at(world_pos: Vector2) -> int:
 		if not s.is_alive:
 			continue
 
-		if not _is_enemy_team(s.owner_team_id):
+		if not _is_owner_enemy(s.owner_team_id):
 			continue
 
 		var half: Vector2 = s.stats.footprint_size * 0.5
@@ -404,6 +409,20 @@ func _find_enemy_structure_at(world_pos: Vector2) -> int:
 				best_id = s.id
 
 	return best_id
+
+
+func _is_owner_friendly(owner_team_id: int) -> bool:
+	if team_manager == null:
+		return owner_team_id == player_team_id
+
+	return not team_manager.is_enemy(player_team_id, owner_team_id)
+
+
+func _is_owner_enemy(owner_team_id: int) -> bool:
+	if team_manager == null:
+		return owner_team_id != player_team_id
+
+	return team_manager.is_enemy(player_team_id, owner_team_id)
 
 
 func select_all_player_units() -> void:
@@ -422,7 +441,7 @@ func select_all_player_units() -> void:
 		if not u.is_alive:
 			continue
 
-		if u.owner_team_id != player_team_id:
+		if not _is_owner_friendly(u.owner_team_id):
 			continue
 
 		selected_unit_ids.append(u.id)

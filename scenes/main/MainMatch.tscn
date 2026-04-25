@@ -247,6 +247,7 @@ match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 unit_batch_renderer = NodePath("../../MatchRoot/World/UnitBatchRoot")
 cursor_size = Vector2(16, 16)
 cursor_texture = ExtResource("2_xed8e")
+debug_split_input = true
 
 [node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "match_controller", "match_net_controller", "camera_pan_controller", "structure_placement_controller") instance=ExtResource("15_mksec")]
 selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")
