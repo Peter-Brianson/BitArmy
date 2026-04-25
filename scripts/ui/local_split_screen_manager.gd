@@ -184,7 +184,7 @@ func _apply_runtime_button_poll(
 			cancel_last,
 			pause_now,
 			pause_last,
-			false
+			true
 		)
 
 		_primary_down_last[player_index] = primary_now

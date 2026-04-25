@@ -328,22 +328,25 @@ func _poll_controller_buttons(player: PlayerState) -> void:
 	var cancel_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_BACK)
 	var pause_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_START)
 
-	if primary_now and not player._primary_down_last:
-		_emit_primary_click(player)
+	var primary_was_pressed: bool = player._primary_down_last
+	var secondary_was_pressed: bool = player._secondary_down_last
+	var cancel_was_pressed: bool = player._cancel_down_last
+	var pause_was_pressed: bool = player._pause_down_last
+
+	_poll_hold_button_edges(player, primary_now, secondary_now)
+
+	if primary_now and not primary_was_pressed:
 		player.join_just_pressed = true
 
-	if secondary_now and not player._secondary_down_last:
-		_emit_secondary_click(player)
+	if secondary_now and not secondary_was_pressed:
 		player.cancel_just_pressed = true
 
-	if cancel_now and not player._cancel_down_last:
+	if cancel_now and not cancel_was_pressed:
 		player.cancel_just_pressed = true
 
-	if pause_now and not player._pause_down_last:
+	if pause_now and not pause_was_pressed:
 		player.pause_just_pressed = true
 
-	player._primary_down_last = primary_now
-	player._secondary_down_last = secondary_now
 	player._cancel_down_last = cancel_now
 	player._pause_down_last = pause_now
 
@@ -354,7 +357,6 @@ func _poll_controller_buttons(player: PlayerState) -> void:
 
 	if Input.is_joy_button_pressed(device_id, JOY_BUTTON_LEFT_SHOULDER):
 		player.zoom_delta -= 1.0
-
 
 func _poll_hold_button_edges(player: PlayerState, primary_now: bool, secondary_now: bool) -> void:
 	if primary_now and not player._primary_down_last:

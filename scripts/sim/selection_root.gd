@@ -12,11 +12,20 @@ extends Node2D
 @export var drag_fill_color: Color = Color(0.2, 0.8, 1.0, 0.12)
 @export var drag_outline_color: Color = Color(0.5, 0.9, 1.0, 0.9)
 
-@export_group("Selection Visuals")
+@export_group("Sprite Selection Visuals")
 @export var draw_selection_visuals: bool = true
-@export var selection_ring_color: Color = Color(0.45, 0.95, 1.0, 0.95)
-@export var rally_line_color: Color = Color(0.5, 1.0, 0.45, 0.85)
-@export var structure_ring_color: Color = Color(1.0, 0.9, 0.35, 0.95)
+@export var unit_selection_texture: Texture2D
+@export var structure_selection_texture: Texture2D
+@export var rally_point_texture: Texture2D
+@export var use_procedural_fallbacks: bool = false
+@export var unit_selection_padding: float = 8.0
+@export var structure_selection_padding: float = 8.0
+@export var rally_point_size: Vector2 = Vector2(18.0, 18.0)
+@export var draw_rally_line: bool = true
+@export var rally_line_color: Color = Color(0.5, 1.0, 0.45, 0.75)
+@export var procedural_unit_ring_color: Color = Color(0.45, 0.95, 1.0, 0.95)
+@export var procedural_structure_ring_color: Color = Color(1.0, 0.9, 0.35, 0.95)
+@export var procedural_rally_color: Color = Color(0.5, 1.0, 0.45, 0.85)
 
 @export_group("Debug")
 @export var debug_external_input: bool = false
@@ -33,7 +42,6 @@ var _has_external_pointer_world: bool = false
 var _external_pointer_world: Vector2 = Vector2.ZERO
 
 
-
 func _process(_delta: float) -> void:
 	if is_left_dragging:
 		drag_current_world = _get_pointer_world()
@@ -43,10 +51,12 @@ func _process(_delta: float) -> void:
 
 	queue_redraw()
 
+
 func _draw() -> void:
 	if draw_selection_visuals:
-		_draw_selection_rings()
-		_draw_structure_rally_visual()
+		_draw_selected_units()
+		_draw_selected_structure()
+		_draw_rally_visual()
 
 	if is_left_dragging and is_drag_selecting:
 		var rect_world := Rect2(drag_start_world, drag_current_world - drag_start_world).abs()
@@ -55,66 +65,6 @@ func _draw() -> void:
 		draw_rect(rect_local, drag_fill_color, true)
 		draw_rect(rect_local, drag_outline_color, false, 2.0)
 
-func _draw_selection_rings() -> void:
-	if unit_manager != null:
-		for unit_id in selected_unit_ids:
-			var unit: UnitRuntime = unit_manager.get_unit(unit_id)
-
-			if unit == null:
-				continue
-
-			if not unit.is_alive:
-				continue
-
-			var radius: float = max(unit.get_radius(), 8.0)
-			draw_arc(
-				to_local(unit.position),
-				radius + 3.0,
-				0.0,
-				TAU,
-				32,
-				selection_ring_color,
-				2.0
-			)
-
-	if selected_structure_id != -1 and structure_manager != null:
-		var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
-
-		if structure == null:
-			return
-
-		if not structure.is_alive:
-			return
-
-		var half: Vector2 = structure.stats.footprint_size * 0.5
-		var rect := Rect2(to_local(structure.position - half), structure.stats.footprint_size)
-
-		draw_rect(rect, structure_ring_color, false, 2.0)
-
-
-func _draw_structure_rally_visual() -> void:
-	if selected_structure_id == -1:
-		return
-
-	if structure_manager == null:
-		return
-
-	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
-
-	if structure == null:
-		return
-
-	if not structure.is_alive:
-		return
-
-	if structure.rally_point.distance_squared_to(structure.position) <= 4.0:
-		return
-
-	var start_local: Vector2 = to_local(structure.position)
-	var end_local: Vector2 = to_local(structure.rally_point)
-
-	draw_line(start_local, end_local, rally_line_color, 2.0)
-	draw_circle(end_local, 5.0, rally_line_color)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _has_external_pointer_world:
@@ -126,6 +76,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("select_all_units"):
 			select_all_player_units()
 			get_viewport().set_input_as_handled()
+
+
+func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
+	set_external_pointer_world(pointer.world_pos)
+
+	if pointer.primary_just_pressed:
+		primary_pointer_pressed(pointer.world_pos)
+
+	if pointer.primary_just_released:
+		primary_pointer_released(pointer.world_pos)
+
+	if pointer.secondary_just_pressed:
+		secondary_pointer_pressed(pointer.world_pos)
+		return true
+
+	if pointer.cancel_just_pressed:
+		clear_selection()
+		return true
+
+	return pointer.primary_just_pressed or pointer.primary_just_released or pointer.primary_pressed or is_left_dragging
 
 
 func set_external_pointer_world(world_pos: Vector2) -> void:
@@ -275,6 +245,99 @@ func _select_at(world_pos: Vector2) -> void:
 	selected_structure_id = -1
 
 
+func _draw_selected_units() -> void:
+	if unit_manager == null:
+		return
+
+	for unit_id in selected_unit_ids:
+		var unit: UnitRuntime = unit_manager.get_unit(unit_id)
+
+		if unit == null:
+			continue
+
+		if not unit.is_alive:
+			continue
+
+		var radius: float = max(unit.get_radius(), 8.0)
+		var size_value: float = (radius * 2.0) + unit_selection_padding
+		var size := Vector2(size_value, size_value)
+		var center := to_local(unit.position)
+
+		if unit_selection_texture != null:
+			_draw_texture_centered(unit_selection_texture, center, size, Color.WHITE)
+		elif use_procedural_fallbacks:
+			draw_arc(center, size_value * 0.5, 0.0, TAU, 32, procedural_unit_ring_color, 2.0)
+
+
+func _draw_selected_structure() -> void:
+	if selected_structure_id == -1:
+		return
+
+	if structure_manager == null:
+		return
+
+	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+
+	if structure == null:
+		return
+
+	if not structure.is_alive:
+		return
+
+	var center := to_local(structure.position)
+	var size: Vector2 = structure.stats.footprint_size + Vector2(
+		structure_selection_padding,
+		structure_selection_padding
+	)
+
+	if structure_selection_texture != null:
+		_draw_texture_centered(structure_selection_texture, center, size, Color.WHITE)
+	elif use_procedural_fallbacks:
+		var rect := Rect2(center - size * 0.5, size)
+		draw_rect(rect, procedural_structure_ring_color, false, 2.0)
+
+
+func _draw_rally_visual() -> void:
+	if selected_structure_id == -1:
+		return
+
+	if structure_manager == null:
+		return
+
+	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+
+	if structure == null:
+		return
+
+	if not structure.is_alive:
+		return
+
+	if structure.rally_point.distance_squared_to(structure.position) <= 4.0:
+		return
+
+	var start_local: Vector2 = to_local(structure.position)
+	var end_local: Vector2 = to_local(structure.rally_point)
+
+	if draw_rally_line:
+		draw_line(start_local, end_local, rally_line_color, 2.0)
+
+	if rally_point_texture != null:
+		_draw_texture_centered(rally_point_texture, end_local, rally_point_size, Color.WHITE)
+	elif use_procedural_fallbacks:
+		draw_circle(end_local, rally_point_size.x * 0.5, procedural_rally_color)
+
+
+func _draw_texture_centered(texture: Texture2D, center: Vector2, size: Vector2, color: Color) -> void:
+	if texture == null:
+		return
+
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
+
+	var rect := Rect2(center - size * 0.5, size)
+	draw_texture_rect(texture, rect, false, color)
+
+
 func _issue_context_command(world_pos: Vector2) -> void:
 	if selected_unit_ids.is_empty():
 		return
@@ -311,24 +374,6 @@ func _issue_context_command(world_pos: Vector2) -> void:
 				else:
 					unit_manager.issue_move_order_many(selected_unit_ids, world_pos)
 
-func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
-	set_external_pointer_world(pointer.world_pos)
-
-	if pointer.primary_just_pressed:
-		primary_pointer_pressed(pointer.world_pos)
-
-	if pointer.primary_just_released:
-		primary_pointer_released(pointer.world_pos)
-
-	if pointer.secondary_just_pressed:
-		secondary_pointer_pressed(pointer.world_pos)
-		return true
-
-	if pointer.cancel_just_pressed:
-		clear_selection()
-		return true
-
-	return pointer.primary_just_pressed or pointer.primary_just_released
 
 func _issue_structure_rally_command(world_pos: Vector2) -> void:
 	if selected_structure_id == -1:
@@ -350,6 +395,7 @@ func _issue_structure_rally_command(world_pos: Vector2) -> void:
 		return
 
 	structure.rally_point = world_pos
+	queue_redraw()
 
 
 func _resolve_right_click_target(world_pos: Vector2) -> Dictionary:
@@ -531,6 +577,8 @@ func select_all_player_units() -> void:
 			continue
 
 		selected_unit_ids.append(u.id)
+
+	queue_redraw()
 
 
 func _should_use_network_commands() -> bool:
