@@ -243,6 +243,24 @@ func _issue_context_command(world_pos: Vector2) -> void:
 				else:
 					unit_manager.issue_move_order_many(selected_unit_ids, world_pos)
 
+func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
+	set_external_pointer_world(pointer.world_pos)
+
+	if pointer.primary_just_pressed:
+		primary_pointer_pressed(pointer.world_pos)
+
+	if pointer.primary_just_released:
+		primary_pointer_released(pointer.world_pos)
+
+	if pointer.secondary_just_pressed:
+		secondary_pointer_pressed(pointer.world_pos)
+		return true
+
+	if pointer.cancel_just_pressed:
+		clear_selection()
+		return true
+
+	return pointer.primary_just_pressed or pointer.primary_just_released
 
 func _issue_structure_rally_command(world_pos: Vector2) -> void:
 	if selected_structure_id == -1:

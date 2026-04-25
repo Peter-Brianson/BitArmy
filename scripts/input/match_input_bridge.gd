@@ -4,6 +4,8 @@ extends Node
 @export var camera_pan_controller: CameraPanController
 @export var match_controller: MatchController
 @export var selection_controller: SelectionController
+@export var hud_controller: HUDController
+@export var structure_placement_controller: StructurePlacementController
 @export var primary_player_index: int = 0
 @export var pause_menu_group_name: String = "pause_menu"
 @export var consume_router_transients: bool = true
@@ -30,8 +32,30 @@ func _process(_delta: float) -> void:
 
 		return
 
-	_apply_camera_and_pointer_inputs(player)
-	_apply_pause_input(player)
+	if camera_pan_controller == null:
+		return
+
+	var pointer := _build_pointer(player)
+
+	_apply_camera(pointer)
+
+	if hud_controller != null and hud_controller.has_method("handle_virtual_pointer"):
+		if hud_controller.call("handle_virtual_pointer", pointer):
+			pointer.handled_by_ui = true
+
+	if not pointer.is_consumed() and structure_placement_controller != null:
+		if structure_placement_controller.has_method("handle_virtual_pointer"):
+			if structure_placement_controller.call("handle_virtual_pointer", pointer):
+				pointer.handled_by_placement = true
+
+	if not pointer.is_consumed() and selection_controller != null:
+		if selection_controller.has_method("handle_virtual_pointer"):
+			if selection_controller.call("handle_virtual_pointer", pointer):
+				pointer.handled_by_selection = true
+
+	if pointer.pause_just_pressed:
+		_toggle_pause_menu()
+
 	_apply_qol_actions(player)
 	_apply_direct_pause_fallback()
 
@@ -39,73 +63,26 @@ func _process(_delta: float) -> void:
 		InputHub.begin_frame()
 
 
-func _apply_camera_and_pointer_inputs(player) -> void:
-	if camera_pan_controller == null:
-		return
-
-	if player.is_keyboard_mouse:
-		_apply_camera_inputs(player)
-		_apply_pointer_inputs(player)
-		return
-
-	var cursor_world_before_pan: Vector2 = camera_pan_controller.screen_to_world(player.pointer_screen)
-	var should_anchor_cursor: bool = keep_virtual_cursor_world_anchored_while_panning
-	should_anchor_cursor = should_anchor_cursor and player.camera_pan.length_squared() > 0.001
-	should_anchor_cursor = should_anchor_cursor and player.pointer_delta.length_squared() <= 0.001
-
-	_apply_camera_inputs(player)
-
-	if should_anchor_cursor and camera_pan_controller.has_method("world_to_screen"):
-		var corrected_screen_position: Vector2 = camera_pan_controller.world_to_screen(cursor_world_before_pan)
-		player.pointer_screen = corrected_screen_position
-
-	_apply_pointer_inputs(player)
-
-
-func _apply_camera_inputs(player) -> void:
-	if camera_pan_controller == null:
-		return
-
-	camera_pan_controller.external_camera_pan = player.camera_pan
-	camera_pan_controller.external_zoom_delta = player.zoom_delta
-
-
-func _apply_pointer_inputs(player) -> void:
-	if camera_pan_controller == null:
-		return
+func _build_pointer(player) -> VirtualPointerState:
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var screen_pos: Vector2 = player.pointer_screen
 
 	if player.is_keyboard_mouse:
 		camera_pan_controller.clear_virtual_pointer_override()
+	else:
+		camera_pan_controller.set_virtual_pointer_screen(screen_pos)
 
-		if selection_controller != null:
-			selection_controller.clear_external_pointer_world()
+	var world_pos: Vector2 = camera_pan_controller.screen_to_world(screen_pos)
 
-		return
+	var pointer := VirtualPointerState.new()
+	pointer.setup_from_player(player, screen_pos, screen_pos, world_pos)
 
-	camera_pan_controller.set_virtual_pointer_screen(player.pointer_screen)
-
-	var world_pos: Vector2 = camera_pan_controller.screen_to_world(player.pointer_screen)
-
-	if selection_controller == null:
-		return
-
-	selection_controller.set_external_pointer_world(world_pos)
-
-	if player.primary_just_pressed:
-		selection_controller.primary_pointer_pressed(world_pos)
-
-	if player.primary_just_released:
-		selection_controller.primary_pointer_released(world_pos)
-
-	if player.secondary_just_pressed:
-		selection_controller.secondary_pointer_pressed(world_pos)
+	return pointer
 
 
-func _apply_pause_input(player) -> void:
-	if not player.pause_just_pressed:
-		return
-
-	_toggle_pause_menu()
+func _apply_camera(pointer: VirtualPointerState) -> void:
+	camera_pan_controller.external_camera_pan = pointer.camera_pan
+	camera_pan_controller.external_zoom_delta = pointer.zoom_delta
 
 
 func _apply_direct_pause_fallback() -> void:

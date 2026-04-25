@@ -41,7 +41,6 @@ var _saved_unit_camera_controller: CameraPanController
 var _saved_structure_camera_controller: CameraPanController
 var _saved_unit_batch_camera_controller: CameraPanController
 
-# Button polling state. This avoids lost one-frame InputRouter transients.
 var _primary_down_last: Dictionary = {}
 var _secondary_down_last: Dictionary = {}
 var _cancel_down_last: Dictionary = {}
@@ -92,6 +91,7 @@ func _process(_delta: float) -> void:
 		var container: SubViewportContainer = view.get("container", null)
 		var camera_rig: CameraPanController = view.get("camera_rig", null)
 		var selection: SelectionController = view.get("selection", null)
+		var hud: HUDController = view.get("hud", null)
 
 		if container == null or camera_rig == null:
 			continue
@@ -114,52 +114,52 @@ func _process(_delta: float) -> void:
 		camera_rig.set_virtual_pointer_screen(local_screen_pos)
 
 		var world_pos: Vector2 = camera_rig.screen_to_world(local_screen_pos)
-		var buttons: Dictionary = _poll_runtime_buttons_for_player(player, container)
+		var global_screen_pos: Vector2 = container.get_global_rect().position + local_screen_pos
+
+		var pointer := VirtualPointerState.new()
+		pointer.setup_from_player(player, local_screen_pos, global_screen_pos, world_pos)
+		_apply_runtime_button_poll(pointer, player, container)
 
 		if debug_split_input:
-			if bool(buttons.get("primary_just_pressed", false)) or bool(buttons.get("secondary_just_pressed", false)) or bool(buttons.get("pause_just_pressed", false)):
+			if pointer.primary_just_pressed or pointer.secondary_just_pressed or pointer.pause_just_pressed:
 				print(
-					"Split runtime input P",
-					player.player_index,
-					" A/Left=",
-					buttons.get("primary_just_pressed", false),
-					" B/Right=",
-					buttons.get("secondary_just_pressed", false),
-					" Pause=",
-					buttons.get("pause_just_pressed", false),
+					"Virtual pointer P",
+					pointer.player_index,
+					" primary=",
+					pointer.primary_just_pressed,
+					" secondary=",
+					pointer.secondary_just_pressed,
+					" pause=",
+					pointer.pause_just_pressed,
 					" world=",
-					world_pos
+					pointer.world_pos
 				)
 
-		if selection != null:
-			selection.set_external_pointer_world(world_pos)
+		if hud != null and hud.has_method("handle_virtual_pointer"):
+			if hud.call("handle_virtual_pointer", pointer):
+				pointer.handled_by_ui = true
 
-			if bool(buttons.get("primary_just_pressed", false)):
-				selection.primary_pointer_pressed(world_pos)
+		if not pointer.is_consumed() and structure_placement_controller != null:
+			if structure_placement_controller.has_method("handle_virtual_pointer"):
+				if structure_placement_controller.call("handle_virtual_pointer", pointer):
+					pointer.handled_by_placement = true
 
-			if bool(buttons.get("primary_just_released", false)):
-				selection.primary_pointer_released(world_pos)
+		if not pointer.is_consumed() and selection != null:
+			if selection.has_method("handle_virtual_pointer"):
+				if selection.call("handle_virtual_pointer", pointer):
+					pointer.handled_by_selection = true
 
-			if bool(buttons.get("secondary_just_pressed", false)):
-				selection.secondary_pointer_pressed(world_pos)
-			elif bool(buttons.get("cancel_just_pressed", false)):
-				selection.clear_selection()
-
-		if bool(buttons.get("pause_just_pressed", false)):
+		if pointer.pause_just_pressed:
 			_toggle_pause_menu()
 
 	InputHub.begin_frame()
 
 
-func _poll_runtime_buttons_for_player(player, container: SubViewportContainer) -> Dictionary:
-	var result: Dictionary = {
-		"primary_just_pressed": false,
-		"primary_just_released": false,
-		"secondary_just_pressed": false,
-		"cancel_just_pressed": false,
-		"pause_just_pressed": false
-	}
-
+func _apply_runtime_button_poll(
+	pointer: VirtualPointerState,
+	player,
+	container: SubViewportContainer
+) -> void:
 	var player_index: int = int(player.player_index)
 
 	if player.is_keyboard_mouse or player.is_touch:
@@ -175,18 +175,24 @@ func _poll_runtime_buttons_for_player(player, container: SubViewportContainer) -
 		var cancel_last: bool = bool(_cancel_down_last.get(player_index, false))
 		var pause_last: bool = bool(_pause_down_last.get(player_index, false))
 
-		result["primary_just_pressed"] = primary_now and not primary_last
-		result["primary_just_released"] = not primary_now and primary_last
-		result["secondary_just_pressed"] = secondary_now and not secondary_last
-		result["cancel_just_pressed"] = cancel_now and not cancel_last
-		result["pause_just_pressed"] = pause_now and not pause_last
+		pointer.setup_runtime_buttons(
+			primary_now,
+			primary_last,
+			secondary_now,
+			secondary_last,
+			cancel_now,
+			cancel_last,
+			pause_now,
+			pause_last,
+			false
+		)
 
 		_primary_down_last[player_index] = primary_now
 		_secondary_down_last[player_index] = secondary_now
 		_cancel_down_last[player_index] = cancel_now
 		_pause_down_last[player_index] = pause_now
 
-		return result
+		return
 
 	var device_id: int = int(player.device_id)
 
@@ -200,22 +206,22 @@ func _poll_runtime_buttons_for_player(player, container: SubViewportContainer) -
 	var cancel_controller_last: bool = bool(_cancel_down_last.get(player_index, false))
 	var pause_controller_last: bool = bool(_pause_down_last.get(player_index, false))
 
-	var primary_clicked: bool = primary_controller_now and not primary_controller_last
-	var secondary_clicked: bool = secondary_controller_now and not secondary_controller_last
-
-	# Controller A/B are clean click pulses. No held drag from A.
-	result["primary_just_pressed"] = primary_clicked
-	result["primary_just_released"] = primary_clicked
-	result["secondary_just_pressed"] = secondary_clicked
-	result["cancel_just_pressed"] = cancel_controller_now and not cancel_controller_last
-	result["pause_just_pressed"] = pause_controller_now and not pause_controller_last
+	pointer.setup_runtime_buttons(
+		primary_controller_now,
+		primary_controller_last,
+		secondary_controller_now,
+		secondary_controller_last,
+		cancel_controller_now,
+		cancel_controller_last,
+		pause_controller_now,
+		pause_controller_last,
+		true
+	)
 
 	_primary_down_last[player_index] = primary_controller_now
 	_secondary_down_last[player_index] = secondary_controller_now
 	_cancel_down_last[player_index] = cancel_controller_now
 	_pause_down_last[player_index] = pause_controller_now
-
-	return result
 
 
 func _rebuild_views() -> void:
@@ -404,7 +410,6 @@ func _create_player_hud(
 
 	container.add_child(hud)
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.visible = true
 
 	return hud
