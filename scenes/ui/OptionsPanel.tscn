@@ -4,7 +4,7 @@
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bir08"]
 
-[node name="OptionsPanel" type="PanelContainer" node_paths=PackedStringArray("title_label", "ui_scale_label", "ui_scale_slider", "value_label", "close_button", "master_slider", "music_slider", "sfx_slider")]
+[node name="OptionsPanel" type="PanelContainer" node_paths=PackedStringArray("title_label", "ui_scale_label", "ui_scale_slider", "value_label", "close_button", "master_slider", "music_slider", "sfx_slider", "mouse_wheel_zoom_check_box", "mouse_edge_pan_check_box")]
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -24,6 +24,8 @@ close_button = NodePath("VBoxContainer/ButtonCloseButton")
 master_slider = NodePath("VBoxContainer/MasteRow/MasterSlider")
 music_slider = NodePath("VBoxContainer/MusicRow/MusicSlider")
 sfx_slider = NodePath("VBoxContainer/SFXRow/SFXSlider")
+mouse_wheel_zoom_check_box = NodePath("VBoxContainer/Mouse Control/MouseZoom")
+mouse_edge_pan_check_box = NodePath("VBoxContainer/Mouse Control/Mouse Pan")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 2
@@ -104,6 +106,32 @@ step = 0.0
 [node name="ValueLabel" type="Label" parent="VBoxContainer/ScaleRow"]
 layout_mode = 2
 text = "ValueLabel "
+
+[node name="MouseControl" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Mouse Options"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Mouse Control" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="ZoomLabel" type="Label" parent="VBoxContainer/Mouse Control"]
+layout_mode = 2
+text = "Zoom"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MouseZoom" type="CheckBox" parent="VBoxContainer/Mouse Control"]
+layout_mode = 2
+
+[node name="PanLabel" type="Label" parent="VBoxContainer/Mouse Control"]
+layout_mode = 2
+text = "Pan"
+
+[node name="Mouse Pan" type="CheckBox" parent="VBoxContainer/Mouse Control"]
+layout_mode = 2
 
 [node name="ButtonCloseButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2

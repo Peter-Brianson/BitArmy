@@ -10,18 +10,24 @@ extends Node2D
 @export var edge_margin: float = 24.0
 @export var edge_scroll_speed: float = 650.0
 @export var keyboard_scroll_speed: float = 650.0
+@export var mouse_edge_pan_enabled: bool = false
 @export var edge_pan_with_virtual_pointer: bool = false
 
 @export_group("Zoom")
 @export var zoom_step: float = 0.08
 @export var min_zoom: float = 0.5
 @export var max_zoom: float = 2.0
-
+@export var mouse_wheel_zoom_enabled: bool = false
 
 @export_group("Virtual Cursor")
 @export var enable_virtual_cursor: bool = true
 @export var virtual_cursor_visual: Control
 @export var warp_os_mouse_for_virtual_pointer: bool = true
+
+const SETTINGS_PATH := "user://settings.cfg"
+const SETTINGS_SECTION := "camera_input"
+const KEY_MOUSE_WHEEL_ZOOM := "mouse_wheel_zoom_enabled"
+const KEY_MOUSE_EDGE_PAN := "mouse_edge_pan_enabled"
 
 var external_camera_pan: Vector2 = Vector2.ZERO
 var external_zoom_delta: float = 0.0
@@ -38,6 +44,9 @@ var use_ui_mouse_block_rect: bool = false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	add_to_group("camera_pan_controller")
+
+	_load_camera_input_settings()
 
 	if camera == null:
 		camera = get_node_or_null("Camera2D")
@@ -55,7 +64,9 @@ func _process(delta: float) -> void:
 	var screen_pointer: Vector2 = _get_active_screen_pointer(viewport_size)
 
 	var mouse_edge_pan: Vector2 = Vector2.ZERO
-	var can_edge_pan: bool = not suppress_mouse_camera_input and not is_mouse_over_blocked_ui()
+	var can_edge_pan: bool = mouse_edge_pan_enabled
+	can_edge_pan = can_edge_pan and not suppress_mouse_camera_input
+	can_edge_pan = can_edge_pan and not is_mouse_over_blocked_ui()
 
 	if _has_external_pointer and not edge_pan_with_virtual_pointer:
 		can_edge_pan = false
@@ -80,6 +91,33 @@ func _process(delta: float) -> void:
 	external_zoom_delta = 0.0
 
 
+func set_mouse_camera_options(enable_wheel_zoom: bool, enable_edge_pan: bool) -> void:
+	mouse_wheel_zoom_enabled = enable_wheel_zoom
+	mouse_edge_pan_enabled = enable_edge_pan
+
+
+func _load_camera_input_settings() -> void:
+	var config := ConfigFile.new()
+	var err: Error = config.load(SETTINGS_PATH)
+
+	if err != OK:
+		mouse_wheel_zoom_enabled = false
+		mouse_edge_pan_enabled = false
+		return
+
+	mouse_wheel_zoom_enabled = bool(config.get_value(
+		SETTINGS_SECTION,
+		KEY_MOUSE_WHEEL_ZOOM,
+		false
+	))
+
+	mouse_edge_pan_enabled = bool(config.get_value(
+		SETTINGS_SECTION,
+		KEY_MOUSE_EDGE_PAN,
+		false
+	))
+
+
 func set_ui_mouse_block_rect(rect: Rect2) -> void:
 	ui_mouse_block_rect = rect
 	use_ui_mouse_block_rect = true
@@ -102,11 +140,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if suppress_mouse_camera_input or is_mouse_over_blocked_ui():
 		return
 
+	if not mouse_wheel_zoom_enabled:
+		return
+
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_queued_mouse_wheel_zoom += 1.0
 			get_viewport().set_input_as_handled()
-
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_queued_mouse_wheel_zoom -= 1.0
 			get_viewport().set_input_as_handled()
@@ -174,7 +214,7 @@ func _apply_zoom() -> void:
 	var block_mouse_zoom: bool = suppress_mouse_camera_input or is_mouse_over_blocked_ui()
 	var zoom_delta: float = external_zoom_delta
 
-	if not block_mouse_zoom:
+	if mouse_wheel_zoom_enabled and not block_mouse_zoom:
 		zoom_delta += _queued_mouse_wheel_zoom
 
 	if Input.is_action_just_pressed("zoom_in"):
@@ -189,6 +229,7 @@ func _apply_zoom() -> void:
 		return
 
 	var new_zoom := camera.zoom + Vector2.ONE * (-zoom_delta * zoom_step)
+
 	new_zoom.x = clamp(new_zoom.x, min_zoom, max_zoom)
 	new_zoom.y = clamp(new_zoom.y, min_zoom, max_zoom)
 

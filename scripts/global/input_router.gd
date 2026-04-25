@@ -62,6 +62,10 @@ class PlayerState:
 @export var mobile_pinch_pixels_per_zoom_step: float = 90.0
 @export var mobile_min_pinch_distance: float = 16.0
 
+const MOBILE_TOUCH_DEVICE_ID := -200
+const TOUCH_DEVICE_ID := MOBILE_TOUCH_DEVICE_ID
+const MAX_LOCAL_PLAYERS := 8
+const MAX_SPLIT_SCREEN_PLAYERS := 4
 
 var _players: Array[PlayerState] = []
 var _device_to_player: Dictionary = {}
@@ -80,6 +84,7 @@ var _mobile_pinching: bool = false
 var _mobile_last_pinch_distance: float = 0.0
 var _mobile_camera_pan_frame: Vector2 = Vector2.ZERO
 var _mobile_zoom_delta_frame: float = 0.0
+
 
 
 func _ready() -> void:
