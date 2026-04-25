@@ -5,6 +5,7 @@ extends Control
 @export var main_camera_rig: CameraPanController
 @export var original_match_input_bridge: MatchInputBridge
 @export var main_selection_controller: SelectionController
+@export var main_hud_controller: HUDController
 
 @export_group("Match Managers")
 @export var match_controller: MatchController
@@ -12,6 +13,8 @@ extends Control
 @export var unit_manager: UnitSimulationManager
 @export var structure_manager: StructureSimulationManager
 @export var match_net_controller: MatchNetController
+@export var game_manager: GameManager
+@export var structure_placement_controller: StructurePlacementController
 
 @export_group("Optional Render Nodes")
 @export var unit_batch_renderer: Node
@@ -25,6 +28,11 @@ extends Control
 @export var keep_cursor_world_anchored_while_panning: bool = true
 @export var debug_split_input: bool = false
 
+@export_group("Per Player HUD")
+@export var hud_scene: PackedScene
+@export var show_per_player_hud: bool = true
+@export var split_hud_scale: float = 0.72
+
 var _views: Array[Dictionary] = []
 var _local_pointers: Dictionary = {}
 var _split_active: bool = false
@@ -32,6 +40,12 @@ var _split_active: bool = false
 var _saved_unit_camera_controller: CameraPanController
 var _saved_structure_camera_controller: CameraPanController
 var _saved_unit_batch_camera_controller: CameraPanController
+
+# Button polling state. This avoids lost one-frame InputRouter transients.
+var _primary_down_last: Dictionary = {}
+var _secondary_down_last: Dictionary = {}
+var _cancel_down_last: Dictionary = {}
+var _pause_down_last: Dictionary = {}
 
 
 func _ready() -> void:
@@ -100,18 +114,19 @@ func _process(_delta: float) -> void:
 		camera_rig.set_virtual_pointer_screen(local_screen_pos)
 
 		var world_pos: Vector2 = camera_rig.screen_to_world(local_screen_pos)
+		var buttons: Dictionary = _poll_runtime_buttons_for_player(player, container)
 
 		if debug_split_input:
-			if player.primary_just_pressed or player.secondary_just_pressed or player.pause_just_pressed:
+			if bool(buttons.get("primary_just_pressed", false)) or bool(buttons.get("secondary_just_pressed", false)) or bool(buttons.get("pause_just_pressed", false)):
 				print(
-					"Split input P",
+					"Split runtime input P",
 					player.player_index,
-					" A=",
-					player.primary_just_pressed,
-					" B=",
-					player.secondary_just_pressed,
+					" A/Left=",
+					buttons.get("primary_just_pressed", false),
+					" B/Right=",
+					buttons.get("secondary_just_pressed", false),
 					" Pause=",
-					player.pause_just_pressed,
+					buttons.get("pause_just_pressed", false),
 					" world=",
 					world_pos
 				)
@@ -119,21 +134,88 @@ func _process(_delta: float) -> void:
 		if selection != null:
 			selection.set_external_pointer_world(world_pos)
 
-			if player.primary_just_pressed:
+			if bool(buttons.get("primary_just_pressed", false)):
 				selection.primary_pointer_pressed(world_pos)
 
-			if player.primary_just_released:
+			if bool(buttons.get("primary_just_released", false)):
 				selection.primary_pointer_released(world_pos)
 
-			if player.secondary_just_pressed:
+			if bool(buttons.get("secondary_just_pressed", false)):
 				selection.secondary_pointer_pressed(world_pos)
-			elif player.cancel_just_pressed:
+			elif bool(buttons.get("cancel_just_pressed", false)):
 				selection.clear_selection()
 
-		if player.pause_just_pressed:
+		if bool(buttons.get("pause_just_pressed", false)):
 			_toggle_pause_menu()
 
 	InputHub.begin_frame()
+
+
+func _poll_runtime_buttons_for_player(player, container: SubViewportContainer) -> Dictionary:
+	var result: Dictionary = {
+		"primary_just_pressed": false,
+		"primary_just_released": false,
+		"secondary_just_pressed": false,
+		"cancel_just_pressed": false,
+		"pause_just_pressed": false
+	}
+
+	var player_index: int = int(player.player_index)
+
+	if player.is_keyboard_mouse or player.is_touch:
+		var mouse_inside_view: bool = container.get_global_rect().has_point(get_viewport().get_mouse_position())
+
+		var primary_now: bool = mouse_inside_view and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		var secondary_now: bool = mouse_inside_view and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+		var cancel_now: bool = Input.is_action_pressed("cancel_back")
+		var pause_now: bool = Input.is_action_pressed("pause_game")
+
+		var primary_last: bool = bool(_primary_down_last.get(player_index, false))
+		var secondary_last: bool = bool(_secondary_down_last.get(player_index, false))
+		var cancel_last: bool = bool(_cancel_down_last.get(player_index, false))
+		var pause_last: bool = bool(_pause_down_last.get(player_index, false))
+
+		result["primary_just_pressed"] = primary_now and not primary_last
+		result["primary_just_released"] = not primary_now and primary_last
+		result["secondary_just_pressed"] = secondary_now and not secondary_last
+		result["cancel_just_pressed"] = cancel_now and not cancel_last
+		result["pause_just_pressed"] = pause_now and not pause_last
+
+		_primary_down_last[player_index] = primary_now
+		_secondary_down_last[player_index] = secondary_now
+		_cancel_down_last[player_index] = cancel_now
+		_pause_down_last[player_index] = pause_now
+
+		return result
+
+	var device_id: int = int(player.device_id)
+
+	var primary_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_A)
+	var secondary_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_B)
+	var cancel_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_BACK)
+	var pause_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_START)
+
+	var primary_controller_last: bool = bool(_primary_down_last.get(player_index, false))
+	var secondary_controller_last: bool = bool(_secondary_down_last.get(player_index, false))
+	var cancel_controller_last: bool = bool(_cancel_down_last.get(player_index, false))
+	var pause_controller_last: bool = bool(_pause_down_last.get(player_index, false))
+
+	var primary_clicked: bool = primary_controller_now and not primary_controller_last
+	var secondary_clicked: bool = secondary_controller_now and not secondary_controller_last
+
+	# Controller A/B are clean click pulses. No held drag from A.
+	result["primary_just_pressed"] = primary_clicked
+	result["primary_just_released"] = primary_clicked
+	result["secondary_just_pressed"] = secondary_clicked
+	result["cancel_just_pressed"] = cancel_controller_now and not cancel_controller_last
+	result["pause_just_pressed"] = pause_controller_now and not pause_controller_last
+
+	_primary_down_last[player_index] = primary_controller_now
+	_secondary_down_last[player_index] = secondary_controller_now
+	_cancel_down_last[player_index] = cancel_controller_now
+	_pause_down_last[player_index] = pause_controller_now
+
+	return result
 
 
 func _rebuild_views() -> void:
@@ -170,6 +252,9 @@ func _set_split_active(active: bool) -> void:
 	if main_selection_controller != null:
 		main_selection_controller.set_process(not active)
 		main_selection_controller.set_process_unhandled_input(not active)
+
+	if main_hud_controller != null:
+		main_hud_controller.visible = not active
 
 	if unit_manager != null:
 		unit_manager.camera_pan_controller = null if active else _saved_unit_camera_controller
@@ -274,6 +359,8 @@ func _create_view(view_index: int, player) -> void:
 
 	view_root.add_child(selection)
 
+	var player_hud: HUDController = _create_player_hud(container, selection, camera_rig)
+
 	_views.append({
 		"player_index": int(player.player_index),
 		"session_member_id": session_member_id,
@@ -281,8 +368,46 @@ func _create_view(view_index: int, player) -> void:
 		"container": container,
 		"viewport": viewport,
 		"camera_rig": camera_rig,
-		"selection": selection
+		"selection": selection,
+		"hud": player_hud
 	})
+
+
+func _create_player_hud(
+	container: SubViewportContainer,
+	selection: SelectionController,
+	camera_rig: CameraPanController
+) -> HUDController:
+	if not show_per_player_hud:
+		return null
+
+	var hud: HUDController = null
+
+	if hud_scene != null:
+		hud = hud_scene.instantiate() as HUDController
+	elif main_hud_controller != null:
+		hud = main_hud_controller.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as HUDController
+
+	if hud == null:
+		return null
+
+	hud.name = "PlayerHUD"
+	hud.selection_controller = selection
+	hud.unit_manager = unit_manager
+	hud.structure_manager = structure_manager
+	hud.game_manager = game_manager
+	hud.match_controller = match_controller
+	hud.match_net_controller = match_net_controller
+	hud.camera_pan_controller = camera_rig
+	hud.structure_placement_controller = structure_placement_controller
+	hud.ui_scale = split_hud_scale
+
+	container.add_child(hud)
+	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.visible = true
+
+	return hud
 
 
 func _create_virtual_cursor_control() -> Control:
@@ -319,6 +444,10 @@ func _clear_views() -> void:
 
 	_views.clear()
 	_local_pointers.clear()
+	_primary_down_last.clear()
+	_secondary_down_last.clear()
+	_cancel_down_last.clear()
+	_pause_down_last.clear()
 
 
 func _apply_layout() -> void:
