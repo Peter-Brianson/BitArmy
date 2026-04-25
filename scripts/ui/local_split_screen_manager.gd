@@ -136,6 +136,29 @@ func _rebuild_views() -> void:
 	_apply_layout()
 	call_deferred("_center_all_views")
 
+func _create_virtual_cursor_control() -> Control:
+	var cursor: Control = null
+
+	if cursor_texture != null:
+		var texture_cursor := TextureRect.new()
+		texture_cursor.texture = cursor_texture
+		texture_cursor.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		texture_cursor.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		cursor = texture_cursor
+	else:
+		var fallback_cursor := ColorRect.new()
+		fallback_cursor.color = Color(1.0, 1.0, 1.0, 0.95)
+		cursor = fallback_cursor
+
+	cursor.name = "VirtualCursor"
+	cursor.size = cursor_size
+	cursor.custom_minimum_size = cursor_size
+	cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cursor.z_index = 4096
+	cursor.visible = false
+	cursor.set_anchors_preset(Control.PRESET_TOP_LEFT)
+
+	return cursor
 
 func _set_split_active(active: bool) -> void:
 	_split_active = active
@@ -224,15 +247,11 @@ func _create_view(view_index: int, player) -> void:
 	camera_rig.camera = camera
 	camera_rig.add_child(camera)
 
-	var cursor := TextureRect.new()
-	cursor.name = "VirtualCursor"
-	cursor.texture = cursor_texture
-	cursor.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	cursor.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	cursor.size = cursor_size
-	cursor.custom_minimum_size = cursor_size
-	cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	viewport.add_child(cursor)
+	var cursor: Control = _create_virtual_cursor_control()
+
+	# Add the cursor to the SubViewportContainer, not the SubViewport.
+	# This keeps it as a screen-space overlay above that player's view.
+	container.add_child(cursor)
 
 	camera_rig.virtual_cursor_visual = cursor
 

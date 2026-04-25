@@ -7,7 +7,9 @@ signal player_team_changed(player_index: int, team_id: int)
 
 const KEYBOARD_MOUSE_DEVICE_ID := -100
 const MOBILE_TOUCH_DEVICE_ID := -200
+const TOUCH_DEVICE_ID := MOBILE_TOUCH_DEVICE_ID
 const MAX_LOCAL_PLAYERS := 8
+const MAX_SPLIT_SCREEN_PLAYERS := 4
 
 
 class PlayerState:
@@ -15,6 +17,7 @@ class PlayerState:
 	var device_id: int = -1
 	var team_id: int = -1
 	var is_keyboard_mouse: bool = false
+	var is_touch: bool = false
 
 	var pointer_screen: Vector2 = Vector2.ZERO
 	var pointer_delta: Vector2 = Vector2.ZERO
@@ -62,11 +65,6 @@ class PlayerState:
 @export var mobile_pinch_pixels_per_zoom_step: float = 90.0
 @export var mobile_min_pinch_distance: float = 16.0
 
-const MOBILE_TOUCH_DEVICE_ID := -200
-const TOUCH_DEVICE_ID := MOBILE_TOUCH_DEVICE_ID
-const MAX_LOCAL_PLAYERS := 8
-const MAX_SPLIT_SCREEN_PLAYERS := 4
-
 var _players: Array[PlayerState] = []
 var _device_to_player: Dictionary = {}
 
@@ -84,7 +82,6 @@ var _mobile_pinching: bool = false
 var _mobile_last_pinch_distance: float = 0.0
 var _mobile_camera_pan_frame: Vector2 = Vector2.ZERO
 var _mobile_zoom_delta_frame: float = 0.0
-
 
 
 func _ready() -> void:
@@ -133,12 +130,13 @@ func _input(event: InputEvent) -> void:
 				_apply_press_release(player, true, event.pressed)
 			MOUSE_BUTTON_RIGHT:
 				_apply_press_release(player, false, event.pressed)
+
+			# Mouse wheel zoom is intentionally not routed here.
+			# CameraPanController handles mouse wheel zoom only when its option is enabled.
 			MOUSE_BUTTON_WHEEL_UP:
-				if event.pressed:
-					player.zoom_delta += 1.0
+				pass
 			MOUSE_BUTTON_WHEEL_DOWN:
-				if event.pressed:
-					player.zoom_delta -= 1.0
+				pass
 
 	elif event is InputEventJoypadButton:
 		match event.button_index:
@@ -211,6 +209,45 @@ func get_player(player_index: int) -> PlayerState:
 
 func get_players() -> Array[PlayerState]:
 	return _players
+
+
+func get_split_screen_players() -> Array[PlayerState]:
+	var result: Array[PlayerState] = []
+
+	for player in _players:
+		if result.size() >= MAX_SPLIT_SCREEN_PLAYERS:
+			break
+
+		if player.team_id >= 0:
+			result.append(player)
+
+	return result
+
+
+func get_player_label(player_index: int) -> String:
+	var player: PlayerState = get_player(player_index)
+
+	if player == null:
+		return "Missing Player"
+
+	if player.is_touch:
+		return "Touch"
+
+	if player.is_keyboard_mouse:
+		return "Keyboard / Mouse"
+
+	return "Controller %d" % player.device_id
+
+
+func join_connected_controllers(max_total_players: int = MAX_SPLIT_SCREEN_PLAYERS) -> void:
+	var joypads: Array[int] = Input.get_connected_joypads()
+
+	for device_id in joypads:
+		if _players.size() >= max_total_players:
+			return
+
+		if _get_player_by_device(device_id) == null:
+			_register_device_if_needed(device_id)
 
 
 func assign_team(player_index: int, team_id: int) -> void:
@@ -499,15 +536,10 @@ func _refresh_keyboard_mouse_player() -> void:
 
 func _refresh_controller_list() -> void:
 	var joypads: Array[int] = Input.get_connected_joypads()
-
-	for device_id in joypads:
-		if _get_player_by_device(device_id) == null:
-			pass
-
 	var missing: Array[int] = []
 
 	for player in _players:
-		if player.is_keyboard_mouse:
+		if player.is_keyboard_mouse or player.is_touch:
 			continue
 
 		if not joypads.has(player.device_id):
@@ -528,8 +560,9 @@ func _register_device_if_needed(device_id: int, force_keyboard_mouse: bool = fal
 	p.player_index = _players.size()
 	p.device_id = device_id
 	p.is_keyboard_mouse = force_keyboard_mouse or device_id == KEYBOARD_MOUSE_DEVICE_ID
+	p.is_touch = device_id == MOBILE_TOUCH_DEVICE_ID or device_id == TOUCH_DEVICE_ID
 
-	if device_id == MOBILE_TOUCH_DEVICE_ID:
+	if p.is_touch:
 		p.is_keyboard_mouse = false
 
 	var viewport := get_viewport()
@@ -552,6 +585,8 @@ func _unregister_device(device_id: int) -> void:
 
 	_players.remove_at(remove_index)
 	_device_to_player.erase(device_id)
+
+	_device_to_player.clear()
 
 	for i in range(_players.size()):
 		_players[i].player_index = i

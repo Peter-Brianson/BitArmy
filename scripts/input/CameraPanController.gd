@@ -207,6 +207,27 @@ func screen_to_world(screen_pos: Vector2) -> Vector2:
 	)
 
 
+func world_to_screen(world_pos: Vector2) -> Vector2:
+	if camera == null:
+		return Vector2.ZERO
+
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var safe_zoom: Vector2 = camera.zoom
+
+	if safe_zoom.x <= 0.0:
+		safe_zoom.x = 1.0
+
+	if safe_zoom.y <= 0.0:
+		safe_zoom.y = 1.0
+
+	var world_delta: Vector2 = world_pos - camera.global_position
+
+	return viewport_size * 0.5 + Vector2(
+		world_delta.x * safe_zoom.x,
+		world_delta.y * safe_zoom.y
+	)
+
+
 func _apply_zoom() -> void:
 	if camera == null:
 		return
@@ -234,6 +255,7 @@ func _apply_zoom() -> void:
 	new_zoom.y = clamp(new_zoom.y, min_zoom, max_zoom)
 
 	camera.zoom = new_zoom
+	position = _get_clamped_camera_position(position, get_viewport_rect().size)
 
 
 func _get_active_screen_pointer(viewport_size: Vector2) -> Vector2:
