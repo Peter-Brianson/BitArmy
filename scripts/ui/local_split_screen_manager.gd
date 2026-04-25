@@ -375,8 +375,7 @@ func _create_view(view_index: int, player) -> void:
 	view_root.name = "ViewRoot"
 	viewport.add_child(view_root)
 
-	var selection_underlay: Node2D = _create_selection_underlay_for_view(view_index)
-	_configure_selection_underlay_layer(selection_underlay)
+	var selection_underlay: SelectionUnderlay = _create_selection_underlay_for_view(view_index)
 
 	var camera_rig := CameraPanController.new()
 	camera_rig.name = "CameraRig_P%d" % (view_index + 1)
@@ -443,32 +442,30 @@ func _create_view(view_index: int, player) -> void:
 		"hud": player_hud
 	})
 
-
-func _create_selection_underlay_for_view(view_index: int) -> Node2D:
-	var underlay: Node2D = null
+func _create_selection_underlay_for_view(view_index: int) -> SelectionUnderlay:
+	var underlay: SelectionUnderlay = null
 
 	if main_selection_underlay != null:
-		underlay = main_selection_underlay.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as Node2D
+		underlay = main_selection_underlay.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as SelectionUnderlay
 
 	if underlay == null:
-		underlay = Node2D.new()
+		underlay = SelectionUnderlay.new()
 
 	underlay.name = "SelectionUnderlay_P%d" % (view_index + 1)
 	underlay.visible = true
 	underlay.set_process(true)
 
-	if main_selection_underlay != null:
-		underlay.z_as_relative = main_selection_underlay.z_as_relative
-		underlay.z_index = main_selection_underlay.z_index
-		underlay.y_sort_enabled = main_selection_underlay.y_sort_enabled
-	else:
-		underlay.z_as_relative = false
-		underlay.z_index = -10
+	_configure_selection_underlay_layer(underlay)
 
 	var parent_node: Node = _get_selection_underlay_world_parent()
 
 	if parent_node != null:
 		parent_node.add_child(underlay)
+
+		if main_selection_underlay != null and main_selection_underlay.get_parent() == parent_node:
+			var target_index: int = main_selection_underlay.get_index() + 1 + view_index
+			target_index = clamp(target_index, 0, parent_node.get_child_count() - 1)
+			parent_node.move_child(underlay, target_index)
 	else:
 		add_child(underlay)
 
@@ -484,7 +481,7 @@ func _get_selection_underlay_world_parent() -> Node:
 	return null
 
 
-func _configure_selection_underlay_layer(underlay: SelectionUnderlay) -> void:
+func _configure_selection_underlay_layer(underlay: Node2D) -> void:
 	if underlay == null:
 		return
 
@@ -492,10 +489,9 @@ func _configure_selection_underlay_layer(underlay: SelectionUnderlay) -> void:
 		underlay.z_as_relative = main_selection_underlay.z_as_relative
 		underlay.z_index = main_selection_underlay.z_index
 		underlay.y_sort_enabled = main_selection_underlay.y_sort_enabled
-		underlay.show_behind_parent = main_selection_underlay.show_behind_parent
 	else:
 		underlay.z_as_relative = false
-		underlay.z_index = -100
+		underlay.z_index = -10
 
 
 

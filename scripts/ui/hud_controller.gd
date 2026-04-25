@@ -121,10 +121,14 @@ func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
 
 		return true
 
-	# Consume clicks over real HUD panels/menus, but DO NOT consume the full-screen HUD root.
-	if _is_pointer_over_hud_panel(self, pointer.screen_pos, self):
-		if pointer.primary_just_pressed or pointer.secondary_just_pressed or pointer.cancel_just_pressed:
-			return true
+	if _is_pointer_over_blocking_hud_surface(self, pointer.screen_pos, self):
+		return (
+			pointer.primary_just_pressed
+			or pointer.secondary_just_pressed
+			or pointer.cancel_just_pressed
+			or pointer.primary_pressed
+			or pointer.secondary_pressed
+		)
 
 	return false
 
@@ -147,9 +151,13 @@ func _find_button_at_global_position(node: Node, global_pos: Vector2) -> BaseBut
 	return best_button
 
 
-func _is_pointer_over_hud_panel(node: Node, global_pos: Vector2, root_control: Control) -> bool:
+func _is_pointer_over_blocking_hud_surface(
+	node: Node,
+	global_pos: Vector2,
+	root_control: Control
+) -> bool:
 	for child in node.get_children():
-		if _is_pointer_over_hud_panel(child, global_pos, root_control):
+		if _is_pointer_over_blocking_hud_surface(child, global_pos, root_control):
 			return true
 
 	if not (node is Control):
@@ -166,15 +174,20 @@ func _is_pointer_over_hud_panel(node: Node, global_pos: Vector2, root_control: C
 	if not control.get_global_rect().has_point(global_pos):
 		return false
 
-	# Avoid full-screen/root-like containers consuming world clicks.
 	var root_area: float = max(root_control.size.x * root_control.size.y, 1.0)
 	var control_area: float = control.size.x * control.size.y
 
+	# Ignore full-screen containers, Canvas-style roots, and broad layout wrappers.
 	if control_area >= root_area * 0.85:
 		return false
 
-	# These are real HUD surfaces/menus that should block ground clicks.
 	if control is Panel or control is PanelContainer:
+		return true
+
+	if control is ScrollContainer:
+		return true
+
+	if control is GridContainer:
 		return true
 
 	var lowered_name: String = control.name.to_lower()
@@ -185,33 +198,20 @@ func _is_pointer_over_hud_panel(node: Node, global_pos: Vector2, root_control: C
 	if lowered_name.contains("menu"):
 		return true
 
-	if lowered_name.contains("grid"):
-		return true
-
 	if lowered_name.contains("production"):
-		return true
-
-	if lowered_name.contains("build"):
 		return true
 
 	if lowered_name.contains("selection"):
 		return true
 
-	return false
+	if lowered_name.contains("resource"):
+		return true
 
-func _is_virtual_pointer_over_visible_control(node: Node, global_pos: Vector2) -> bool:
-	if node is Control:
-		var control := node as Control
-
-		if control.visible and control.is_visible_in_tree():
-			if control.get_global_rect().has_point(global_pos):
-				return true
-
-	for child in node.get_children():
-		if _is_virtual_pointer_over_visible_control(child, global_pos):
-			return true
+	if lowered_name.contains("status"):
+		return true
 
 	return false
+
 
 
 func _refresh_all() -> void:
