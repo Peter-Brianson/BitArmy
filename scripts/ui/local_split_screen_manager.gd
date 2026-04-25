@@ -5,6 +5,7 @@ extends Control
 @export var main_camera_rig: CameraPanController
 @export var original_match_input_bridge: MatchInputBridge
 @export var main_selection_controller: SelectionController
+@export var main_selection_underlay: Node2D
 @export var main_hud_controller: HUDController
 
 @export_group("Match Managers")
@@ -213,8 +214,7 @@ func _apply_runtime_button_poll(
 	var cancel_controller_last: bool = bool(_cancel_down_last.get(player_index, false))
 	var pause_controller_last: bool = bool(_pause_down_last.get(player_index, false))
 
-	# Controller A is intentionally NOT click-pulsed here.
-	# It must be holdable so controller drag-select works.
+	# Controller A must be holdable so drag-select works.
 	pointer.setup_runtime_buttons(
 		primary_controller_now,
 		primary_controller_last,
@@ -309,6 +309,9 @@ func _set_split_active(active: bool) -> void:
 		main_selection_controller.set_process(not active)
 		main_selection_controller.set_process_unhandled_input(not active)
 
+	if main_selection_underlay != null:
+		main_selection_underlay.visible = not active
+
 	if main_hud_controller != null:
 		main_hud_controller.visible = not active
 
@@ -368,6 +371,9 @@ func _create_view(view_index: int, player) -> void:
 	view_root.name = "ViewRoot"
 	viewport.add_child(view_root)
 
+	var selection_underlay: Node2D = _create_selection_underlay_for_view(view_index)
+	view_root.add_child(selection_underlay)
+
 	var camera_rig := CameraPanController.new()
 	camera_rig.name = "CameraRig_P%d" % (view_index + 1)
 	camera_rig.enable_virtual_cursor = true
@@ -413,8 +419,12 @@ func _create_view(view_index: int, player) -> void:
 	selection.team_manager = team_manager
 	selection.player_team_id = runtime_member_id
 	selection.set_process_unhandled_input(false)
+	selection.z_as_relative = false
+	selection.z_index = 2000
 
 	view_root.add_child(selection)
+
+	_wire_selection_underlay(selection_underlay, selection)
 
 	var player_hud: HUDController = _create_player_hud(container, selection, camera_rig)
 
@@ -426,8 +436,36 @@ func _create_view(view_index: int, player) -> void:
 		"viewport": viewport,
 		"camera_rig": camera_rig,
 		"selection": selection,
+		"selection_underlay": selection_underlay,
 		"hud": player_hud
 	})
+
+
+func _create_selection_underlay_for_view(view_index: int) -> Node2D:
+	var underlay: Node2D = null
+
+	if main_selection_underlay != null:
+		underlay = main_selection_underlay.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as Node2D
+
+	if underlay == null:
+		underlay = Node2D.new()
+
+	underlay.name = "SelectionUnderlay_P%d" % (view_index + 1)
+	underlay.z_as_relative = false
+	underlay.z_index = -1000
+	underlay.visible = true
+	underlay.set_process(true)
+
+	return underlay
+
+
+func _wire_selection_underlay(underlay: Node2D, selection: SelectionController) -> void:
+	if underlay == null:
+		return
+
+	underlay.set("selection_controller", selection)
+	underlay.set("unit_manager", unit_manager)
+	underlay.set("structure_manager", structure_manager)
 
 
 func _create_player_hud(
@@ -459,11 +497,27 @@ func _create_player_hud(
 	hud.structure_placement_controller = structure_placement_controller
 	hud.ui_scale = split_hud_scale
 
+	_copy_main_hud_build_options(hud)
+
 	container.add_child(hud)
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.visible = true
 
 	return hud
+
+
+func _copy_main_hud_build_options(hud: HUDController) -> void:
+	if hud == null or main_hud_controller == null:
+		return
+
+	var stats_variant: Variant = main_hud_controller.get("buildable_structure_stats")
+	var scenes_variant: Variant = main_hud_controller.get("buildable_structure_scenes")
+
+	if stats_variant is Array:
+		hud.set("buildable_structure_stats", (stats_variant as Array).duplicate())
+
+	if scenes_variant is Array:
+		hud.set("buildable_structure_scenes", (scenes_variant as Array).duplicate())
 
 
 func _create_virtual_cursor_control() -> Control:

@@ -12,15 +12,6 @@ extends Node2D
 @export var drag_fill_color: Color = Color(0.2, 0.8, 1.0, 0.12)
 @export var drag_outline_color: Color = Color(0.5, 0.9, 1.0, 0.9)
 
-@export_group("Selection Visuals")
-@export var draw_selection_visuals: bool = true
-@export var use_procedural_fallbacks: bool = false
-@export var draw_rally_line: bool = true
-@export var rally_line_color: Color = Color(0.5, 1.0, 0.45, 0.85)
-@export var rally_point_texture: Texture2D
-@export var rally_point_texture_scale: float = 1.0
-@export var rally_point_offset: Vector2 = Vector2.ZERO
-
 @export_group("Debug")
 @export var debug_external_input: bool = false
 
@@ -47,11 +38,6 @@ func _process(_delta: float) -> void:
 
 
 func _draw() -> void:
-	if draw_selection_visuals:
-		_draw_selected_units_from_stats()
-		_draw_selected_structure_from_stats()
-		_draw_rally_visual()
-
 	if is_left_dragging and is_drag_selecting:
 		var rect_world := Rect2(drag_start_world, drag_current_world - drag_start_world).abs()
 		var rect_local := Rect2(to_local(rect_world.position), rect_world.size)
@@ -242,132 +228,6 @@ func _select_at(world_pos: Vector2) -> void:
 	selected_unit_ids.clear()
 	selected_structure_id = -1
 	queue_redraw()
-
-
-func _draw_selected_units_from_stats() -> void:
-	if unit_manager == null:
-		return
-
-	for unit_id in selected_unit_ids:
-		var unit: UnitRuntime = unit_manager.get_unit(unit_id)
-
-		if unit == null:
-			continue
-
-		if not unit.is_alive:
-			continue
-
-		if unit.stats == null:
-			continue
-
-		var texture: Texture2D = _get_texture_property(unit.stats, "selection_ring_texture")
-		var scale_value: float = _get_float_property(unit.stats, "selection_ring_scale", 1.0)
-		var offset_value: Vector2 = _get_vector2_property(unit.stats, "selection_ring_offset", Vector2.ZERO)
-		var color_value: Color = _get_color_property(unit.stats, "selection_ring_color", Color.WHITE)
-
-		if texture != null:
-			var texture_size: Vector2 = texture.get_size() * scale_value
-			var center: Vector2 = to_local(unit.position + offset_value)
-
-			_draw_texture_centered(texture, center, texture_size, color_value)
-		elif use_procedural_fallbacks:
-			var radius: float = max(unit.get_radius(), 8.0)
-			draw_arc(
-				to_local(unit.position),
-				radius + 3.0,
-				0.0,
-				TAU,
-				32,
-				Color(0.45, 0.95, 1.0, 0.95),
-				2.0
-			)
-
-
-func _draw_selected_structure_from_stats() -> void:
-	if selected_structure_id == -1:
-		return
-
-	if structure_manager == null:
-		return
-
-	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
-
-	if structure == null:
-		return
-
-	if not structure.is_alive:
-		return
-
-	if structure.stats == null:
-		return
-
-	var texture: Texture2D = _get_texture_property(structure.stats, "selection_ring_texture")
-	var scale_value: float = _get_float_property(structure.stats, "selection_ring_scale", 1.0)
-	var offset_value: Vector2 = _get_vector2_property(structure.stats, "selection_ring_offset", Vector2.ZERO)
-	var color_value: Color = _get_color_property(structure.stats, "selection_ring_color", Color.WHITE)
-
-	if texture != null:
-		var texture_size: Vector2 = texture.get_size() * scale_value
-		var center: Vector2 = to_local(structure.position + offset_value)
-
-		_draw_texture_centered(texture, center, texture_size, color_value)
-	elif use_procedural_fallbacks:
-		var half: Vector2 = structure.stats.footprint_size * 0.5
-		var rect := Rect2(to_local(structure.position - half), structure.stats.footprint_size)
-
-		draw_rect(rect, Color(1.0, 0.9, 0.35, 0.95), false, 2.0)
-
-
-func _draw_rally_visual() -> void:
-	if selected_structure_id == -1:
-		return
-
-	if structure_manager == null:
-		return
-
-	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
-
-	if structure == null:
-		return
-
-	if not structure.is_alive:
-		return
-
-	var show_marker: bool = _get_bool_property(structure.stats, "show_rally_marker", true)
-
-	if not show_marker:
-		return
-
-	if structure.rally_point.distance_squared_to(structure.position) <= 4.0:
-		return
-
-	var start_local: Vector2 = to_local(structure.position)
-	var end_world: Vector2 = structure.rally_point + rally_point_offset
-	var end_local: Vector2 = to_local(end_world)
-
-	if draw_rally_line:
-		draw_line(start_local, end_local, rally_line_color, 2.0)
-
-	if rally_point_texture != null:
-		var texture_size: Vector2 = rally_point_texture.get_size() * rally_point_texture_scale
-		_draw_texture_centered(rally_point_texture, end_local, texture_size, Color.WHITE)
-	elif use_procedural_fallbacks:
-		draw_circle(end_local, 5.0, rally_line_color)
-
-
-func _draw_texture_centered(texture: Texture2D, center: Vector2, size: Vector2, color: Color = Color.WHITE) -> void:
-	if texture == null:
-		return
-
-	if size.x <= 0.0 or size.y <= 0.0:
-		return
-
-	draw_texture_rect(
-		texture,
-		Rect2(center - size * 0.5, size),
-		false,
-		color
-	)
 
 
 func _issue_context_command(world_pos: Vector2) -> void:
@@ -611,66 +471,6 @@ func select_all_player_units() -> void:
 		selected_unit_ids.append(u.id)
 
 	queue_redraw()
-
-
-func _get_texture_property(source: Object, property_name: String) -> Texture2D:
-	if source == null:
-		return null
-
-	var value: Variant = source.get(property_name)
-
-	if value is Texture2D:
-		return value as Texture2D
-
-	return null
-
-
-func _get_float_property(source: Object, property_name: String, fallback: float) -> float:
-	if source == null:
-		return fallback
-
-	var value: Variant = source.get(property_name)
-
-	if typeof(value) == TYPE_FLOAT or typeof(value) == TYPE_INT:
-		return float(value)
-
-	return fallback
-
-
-func _get_bool_property(source: Object, property_name: String, fallback: bool) -> bool:
-	if source == null:
-		return fallback
-
-	var value: Variant = source.get(property_name)
-
-	if typeof(value) == TYPE_BOOL:
-		return bool(value)
-
-	return fallback
-
-
-func _get_vector2_property(source: Object, property_name: String, fallback: Vector2) -> Vector2:
-	if source == null:
-		return fallback
-
-	var value: Variant = source.get(property_name)
-
-	if value is Vector2:
-		return value as Vector2
-
-	return fallback
-
-
-func _get_color_property(source: Object, property_name: String, fallback: Color) -> Color:
-	if source == null:
-		return fallback
-
-	var value: Variant = source.get(property_name)
-
-	if value is Color:
-		return value as Color
-
-	return fallback
 
 
 func _should_use_network_commands() -> bool:

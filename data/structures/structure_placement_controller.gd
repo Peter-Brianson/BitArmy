@@ -54,7 +54,6 @@ func _process(_delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	# If a virtual pointer owns placement, raw mouse must not drive placement.
 	if _has_external_pointer_world:
 		return
 
@@ -121,7 +120,6 @@ func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
 		cancel_placement()
 		return true
 
-	# While placing, consume the owning player's pointer so selection does not fire.
 	return true
 
 
@@ -132,6 +130,7 @@ func set_external_pointer_world(world_pos: Vector2) -> void:
 
 func clear_external_pointer_world() -> void:
 	_has_external_pointer_world = false
+	_external_pointer_world = Vector2.ZERO
 
 
 func cancel_placement() -> void:
@@ -167,6 +166,9 @@ func _confirm_placement() -> void:
 		return
 
 	if not preview_is_valid:
+		return
+
+	if structure_manager == null:
 		return
 
 	if _should_use_network_commands():
@@ -218,6 +220,7 @@ func _create_preview() -> void:
 
 	_create_preview_sprite(root)
 	_create_preview_outline(root)
+
 	_apply_preview_tint(valid_color)
 
 
@@ -277,7 +280,10 @@ func _create_preview_outline(root: Node2D) -> void:
 
 
 func _apply_sprite_footprint_scale(sprite: Sprite2D, texture: Texture2D) -> void:
-	if placement_stats == null or texture == null:
+	if placement_stats == null:
+		return
+
+	if texture == null:
 		return
 
 	var texture_size: Vector2 = texture.get_size()
@@ -310,11 +316,15 @@ func _update_preview_visual() -> void:
 
 
 func _apply_preview_tint(tint: Color) -> void:
+	if preview_instance == null or not is_instance_valid(preview_instance):
+		return
+
 	if preview_sprite != null and is_instance_valid(preview_sprite):
 		preview_sprite.modulate = tint
 
 	if preview_outline != null and is_instance_valid(preview_outline):
 		preview_outline.default_color = tint
+		preview_outline.modulate = Color.WHITE
 
 
 func _get_current_pointer_world() -> Vector2:

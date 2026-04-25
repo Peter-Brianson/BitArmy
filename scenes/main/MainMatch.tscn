@@ -139,7 +139,6 @@ unit_manager = NodePath("../../Simulation/UnitSimulationManager")
 structure_manager = NodePath("../../Simulation/StructureSimulationManager")
 match_net_controller = NodePath("../../Simulation/MatchNetController")
 team_manager = NodePath("../../Simulation/TeamManager")
-rally_point_texture = ExtResource("4_k8g1g")
 
 [node name="SelectionOverlay" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("selection_controller")]
 script = ExtResource("4_jukhm")
@@ -231,7 +230,7 @@ structure_scene_scenes = Array[PackedScene]([ExtResource("10_jwsqd")])
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="LocalSplitScreenRoot" type="Control" parent="UI" node_paths=PackedStringArray("main_camera_rig", "original_match_input_bridge", "main_selection_controller", "main_hud_controller", "match_controller", "team_manager", "unit_manager", "structure_manager", "match_net_controller", "game_manager", "structure_placement_controller", "unit_batch_renderer")]
+[node name="LocalSplitScreenRoot" type="Control" parent="UI" node_paths=PackedStringArray("main_camera_rig", "original_match_input_bridge", "main_selection_controller", "main_selection_underlay", "main_hud_controller", "match_controller", "team_manager", "unit_manager", "structure_manager", "match_net_controller", "game_manager", "structure_placement_controller", "unit_batch_renderer")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -242,6 +241,7 @@ script = ExtResource("29_gmnus")
 main_camera_rig = NodePath("../../MatchRoot/CameraRig")
 original_match_input_bridge = NodePath("../../MatchRoot/Simulation/MatchInputBridge")
 main_selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")
+main_selection_underlay = NodePath("../../MatchRoot/World/SelectionUnderlay")
 main_hud_controller = NodePath("../HUD")
 match_controller = NodePath("../../MatchRoot/Simulation/MatchController")
 team_manager = NodePath("../../MatchRoot/Simulation/TeamManager")

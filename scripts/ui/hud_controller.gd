@@ -135,7 +135,7 @@ func _find_button_at_global_position(node: Node, global_pos: Vector2) -> BaseBut
 	if node is BaseButton:
 		var button := node as BaseButton
 
-		if button.visible and button.is_visible_in_tree() and button.get_global_rect().has_point(global_pos):
+		if button.visible and button.get_global_rect().has_point(global_pos):
 			best_button = button
 
 	return best_button
@@ -550,11 +550,16 @@ func _on_build_structure_option_pressed(structure_index: int) -> void:
 		if structure_placement_controller.has_method("set_external_pointer_world"):
 			structure_placement_controller.call("set_external_pointer_world", _last_virtual_pointer_world)
 
+	var builder_structure_id: int = -1
+
+	if selection_controller != null:
+		builder_structure_id = selection_controller.selected_structure_id
+
 	structure_placement_controller.begin_placement(
 		structure.owner_team_id,
 		build_stats,
 		build_scene,
-		selected_structure_id,
+		builder_structure_id,
 		_last_virtual_pointer_player_index
 	)
 
