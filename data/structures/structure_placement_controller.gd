@@ -28,11 +28,15 @@ var placement_owner_team_id: int = -1
 var placement_builder_structure_id: int = -1
 var placement_stats: StructureStats = null
 var placement_scene: PackedScene = null
+
 var preview_instance: Node2D = null
 var preview_sprite: Sprite2D = null
 var preview_outline: Line2D = null
 var preview_is_valid: bool = false
 var preview_world_pos: Vector2 = Vector2.ZERO
+
+var _has_external_pointer_world: bool = false
+var _external_pointer_world: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -43,12 +47,17 @@ func _process(_delta: float) -> void:
 	if not is_placing:
 		return
 
-	preview_world_pos = _get_snapped_world_position(get_global_mouse_position())
+	preview_world_pos = _get_snapped_world_position(_get_current_pointer_world())
 	preview_is_valid = _can_place_at(preview_world_pos)
 	_update_preview_visual()
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# When a virtual pointer is active, placement input should come from
+	# handle_virtual_pointer(), not from the real OS mouse.
+	if _has_external_pointer_world:
+		return
+
 	if not is_placing:
 		return
 
@@ -69,20 +78,64 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-func begin_placement(owner_team_id: int, build_stats: StructureStats, build_scene: PackedScene) -> void:
+func set_external_pointer_world(world_pos: Vector2) -> void:
+	_has_external_pointer_world = true
+	_external_pointer_world = world_pos
+
+
+func clear_external_pointer_world() -> void:
+	_has_external_pointer_world = false
+
+
+func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
+	set_external_pointer_world(pointer.world_pos)
+
+	if not is_placing:
+		return false
+
+	preview_world_pos = _get_snapped_world_position(pointer.world_pos)
+	preview_is_valid = _can_place_at(preview_world_pos)
+	_update_preview_visual()
+
+	if pointer.primary_just_pressed:
+		_confirm_placement()
+		return true
+
+	if pointer.secondary_just_pressed or pointer.cancel_just_pressed:
+		cancel_placement()
+		return true
+
+	# While placing, consume pointer input so selection does not also fire.
+	return true
+
+
+func confirm_external_placement() -> void:
+	_confirm_placement()
+
+
+func cancel_external_placement() -> void:
+	cancel_placement()
+
+
+func begin_placement(
+	owner_team_id: int,
+	build_stats: StructureStats,
+	build_scene: PackedScene,
+	builder_structure_id: int = -1
+) -> void:
 	if build_stats == null or build_scene == null:
 		return
 
 	placement_owner_team_id = owner_team_id
 	placement_stats = build_stats
 	placement_scene = build_scene
-	placement_builder_structure_id = -1
+	placement_builder_structure_id = builder_structure_id
 
-	if selection_controller != null:
+	if placement_builder_structure_id == -1 and selection_controller != null:
 		placement_builder_structure_id = selection_controller.selected_structure_id
 
 	is_placing = true
-	preview_world_pos = _get_snapped_world_position(get_global_mouse_position())
+	preview_world_pos = _get_snapped_world_position(_get_current_pointer_world())
 	preview_is_valid = _can_place_at(preview_world_pos)
 
 	_create_preview()
@@ -117,6 +170,13 @@ func _confirm_placement() -> void:
 		cancel_placement()
 		return
 
+	if structure_manager == null:
+		cancel_placement()
+		return
+
+	preview_world_pos = _get_snapped_world_position(_get_current_pointer_world())
+	preview_is_valid = _can_place_at(preview_world_pos)
+
 	if not preview_is_valid:
 		return
 
@@ -133,7 +193,6 @@ func _confirm_placement() -> void:
 		cancel_placement()
 		return
 
-	# Offline/local placement.
 	if game_manager != null:
 		if not game_manager.spend_credits(placement_owner_team_id, placement_stats.cost):
 			return
@@ -166,11 +225,11 @@ func _create_preview() -> void:
 	root.global_position = preview_world_pos
 
 	parent_node.add_child(root)
+
 	preview_instance = root
 
 	_create_preview_sprite(root)
 	_create_preview_outline(root)
-
 	_apply_preview_tint(valid_color)
 
 
@@ -275,6 +334,13 @@ func _apply_preview_tint(tint: Color) -> void:
 	if preview_outline != null and is_instance_valid(preview_outline):
 		preview_outline.default_color = tint
 		preview_outline.modulate = Color.WHITE
+
+
+func _get_current_pointer_world() -> Vector2:
+	if _has_external_pointer_world:
+		return _external_pointer_world
+
+	return get_global_mouse_position()
 
 
 func _get_snapped_world_position(world_pos: Vector2) -> Vector2:

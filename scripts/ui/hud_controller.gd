@@ -58,6 +58,9 @@ var match_time_seconds: float = 0.0
 var _last_production_structure_id: int = -999
 var _dynamic_production_buttons: Array = []
 
+var _has_last_virtual_pointer_world: bool = false
+var _last_virtual_pointer_world: Vector2 = Vector2.ZERO
+
 
 func _ready() -> void:
 	_apply_mouse_filter_fail_safe(self)
@@ -92,6 +95,50 @@ func set_ui_scale(value: float) -> void:
 	_apply_layout()
 
 
+func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
+	if not visible:
+		return false
+
+	_has_last_virtual_pointer_world = true
+	_last_virtual_pointer_world = pointer.world_pos
+
+	if structure_placement_controller != null:
+		if structure_placement_controller.has_method("set_external_pointer_world"):
+			structure_placement_controller.call("set_external_pointer_world", pointer.world_pos)
+
+	if not pointer.primary_just_pressed:
+		return false
+
+	var button: BaseButton = _find_button_at_global_position(self, pointer.screen_pos)
+
+	if button == null:
+		return false
+
+	if button.disabled:
+		return true
+
+	button.emit_signal("pressed")
+	return true
+
+
+func _find_button_at_global_position(node: Node, global_pos: Vector2) -> BaseButton:
+	var best_button: BaseButton = null
+
+	for child in node.get_children():
+		var found: BaseButton = _find_button_at_global_position(child, global_pos)
+
+		if found != null:
+			best_button = found
+
+	if node is BaseButton:
+		var button := node as BaseButton
+
+		if button.visible and button.is_visible_in_tree() and button.get_global_rect().has_point(global_pos):
+			best_button = button
+
+	return best_button
+
+
 func _refresh_all() -> void:
 	_refresh_selection_panel()
 	_refresh_production_panel()
@@ -113,6 +160,7 @@ func _refresh_selection_panel() -> void:
 
 	if selected_structure_id != -1:
 		var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+
 		if structure != null and structure.is_alive:
 			selection_panel.visible = true
 
@@ -131,7 +179,10 @@ func _refresh_selection_panel() -> void:
 				description_label.visible = description_label.text != ""
 
 			if health_label != null:
-				health_label.text = "HP: %d / %d" % [structure.current_health, structure.stats.max_health]
+				health_label.text = "HP: %d / %d" % [
+					structure.current_health,
+					structure.stats.max_health
+				]
 
 			if stat_summary_label != null:
 				stat_summary_label.text = ""
@@ -168,10 +219,14 @@ func _refresh_selection_panel() -> void:
 
 				if health_label != null:
 					var effective_max: int = unit.get_effective_max_health(unit_manager.team_manager)
-					health_label.text = "HP: %d / %d" % [unit.current_health, effective_max]
+					health_label.text = "HP: %d / %d" % [
+						unit.current_health,
+						effective_max
+					]
 
 				if stat_summary_label != null:
 					var attacks_per_second: float = 0.0
+
 					if unit.get_attack_cooldown() > 0.0:
 						attacks_per_second = 1.0 / unit.get_attack_cooldown()
 
@@ -245,12 +300,14 @@ func _refresh_production_panel() -> void:
 		return
 
 	var selected_structure_id: int = selection_controller.selected_structure_id
+
 	if selected_structure_id == -1:
 		production_panel.visible = false
 		_clear_production_buttons_if_needed()
 		return
 
 	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+
 	if structure == null or not structure.is_alive:
 		production_panel.visible = false
 		_clear_production_buttons_if_needed()
@@ -275,8 +332,10 @@ func _refresh_production_panel() -> void:
 	if queue_label != null:
 		if structure.can_train_units():
 			var queue_count: int = structure.production_queue.size()
+
 			if structure.current_production != null:
 				queue_count += 1
+
 			queue_label.visible = true
 			queue_label.text = "Queue: %d" % queue_count
 		else:
@@ -351,6 +410,7 @@ func _update_production_buttons(structure: StructureRuntime) -> void:
 
 		if kind == "train":
 			var trained_unit: UnitStats = structure.get_trained_unit_stats()
+
 			if trained_unit == null:
 				button.visible = false
 				continue
@@ -360,6 +420,7 @@ func _update_production_buttons(structure: StructureRuntime) -> void:
 			button.icon = trained_unit.icon_texture
 
 			var can_afford_unit: bool = true
+
 			if game_manager != null:
 				can_afford_unit = game_manager.can_afford(structure.owner_team_id, trained_unit.cost)
 
@@ -373,6 +434,7 @@ func _update_production_buttons(structure: StructureRuntime) -> void:
 				continue
 
 			var build_stats: StructureStats = buildable_structure_stats[structure_index]
+
 			if build_stats == null:
 				button.visible = false
 				continue
@@ -382,6 +444,7 @@ func _update_production_buttons(structure: StructureRuntime) -> void:
 			button.icon = build_stats.icon_texture
 
 			var can_afford_structure: bool = true
+
 			if game_manager != null:
 				can_afford_structure = game_manager.can_afford(structure.owner_team_id, build_stats.cost)
 
@@ -403,22 +466,28 @@ func _clear_production_buttons_if_needed() -> void:
 func _on_train_current_structure_pressed() -> void:
 	if selection_controller == null:
 		return
+
 	if structure_manager == null:
 		return
 
 	var selected_structure_id: int = selection_controller.selected_structure_id
+
 	if selected_structure_id == -1:
 		return
 
 	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+
 	if structure == null:
 		return
+
 	if not structure.is_alive:
 		return
+
 	if not structure.can_train_units():
 		return
 
 	var trained_unit: UnitStats = structure.get_trained_unit_stats()
+
 	if trained_unit == null:
 		return
 
@@ -436,13 +505,16 @@ func _on_train_current_structure_pressed() -> void:
 func _on_build_structure_option_pressed(structure_index: int) -> void:
 	if selection_controller == null:
 		return
+
 	if structure_manager == null:
 		return
+
 	if structure_placement_controller == null:
 		return
 
 	if structure_index < 0 or structure_index >= buildable_structure_stats.size():
 		return
+
 	if structure_index >= buildable_structure_scenes.size():
 		return
 
@@ -453,14 +525,18 @@ func _on_build_structure_option_pressed(structure_index: int) -> void:
 		return
 
 	var selected_structure_id: int = selection_controller.selected_structure_id
+
 	if selected_structure_id == -1:
 		return
 
 	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+
 	if structure == null:
 		return
+
 	if not structure.is_alive:
 		return
+
 	if not structure.can_place_structures():
 		return
 
@@ -468,12 +544,15 @@ func _on_build_structure_option_pressed(structure_index: int) -> void:
 		if not game_manager.can_afford(structure.owner_team_id, build_stats.cost):
 			return
 
-	# Placement confirmation is still handled by StructurePlacementController.
-	# That controller should also be patched to call MatchNetController for online placement.
+	if _has_last_virtual_pointer_world:
+		if structure_placement_controller.has_method("set_external_pointer_world"):
+			structure_placement_controller.call("set_external_pointer_world", _last_virtual_pointer_world)
+
 	structure_placement_controller.begin_placement(
 		structure.owner_team_id,
 		build_stats,
-		build_scene
+		build_scene,
+		selected_structure_id
 	)
 
 
@@ -482,6 +561,7 @@ func _refresh_resource_panel() -> void:
 		resource_panel.visible = true
 
 	var local_team_id: int = -1
+
 	if selection_controller != null:
 		local_team_id = selection_controller.player_team_id
 
@@ -508,10 +588,10 @@ func _refresh_location_label() -> void:
 	if camera_pan_controller != null and camera_pan_controller.camera != null:
 		camera_pos = camera_pan_controller.camera.get_screen_center_position()
 	else:
-		location_label.text = "X: 0  Y: 0"
+		location_label.text = "X: 0 Y: 0"
 		return
 
-	location_label.text = "X: %d  Y: %d" % [
+	location_label.text = "X: %d Y: %d" % [
 		int(round(camera_pos.x)),
 		int(round(camera_pos.y))
 	]
@@ -531,6 +611,7 @@ func _refresh_status_panel() -> void:
 		if match_controller != null:
 			var alive: int = match_controller.get_alive_runtime_team_count()
 			var total: int = match_controller.get_total_runtime_team_count()
+
 			teams_alive_label.text = "Teams: %d / %d" % [alive, total]
 		else:
 			teams_alive_label.text = "Teams: 0 / 0"
@@ -540,14 +621,19 @@ func _format_match_time(seconds: float) -> String:
 	var total_seconds: int = int(floor(seconds))
 	var mins: int = total_seconds / 60
 	var secs: int = total_seconds % 60
+
 	return "%02d:%02d" % [mins, secs]
 
 
 func _count_alive_units_for_team(team_id: int) -> int:
 	var count: int = 0
 
+	if unit_manager == null:
+		return count
+
 	for unit in unit_manager.units.values():
 		var u: UnitRuntime = unit
+
 		if u != null and u.is_alive and u.owner_team_id == team_id:
 			count += 1
 
@@ -557,8 +643,12 @@ func _count_alive_units_for_team(team_id: int) -> int:
 func _count_alive_structures_for_team(team_id: int) -> int:
 	var count: int = 0
 
+	if structure_manager == null:
+		return count
+
 	for structure in structure_manager.structures.values():
 		var s: StructureRuntime = structure
+
 		if s != null and s.is_alive and s.owner_team_id == team_id:
 			count += 1
 
@@ -584,7 +674,12 @@ func _apply_layout() -> void:
 	_apply_font_sizes(s)
 
 
-func _place_bottom_left_panel(panel_node: Control, left_margin: float, bottom_margin: float, panel_size: Vector2) -> void:
+func _place_bottom_left_panel(
+	panel_node: Control,
+	left_margin: float,
+	bottom_margin: float,
+	panel_size: Vector2
+) -> void:
 	if panel_node == null:
 		return
 
@@ -592,16 +687,19 @@ func _place_bottom_left_panel(panel_node: Control, left_margin: float, bottom_ma
 	panel_node.anchor_right = 0.0
 	panel_node.anchor_top = 1.0
 	panel_node.anchor_bottom = 1.0
-
 	panel_node.offset_left = left_margin
 	panel_node.offset_right = left_margin + panel_size.x
 	panel_node.offset_top = -bottom_margin - panel_size.y
 	panel_node.offset_bottom = -bottom_margin
-
 	panel_node.custom_minimum_size = panel_size
 
 
-func _place_top_left_panel(panel_node: Control, left_margin: float, top_margin: float, panel_size: Vector2) -> void:
+func _place_top_left_panel(
+	panel_node: Control,
+	left_margin: float,
+	top_margin: float,
+	panel_size: Vector2
+) -> void:
 	if panel_node == null:
 		return
 
@@ -609,16 +707,19 @@ func _place_top_left_panel(panel_node: Control, left_margin: float, top_margin: 
 	panel_node.anchor_right = 0.0
 	panel_node.anchor_top = 0.0
 	panel_node.anchor_bottom = 0.0
-
 	panel_node.offset_left = left_margin
 	panel_node.offset_right = left_margin + panel_size.x
 	panel_node.offset_top = top_margin
 	panel_node.offset_bottom = top_margin + panel_size.y
-
 	panel_node.custom_minimum_size = panel_size
 
 
-func _place_top_right_panel(panel_node: Control, right_margin: float, top_margin: float, panel_size: Vector2) -> void:
+func _place_top_right_panel(
+	panel_node: Control,
+	right_margin: float,
+	top_margin: float,
+	panel_size: Vector2
+) -> void:
 	if panel_node == null:
 		return
 
@@ -626,12 +727,10 @@ func _place_top_right_panel(panel_node: Control, right_margin: float, top_margin
 	panel_node.anchor_right = 1.0
 	panel_node.anchor_top = 0.0
 	panel_node.anchor_bottom = 0.0
-
 	panel_node.offset_left = -right_margin - panel_size.x
 	panel_node.offset_right = -right_margin
 	panel_node.offset_top = top_margin
 	panel_node.offset_bottom = top_margin + panel_size.y
-
 	panel_node.custom_minimum_size = panel_size
 
 
@@ -671,12 +770,16 @@ func _apply_widget_sizes(s: float) -> void:
 
 	if type_label != null:
 		type_label.custom_minimum_size = Vector2(0.0, round(24.0 * s))
+
 	if name_label != null:
 		name_label.custom_minimum_size = Vector2(0.0, round(28.0 * s))
+
 	if health_label != null:
 		health_label.custom_minimum_size = Vector2(0.0, round(24.0 * s))
+
 	if unit_count_label != null:
 		unit_count_label.custom_minimum_size = Vector2(0.0, round(24.0 * s))
+
 	if structure_count_label != null:
 		structure_count_label.custom_minimum_size = Vector2(0.0, round(24.0 * s))
 
@@ -688,6 +791,7 @@ func _apply_dynamic_button_sizes() -> void:
 
 	for entry in _dynamic_production_buttons:
 		var button: Button = entry["button"]
+
 		if button != null:
 			button.custom_minimum_size = size_vec
 
@@ -703,14 +807,11 @@ func _apply_font_sizes(s: float) -> void:
 	_set_label_font_size(stat_summary_label, normal_size)
 	_set_label_font_size(unit_count_label, normal_size)
 	_set_label_font_size(structure_count_label, normal_size)
-
 	_set_label_font_size(queue_label, normal_size)
 	_set_label_font_size(progress_label, normal_size)
-
 	_set_label_font_size(credits_label, normal_size)
 	_set_label_font_size(income_label, normal_size)
 	_set_label_font_size(location_label, normal_size)
-
 	_set_label_font_size(match_timer_label, normal_size)
 	_set_label_font_size(fps_label, normal_size)
 	_set_label_font_size(teams_alive_label, normal_size)
@@ -723,6 +824,7 @@ func _apply_dynamic_button_fonts() -> void:
 
 	for entry in _dynamic_production_buttons:
 		var button: Button = entry["button"]
+
 		if button != null:
 			_set_button_font_size(button, font_size)
 
@@ -730,12 +832,14 @@ func _apply_dynamic_button_fonts() -> void:
 func _set_label_font_size(label_node: Label, font_size: int) -> void:
 	if label_node == null:
 		return
+
 	label_node.add_theme_font_size_override("font_size", font_size)
 
 
 func _set_button_font_size(button_node: Button, font_size: int) -> void:
 	if button_node == null:
 		return
+
 	button_node.add_theme_font_size_override("font_size", font_size)
 
 

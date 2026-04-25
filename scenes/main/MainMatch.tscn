@@ -263,6 +263,9 @@ match_controller = NodePath("../../MatchRoot/Simulation/MatchController")
 match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 camera_pan_controller = NodePath("../../MatchRoot/CameraRig")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
+ui_scale = null
+base_font_size = null
+base_title_font_size = null
 buildable_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("19_1wux7"), ExtResource("17_u6d7c"), ExtResource("20_abcjn"), ExtResource("30_lju2h"), ExtResource("31_t21mw"), ExtResource("31_g4nnb"), ExtResource("32_nc4th"), ExtResource("29_3e5xs"), ExtResource("30_a4aip")])
 buildable_structure_scenes = Array[PackedScene]([ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd")])
 
