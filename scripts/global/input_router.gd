@@ -86,6 +86,8 @@ var _mobile_last_pinch_distance: float = 0.0
 var _mobile_camera_pan_frame: Vector2 = Vector2.ZERO
 var _mobile_zoom_delta_frame: float = 0.0
 
+var _transient_clear_queued: bool = false
+var _last_transient_clear_frame: int = -1
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -190,6 +192,23 @@ func _process(delta: float) -> void:
 
 
 func begin_frame() -> void:
+	if _transient_clear_queued:
+		return
+
+	_transient_clear_queued = true
+	call_deferred("_clear_transients_deferred")
+
+
+func _clear_transients_deferred() -> void:
+	_transient_clear_queued = false
+
+	var frame: int = Engine.get_process_frames()
+
+	if _last_transient_clear_frame == frame:
+		return
+
+	_last_transient_clear_frame = frame
+
 	for player in _players:
 		player.clear_transients()
 
@@ -638,6 +657,7 @@ func _apply_press_release(player: PlayerState, is_primary: bool, pressed: bool) 
 			player.secondary_just_released = true
 
 		player.secondary_pressed = pressed
+
 
 
 func _is_join_event(event: InputEvent) -> bool:
