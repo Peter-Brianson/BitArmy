@@ -375,7 +375,7 @@ func _create_view(view_index: int, player) -> void:
 	view_root.name = "ViewRoot"
 	viewport.add_child(view_root)
 
-	var selection_underlay: SelectionUnderlay = _create_selection_underlay_for_view(view_index)
+	var selection_underlay: Node2D = _create_selection_underlay_for_view(view_index)
 	_configure_selection_underlay_layer(selection_underlay)
 
 	var camera_rig := CameraPanController.new()
@@ -474,7 +474,6 @@ func _create_selection_underlay_for_view(view_index: int) -> Node2D:
 
 	return underlay
 
-
 func _get_selection_underlay_world_parent() -> Node:
 	if main_selection_underlay != null and main_selection_underlay.get_parent() != null:
 		return main_selection_underlay.get_parent()
@@ -501,15 +500,15 @@ func _configure_selection_underlay_layer(underlay: SelectionUnderlay) -> void:
 
 
 func _wire_selection_underlay(
-	underlay: SelectionUnderlay,
+	underlay: Node2D,
 	selection: SelectionController
 ) -> void:
 	if underlay == null:
 		return
 
-	underlay.selection_controller = selection
-	underlay.unit_manager = unit_manager
-	underlay.structure_manager = structure_manager
+	underlay.set("selection_controller", selection)
+	underlay.set("unit_manager", unit_manager)
+	underlay.set("structure_manager", structure_manager)
 	underlay.visible = true
 	underlay.set_process(true)
 	underlay.queue_redraw()
