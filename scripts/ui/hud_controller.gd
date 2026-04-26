@@ -52,6 +52,9 @@ extends Control
 @export var buildable_structure_stats: Array[StructureStats] = []
 @export var buildable_structure_scenes: Array[PackedScene] = []
 
+@export_group("Minimap")
+@export var rough_intel_map: RoughIntelMap
+
 var credits: int = 999
 var match_time_seconds: float = 0.0
 
@@ -78,6 +81,7 @@ func _ready() -> void:
 
 	_apply_layout()
 	_refresh_all()
+	_wire_child_widgets()
 
 
 func _process(delta: float) -> void:
@@ -87,6 +91,19 @@ func _process(delta: float) -> void:
 	_update_camera_ui_block_rect()
 	_refresh_all()
 
+func _wire_child_widgets() -> void:
+	if rough_intel_map == null:
+		rough_intel_map = get_node_or_null("RoughIntelMap") as RoughIntelMap
+
+	if rough_intel_map != null:
+		rough_intel_map.unit_manager = unit_manager
+		rough_intel_map.structure_manager = structure_manager
+		rough_intel_map.match_controller = match_controller
+		rough_intel_map.team_manager = unit_manager.team_manager if unit_manager != null else null
+		rough_intel_map.camera_pan_controller = camera_pan_controller
+
+		if selection_controller != null:
+			rough_intel_map.viewer_team_id = selection_controller.player_team_id
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:

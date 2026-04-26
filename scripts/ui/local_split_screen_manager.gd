@@ -556,6 +556,10 @@ func _create_player_hud(
 	hud.structure_placement_controller = structure_placement_controller
 	hud.ui_scale = split_hud_scale
 	hud.virtual_pointer_owner_player_index = int(player.player_index)
+	
+
+	if hud.has_method("_wire_child_widgets"):
+		hud.call("_wire_child_widgets")
 
 	_copy_main_hud_build_options(hud)
 

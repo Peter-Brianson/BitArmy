@@ -1,4 +1,4 @@
-[gd_scene load_steps=39 format=3 uid="uid://cqum0hu0tuqy0"]
+[gd_scene load_steps=37 format=3 uid="uid://cqum0hu0tuqy0"]
 
 [ext_resource type="Script" path="res://scripts/input/CameraPanController.gd" id="1_m2t5q"]
 [ext_resource type="Script" path="res://data/structures/structure_placement_controller.gd" id="2_723eq"]
@@ -35,8 +35,6 @@
 [ext_resource type="Resource" uid="uid://jardanqrg5kq" path="res://data/structures/Canine Trainer.tres" id="31_g4nnb"]
 [ext_resource type="Resource" uid="uid://bfqn0ko6j2nkn" path="res://data/structures/Basic War Shrine.tres" id="31_t21mw"]
 [ext_resource type="Resource" uid="uid://c47ffjbt3l26j" path="res://data/structures/Turret Tower.tres" id="32_nc4th"]
-[ext_resource type="Script" path="res://scripts/ui/rough_intel_map.gd" id="34_6wgsg"]
-[ext_resource type="Texture2D" uid="uid://cnqf3oft7i7fy" path="res://scripts/maps/16x16 grass tile.png" id="35_dpfbr"]
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_cw01p"]
 load_path = "res://.godot/imported/unit_white_rect_8x16.png-0c232b06cf29c5acdbd79437206c3e7b.ctex"
@@ -268,28 +266,6 @@ camera_pan_controller = NodePath("../../MatchRoot/CameraRig")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
 buildable_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("19_1wux7"), ExtResource("17_u6d7c"), ExtResource("20_abcjn"), ExtResource("30_lju2h"), ExtResource("31_t21mw"), ExtResource("31_g4nnb"), ExtResource("32_nc4th"), ExtResource("29_3e5xs"), ExtResource("30_a4aip")])
 buildable_structure_scenes = Array[PackedScene]([ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd")])
-
-[node name="RoughIntelMap" type="Control" parent="UI/HUD" node_paths=PackedStringArray("unit_manager", "structure_manager", "match_controller", "team_manager", "camera_pan_controller")]
-custom_minimum_size = Vector2(160, 160)
-layout_mode = 1
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -193.0
-offset_top = -184.0
-offset_right = -33.0
-offset_bottom = -24.0
-grow_horizontal = 0
-grow_vertical = 0
-script = ExtResource("34_6wgsg")
-unit_manager = NodePath("../../../MatchRoot/Simulation/UnitSimulationManager")
-structure_manager = NodePath("../../../MatchRoot/Simulation/StructureSimulationManager")
-match_controller = NodePath("../../../MatchRoot/Simulation/MatchController")
-team_manager = NodePath("../../../MatchRoot/Simulation/TeamManager")
-camera_pan_controller = NodePath("../../../MatchRoot/CameraRig")
-map_texture = ExtResource("35_dpfbr")
 
 [node name="DebugOverlay" type="Control" parent="UI"]
 layout_mode = 3

@@ -33,6 +33,7 @@ var _friendly_structure_points: Array[Dictionary] = []
 var _enemy_hq_points: Array[Dictionary] = []
 var _camera_position: Vector2 = Vector2.ZERO
 
+@export var viewer_team_id: int = -1
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -117,7 +118,7 @@ func _collect_friendly_units() -> void:
 		if not unit.is_alive:
 			continue
 
-		if not _is_friendly_to_any_player(unit.owner_team_id):
+		if not _is_friendly_to_viewer(unit.owner_team_id):
 			continue
 
 		_friendly_unit_points.append({
@@ -139,7 +140,7 @@ func _collect_friendly_structures() -> void:
 		if not structure.is_alive:
 			continue
 
-		if not _is_friendly_to_any_player(structure.owner_team_id):
+		if not _is_friendly_to_viewer(structure.owner_team_id):
 			continue
 
 		_friendly_structure_points.append({
@@ -155,7 +156,7 @@ func _collect_enemy_hq_estimates() -> void:
 	for runtime_team_id in match_controller.runtime_team_to_hq_id.keys():
 		var team_id: int = int(runtime_team_id)
 
-		if _is_friendly_to_any_player(team_id):
+		if _is_friendly_to_viewer(team_id):
 			continue
 
 		var hq_id: int = int(match_controller.runtime_team_to_hq_id[team_id])
@@ -179,13 +180,23 @@ func _collect_enemy_hq_estimates() -> void:
 		})
 
 
+func _is_friendly_to_viewer(owner_team_id: int) -> bool:
+	if viewer_team_id == -1:
+		return _is_friendly_to_any_player(owner_team_id)
+
+	if team_manager == null:
+		return owner_team_id == viewer_team_id
+
+	return not team_manager.is_enemy(viewer_team_id, owner_team_id)
+
+
+
 func _is_friendly_to_any_player(owner_team_id: int) -> bool:
 	if match_controller == null:
 		return false
 
 	for runtime_team_id in match_controller.runtime_team_to_control_type.keys():
 		var control_type: int = int(match_controller.runtime_team_to_control_type[runtime_team_id])
-
 		if control_type != GameSession.ControlType.PLAYER:
 			continue
 
