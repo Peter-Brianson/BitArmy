@@ -105,8 +105,20 @@ func _draw_structure_selection() -> void:
 	if structure_manager == null:
 		return
 
-	var structure_id: int = selection_controller.selected_structure_id
+	var structure_ids: Array[int] = []
 
+	if selection_controller.selected_structure_ids != null:
+		for structure_id in selection_controller.selected_structure_ids:
+			if not structure_ids.has(structure_id):
+				structure_ids.append(structure_id)
+
+	if structure_ids.is_empty() and selection_controller.selected_structure_id != -1:
+		structure_ids.append(selection_controller.selected_structure_id)
+
+	for structure_id in structure_ids:
+		_draw_single_structure_selection(structure_id)
+
+func _draw_single_structure_selection(structure_id: int) -> void:
 	if structure_id == -1:
 		return
 
@@ -131,7 +143,6 @@ func _draw_structure_selection() -> void:
 		return
 
 	_draw_rally_marker(structure)
-
 
 func _draw_structure_selection_texture(structure: StructureRuntime) -> bool:
 	if structure == null or structure.stats == null:

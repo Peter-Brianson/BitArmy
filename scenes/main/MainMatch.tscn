@@ -283,7 +283,15 @@ match_controller = NodePath("../../MatchRoot/Simulation/MatchController")
 match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 camera_pan_controller = NodePath("../../MatchRoot/CameraRig")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
+ui_scale = null
+base_font_size = null
+base_title_font_size = null
 structure_catalog = NodePath("../../MatchRoot/Simulation/StructureBuildCatalog")
+show_build_category_buttons = null
+controller_production_scroll_speed = null
+buildable_structure_stats = null
+buildable_structure_scenes = null
+virtual_pointer_owner_player_index = null
 
 [node name="DebugOverlay" type="Control" parent="UI"]
 layout_mode = 3

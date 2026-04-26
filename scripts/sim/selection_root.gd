@@ -12,6 +12,17 @@ extends Node2D
 @export var drag_fill_color: Color = Color(0.2, 0.8, 1.0, 0.12)
 @export var drag_outline_color: Color = Color(0.5, 0.9, 1.0, 0.9)
 
+var selected_structure_ids: Array[int] = []
+
+@export_group("Double Click")
+@export var double_click_time_seconds: float = 0.32
+@export var double_click_max_world_distance: float = 28.0
+
+var _last_click_kind: String = ""
+var _last_click_stats: Resource = null
+var _last_click_world_pos: Vector2 = Vector2.INF
+var _last_click_msec: int = -999999
+
 @export_group("Debug")
 @export var debug_external_input: bool = false
 
@@ -144,13 +155,14 @@ func secondary_pointer_pressed(world_pos: Vector2) -> void:
 		_issue_context_command(world_pos)
 		return
 
-	if selected_structure_id != -1:
+	if not _get_selected_structure_ids().is_empty():
 		_issue_structure_rally_command(world_pos)
 		return
 
 
 func clear_selection() -> void:
 	selected_unit_ids.clear()
+	selected_structure_ids.clear()
 	selected_structure_id = -1
 	is_left_dragging = false
 	is_drag_selecting = false
@@ -182,6 +194,7 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 
 func _finish_drag_selection() -> void:
 	selected_structure_id = -1
+	selected_structure_ids.clear()
 	selected_unit_ids.clear()
 
 	var rect := Rect2(drag_start_world, drag_current_world - drag_start_world).abs()
@@ -206,29 +219,143 @@ func _finish_drag_selection() -> void:
 
 	queue_redraw()
 
-
 func _select_at(world_pos: Vector2) -> void:
 	var own_unit_id: int = _find_own_unit_at(world_pos)
 
 	if own_unit_id != -1:
+		var clicked_unit: UnitRuntime = unit_manager.get_unit(own_unit_id)
+
+		if clicked_unit == null:
+			clear_selection()
+			return
+
+		var is_double: bool = _is_double_click("unit", clicked_unit.stats, world_pos)
+
 		selected_structure_id = -1
+		selected_structure_ids.clear()
 		selected_unit_ids.clear()
-		selected_unit_ids.append(own_unit_id)
+
+		if is_double:
+			_select_all_units_of_stats(clicked_unit.stats)
+		else:
+			selected_unit_ids.append(own_unit_id)
+
+		_remember_click("unit", clicked_unit.stats, world_pos)
 		queue_redraw()
 		return
 
 	var own_structure_id: int = _find_own_structure_at(world_pos)
 
 	if own_structure_id != -1:
+		var clicked_structure: StructureRuntime = structure_manager.get_structure(own_structure_id)
+
+		if clicked_structure == null:
+			clear_selection()
+			return
+
+		var is_double_structure: bool = _is_double_click("structure", clicked_structure.stats, world_pos)
+
 		selected_unit_ids.clear()
-		selected_structure_id = own_structure_id
+		selected_structure_ids.clear()
+
+		if is_double_structure:
+			_select_all_structures_of_stats(clicked_structure.stats)
+		else:
+			selected_structure_ids.append(own_structure_id)
+			selected_structure_id = own_structure_id
+
+		_remember_click("structure", clicked_structure.stats, world_pos)
 		queue_redraw()
 		return
 
 	selected_unit_ids.clear()
+	selected_structure_ids.clear()
 	selected_structure_id = -1
 	queue_redraw()
 
+func _is_double_click(kind: String, stats: Resource, world_pos: Vector2) -> bool:
+	if stats == null:
+		return false
+
+	if _last_click_kind != kind:
+		return false
+
+	if _last_click_stats != stats:
+		return false
+
+	var elapsed_seconds: float = float(Time.get_ticks_msec() - _last_click_msec) / 1000.0
+
+	if elapsed_seconds > double_click_time_seconds:
+		return false
+
+	if _last_click_world_pos == Vector2.INF:
+		return false
+
+	var max_dist_sq: float = double_click_max_world_distance * double_click_max_world_distance
+
+	return _last_click_world_pos.distance_squared_to(world_pos) <= max_dist_sq
+
+
+func _remember_click(kind: String, stats: Resource, world_pos: Vector2) -> void:
+	_last_click_kind = kind
+	_last_click_stats = stats
+	_last_click_world_pos = world_pos
+	_last_click_msec = Time.get_ticks_msec()
+
+
+func _select_all_units_of_stats(target_stats: UnitStats) -> void:
+	selected_unit_ids.clear()
+	selected_structure_ids.clear()
+	selected_structure_id = -1
+
+	if unit_manager == null:
+		return
+
+	for unit in unit_manager.units.values():
+		var u: UnitRuntime = unit
+
+		if u == null:
+			continue
+
+		if not u.is_alive:
+			continue
+
+		if not _is_owner_friendly(u.owner_team_id):
+			continue
+
+		if u.stats != target_stats:
+			continue
+
+		selected_unit_ids.append(u.id)
+
+
+func _select_all_structures_of_stats(target_stats: StructureStats) -> void:
+	selected_unit_ids.clear()
+	selected_structure_ids.clear()
+	selected_structure_id = -1
+
+	if structure_manager == null:
+		return
+
+	for structure in structure_manager.structures.values():
+		var s: StructureRuntime = structure
+
+		if s == null:
+			continue
+
+		if not s.is_alive:
+			continue
+
+		if not _is_owner_friendly(s.owner_team_id):
+			continue
+
+		if s.stats != target_stats:
+			continue
+
+		selected_structure_ids.append(s.id)
+
+	if not selected_structure_ids.is_empty():
+		selected_structure_id = selected_structure_ids[0]
 
 func _issue_context_command(world_pos: Vector2) -> void:
 	if selected_unit_ids.is_empty():
@@ -268,27 +395,44 @@ func _issue_context_command(world_pos: Vector2) -> void:
 
 
 func _issue_structure_rally_command(world_pos: Vector2) -> void:
-	if selected_structure_id == -1:
+	var ids: Array[int] = _get_selected_structure_ids()
+
+	if ids.is_empty():
 		return
 
 	if structure_manager == null:
 		return
 
-	if _should_use_network_commands():
-		match_net_controller.request_set_rally(selected_structure_id, world_pos)
-		return
+	for structure_id in ids:
+		if _should_use_network_commands():
+			match_net_controller.request_set_rally(structure_id, world_pos)
+			continue
 
-	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+		var structure: StructureRuntime = structure_manager.get_structure(structure_id)
 
-	if structure == null:
-		return
+		if structure == null:
+			continue
 
-	if not structure.is_alive:
-		return
+		if not structure.is_alive:
+			continue
 
-	structure.rally_point = world_pos
+		structure.rally_point = world_pos
+
 	queue_redraw()
 
+func _get_selected_structure_ids() -> Array[int]:
+	var ids: Array[int] = []
+
+	for structure_id in selected_structure_ids:
+		if ids.has(structure_id):
+			continue
+
+		ids.append(structure_id)
+
+	if ids.is_empty() and selected_structure_id != -1:
+		ids.append(selected_structure_id)
+
+	return ids
 
 func _resolve_right_click_target(world_pos: Vector2) -> Dictionary:
 	var enemy_unit_id: int = _find_enemy_unit_at(world_pos)
@@ -451,6 +595,7 @@ func _is_owner_enemy(owner_team_id: int) -> bool:
 
 func select_all_player_units() -> void:
 	selected_structure_id = -1
+	selected_structure_ids.clear()
 	selected_unit_ids.clear()
 
 	if unit_manager == null:

@@ -63,7 +63,7 @@ extends Control
 var credits: int = 999
 var match_time_seconds: float = 0.0
 
-var _last_production_structure_id: int = -999
+var _last_production_selection_key: String = ""
 var _dynamic_production_buttons: Array = []
 
 var _has_last_virtual_pointer_world: bool = false
@@ -276,14 +276,14 @@ func _refresh_selection_panel() -> void:
 		selection_panel.visible = false
 		return
 
-	var selected_structure_id: int = selection_controller.selected_structure_id
+	var selected_structures: Array[StructureRuntime] = _get_selected_structures()
 	var selected_units: Array[int] = selection_controller.selected_unit_ids
 
-	if selected_structure_id != -1:
-		var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+	if not selected_structures.is_empty():
+		selection_panel.visible = true
 
-		if structure != null and structure.is_alive:
-			selection_panel.visible = true
+		if selected_structures.size() == 1:
+			var structure: StructureRuntime = selected_structures[0]
 
 			if selection_icon != null:
 				selection_icon.texture = structure.stats.icon_texture
@@ -317,65 +317,28 @@ func _refresh_selection_panel() -> void:
 
 			return
 
-	if not selected_units.is_empty():
-		selection_panel.visible = true
+		var first_structure: StructureRuntime = selected_structures[0]
+		var same_type_count: int = 0
 
-		if selected_units.size() == 1:
-			var unit: UnitRuntime = unit_manager.get_unit(selected_units[0])
-
-			if unit != null and unit.is_alive:
-				if selection_icon != null:
-					selection_icon.texture = unit.stats.icon_texture
-					selection_icon.visible = unit.stats.icon_texture != null
-
-				if type_label != null:
-					type_label.text = "Unit"
-
-				if name_label != null:
-					name_label.text = unit.stats.unit_name
-
-				if description_label != null:
-					description_label.text = str(unit.stats.description)
-					description_label.visible = description_label.text != ""
-
-				if health_label != null:
-					var effective_max: int = unit.get_effective_max_health(unit_manager.team_manager)
-					health_label.text = "HP: %d / %d" % [
-						unit.current_health,
-						effective_max
-					]
-
-				if stat_summary_label != null:
-					var attacks_per_second: float = 0.0
-
-					if unit.get_attack_cooldown() > 0.0:
-						attacks_per_second = 1.0 / unit.get_attack_cooldown()
-
-					stat_summary_label.text = "Move %.1f | Dmg %d | APS %.2f | Rng %.1f" % [
-						unit.stats.move_speed,
-						unit.get_effective_damage(unit_manager.team_manager),
-						attacks_per_second,
-						unit.stats.attack_range
-					]
-					stat_summary_label.visible = true
-
-				if unit_count_label != null:
-					unit_count_label.text = ""
-
-				if structure_count_label != null:
-					structure_count_label.text = ""
-
-				return
+		for structure in selected_structures:
+			if structure.stats == first_structure.stats:
+				same_type_count += 1
 
 		if selection_icon != null:
-			selection_icon.texture = null
-			selection_icon.visible = false
+			selection_icon.texture = first_structure.stats.icon_texture
+			selection_icon.visible = first_structure.stats.icon_texture != null
 
 		if type_label != null:
-			type_label.text = "Units"
+			type_label.text = "Structures"
 
 		if name_label != null:
-			name_label.text = "%d selected" % selected_units.size()
+			if same_type_count == selected_structures.size():
+				name_label.text = "%s x%d" % [
+					first_structure.stats.structure_name,
+					selected_structures.size()
+				]
+			else:
+				name_label.text = "%d structures selected" % selected_structures.size()
 
 		if description_label != null:
 			description_label.text = ""
@@ -396,20 +359,6 @@ func _refresh_selection_panel() -> void:
 
 		return
 
-	if selection_icon != null:
-		selection_icon.texture = null
-		selection_icon.visible = false
-
-	if description_label != null:
-		description_label.text = ""
-		description_label.visible = false
-
-	if stat_summary_label != null:
-		stat_summary_label.text = ""
-		stat_summary_label.visible = false
-
-	selection_panel.visible = false
-
 
 func _refresh_production_panel() -> void:
 	if production_panel == null:
@@ -420,21 +369,25 @@ func _refresh_production_panel() -> void:
 		_clear_production_buttons_if_needed()
 		return
 
-	var selected_structure_id: int = selection_controller.selected_structure_id
+	var selected_structures: Array[StructureRuntime] = _get_selected_structures()
 
-	if selected_structure_id == -1:
+	if selected_structures.is_empty():
 		production_panel.visible = false
 		_clear_production_buttons_if_needed()
 		return
 
-	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+	var structure: StructureRuntime = selected_structures[0]
 
 	if structure == null or not structure.is_alive:
 		production_panel.visible = false
 		_clear_production_buttons_if_needed()
 		return
 
-	var show_train_button: bool = structure.can_train_units() and structure.get_trained_unit_stats() != null
+	var show_train_button: bool = false
+
+	if structure.can_train_units() and structure.get_trained_unit_stats() != null:
+		show_train_button = not _get_train_eligible_structures(structure.get_trained_unit_stats()).is_empty()
+
 	var show_build_options: bool = structure.can_place_structures()
 
 	if not show_train_button and not show_build_options:
@@ -444,21 +397,32 @@ func _refresh_production_panel() -> void:
 
 	production_panel.visible = true
 
-	if selected_structure_id != _last_production_structure_id:
+	var selection_key: String = _get_production_selection_key(selected_structures)
+
+	if selection_key != _last_production_selection_key:
 		_rebuild_production_buttons(structure)
-		_last_production_structure_id = selected_structure_id
+		_last_production_selection_key = selection_key
 
 	_update_production_buttons(structure)
 
 	if queue_label != null:
 		if structure.can_train_units():
-			var queue_count: int = structure.production_queue.size()
+			var trained_unit: UnitStats = structure.get_trained_unit_stats()
+			var eligible: Array[StructureRuntime] = _get_train_eligible_structures(trained_unit)
+			var queue_count: int = 0
 
-			if structure.current_production != null:
-				queue_count += 1
+			for selected_structure in eligible:
+				queue_count += selected_structure.production_queue.size()
+
+				if selected_structure.current_production != null:
+					queue_count += 1
 
 			queue_label.visible = true
-			queue_label.text = "Queue: %d" % queue_count
+
+			if eligible.size() > 1:
+				queue_label.text = "Queues: %d across %d" % [queue_count, eligible.size()]
+			else:
+				queue_label.text = "Queue: %d" % queue_count
 		else:
 			queue_label.visible = false
 
@@ -466,7 +430,9 @@ func _refresh_production_panel() -> void:
 		if structure.can_train_units():
 			progress_label.visible = true
 
-			if structure.current_production != null:
+			if selected_structures.size() > 1:
+				progress_label.text = "Training structures: %d" % _get_train_eligible_structures(structure.get_trained_unit_stats()).size()
+			elif structure.current_production != null:
 				progress_label.text = "Building: %s %.1f / %.1f" % [
 					structure.current_production.unit_name,
 					structure.production_progress,
@@ -555,14 +521,27 @@ func _update_production_buttons(structure: StructureRuntime) -> void:
 				button.visible = false
 				continue
 
-			button.visible = true
-			button.text = "%s (%d)" % [trained_unit.unit_name, trained_unit.cost]
+			var eligible: Array[StructureRuntime] = _get_train_eligible_structures(trained_unit)
+			var count: int = eligible.size()
+
+			button.visible = count > 0
+
+			if count <= 1:
+				button.text = "%s (%d)" % [trained_unit.unit_name, trained_unit.cost]
+			else:
+				button.text = "%s (%d) x%d" % [
+					trained_unit.unit_name,
+					trained_unit.cost,
+					count
+				]
+
 			button.icon = trained_unit.icon_texture
 
-			var can_afford_unit: bool = true
+			var can_afford_unit: bool = count > 0
 
 			if game_manager != null:
-				can_afford_unit = game_manager.can_afford(structure.owner_team_id, trained_unit.cost)
+				var total_cost: int = trained_unit.cost * max(count, 1)
+				can_afford_unit = game_manager.can_afford(structure.owner_team_id, total_cost)
 
 			button.disabled = not can_afford_unit
 
@@ -601,12 +580,11 @@ func _update_production_buttons(structure: StructureRuntime) -> void:
 
 			button.disabled = not can_afford_structure
 
-
 func _clear_production_buttons_if_needed() -> void:
-	if _last_production_structure_id == -1:
+	if _last_production_selection_key == "":
 		return
 
-	_last_production_structure_id = -1
+	_last_production_selection_key = ""
 	_dynamic_production_buttons.clear()
 
 	if production_grid != null:
@@ -621,37 +599,50 @@ func _on_train_current_structure_pressed() -> void:
 	if structure_manager == null:
 		return
 
-	var selected_structure_id: int = selection_controller.selected_structure_id
+	var primary_structure: StructureRuntime = _get_primary_selected_structure()
 
-	if selected_structure_id == -1:
+	if primary_structure == null:
 		return
 
-	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
-
-	if structure == null:
+	if not primary_structure.is_alive:
 		return
 
-	if not structure.is_alive:
+	if not primary_structure.can_train_units():
 		return
 
-	if not structure.can_train_units():
-		return
-
-	var trained_unit: UnitStats = structure.get_trained_unit_stats()
+	var trained_unit: UnitStats = primary_structure.get_trained_unit_stats()
 
 	if trained_unit == null:
 		return
 
-	if _should_use_network_commands():
-		match_net_controller.request_queue_unit(selected_structure_id, trained_unit)
+	var eligible: Array[StructureRuntime] = _get_train_eligible_structures(trained_unit)
+
+	if eligible.is_empty():
 		return
 
-	if game_manager != null:
-		if not game_manager.spend_credits(structure.owner_team_id, trained_unit.cost):
-			return
+	if _should_use_network_commands():
+		for structure in eligible:
+			match_net_controller.request_queue_unit(structure.id, trained_unit)
+		return
 
-	structure_manager.queue_unit_production(selected_structure_id, trained_unit)
+	for structure in eligible:
+		if structure == null:
+			continue
 
+		if not structure.is_alive:
+			continue
+
+		if not structure.can_train_units():
+			continue
+
+		if structure.get_trained_unit_stats() != trained_unit:
+			continue
+
+		if game_manager != null:
+			if not game_manager.spend_credits(structure.owner_team_id, trained_unit.cost):
+				continue
+
+		structure_manager.queue_unit_production(structure.id, trained_unit)
 
 func _on_build_structure_option_pressed(category_name: String, category_index: int) -> void:
 	if selection_controller == null:
