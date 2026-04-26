@@ -10,19 +10,19 @@ extends Node
 @export var pause_menu_group_name: String = "pause_menu"
 @export var consume_router_transients: bool = true
 
-@export_group("Virtual Pointer")
+@export_group("Virtual Cursor")
+@export var keep_virtual_cursor_world_anchored_while_panning: bool = true
 @export var virtual_pointer_primary: bool = true
 @export var emit_virtual_mouse_events_for_keyboard_mouse: bool = false
-@export var keep_virtual_cursor_world_anchored_while_panning: bool = true
 
 @export_group("Pause")
 @export var allow_any_local_player_pause: bool = true
 @export var direct_pause_fallback_enabled: bool = true
 
-var _pause_handled_this_frame: bool = false
+var _direct_pause_latch: bool = false
 var _select_all_down_last: bool = false
 var _center_hq_down_last: bool = false
-var _direct_pause_latch: bool = false
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -30,19 +30,22 @@ func _ready() -> void:
 
 	if camera_pan_controller != null:
 		camera_pan_controller.enable_virtual_cursor = true
-		camera_pan_controller.virtual_pointer_is_primary = virtual_pointer_primary
+
+		if "virtual_pointer_is_primary" in camera_pan_controller:
+			camera_pan_controller.set("virtual_pointer_is_primary", virtual_pointer_primary)
 
 		if camera_pan_controller.has_method("_ensure_virtual_cursor_visual"):
 			camera_pan_controller.call("_ensure_virtual_cursor_visual")
 
+
 func _process(_delta: float) -> void:
-	_pause_handled_this_frame = false
+	var pause_handled: bool = false
 
 	if direct_pause_fallback_enabled:
-		_pause_handled_this_frame = _apply_direct_pause_fallback()
+		pause_handled = _apply_direct_pause_fallback()
 
-	if allow_any_local_player_pause and not _pause_handled_this_frame:
-		_pause_handled_this_frame = _apply_any_player_pause_fallback()
+	if allow_any_local_player_pause and not pause_handled:
+		pause_handled = _apply_any_player_pause_fallback()
 
 	var player = InputHub.get_player(primary_player_index)
 
@@ -51,86 +54,69 @@ func _process(_delta: float) -> void:
 			InputHub.begin_frame()
 		return
 
-	_apply_camera_inputs(player)
-	_apply_pointer_inputs(player)
+	if camera_pan_controller == null:
+		if consume_router_transients:
+			InputHub.begin_frame()
+		return
 
-	if not _pause_handled_this_frame:
-		_apply_pause_input(player)
+	var pointer := _build_pointer(player)
+
+	_apply_camera(pointer)
+
+	if hud_controller != null and hud_controller.has_method("handle_virtual_pointer"):
+		if hud_controller.call("handle_virtual_pointer", pointer):
+			pointer.handled_by_ui = true
+
+	if not pointer.is_consumed() and structure_placement_controller != null:
+		if structure_placement_controller.has_method("handle_virtual_pointer"):
+			if structure_placement_controller.call("handle_virtual_pointer", pointer):
+				pointer.handled_by_placement = true
+
+	if not pointer.is_consumed() and selection_controller != null:
+		if selection_controller.has_method("handle_virtual_pointer"):
+			if selection_controller.call("handle_virtual_pointer", pointer):
+				pointer.handled_by_selection = true
+
+	if pointer.pause_just_pressed and not pause_handled:
+		_toggle_pause_menu()
+		pause_handled = true
 
 	_apply_qol_actions(player)
 
 	if consume_router_transients:
 		InputHub.begin_frame()
 
-func _apply_pause_input(player) -> void:
-	if not player.pause_just_pressed:
-		return
 
-	_toggle_pause_menu()
-
-func _apply_any_player_pause_fallback() -> bool:
-	for player in InputHub.get_players():
-		if player == null:
-			continue
-
-		if player.pause_just_pressed:
-			_toggle_pause_menu()
-			return true
-
-	return false
-
-func _apply_pointer_inputs(player) -> void:
-	if camera_pan_controller == null:
-		return
+func _build_pointer(player) -> VirtualPointerState:
+	var screen_pos: Vector2 = player.pointer_screen
 
 	if virtual_pointer_primary:
 		camera_pan_controller.enable_virtual_cursor = true
-		camera_pan_controller.virtual_pointer_is_primary = true
-		camera_pan_controller.set_virtual_pointer_screen(player.pointer_screen)
-	else:
-		if not player.is_keyboard_mouse:
-			camera_pan_controller.set_virtual_pointer_screen(player.pointer_screen)
-		else:
-			camera_pan_controller.clear_virtual_pointer_override()
-
-	var should_emit_virtual_mouse_events: bool = not player.is_keyboard_mouse
-
-	if player.is_keyboard_mouse and emit_virtual_mouse_events_for_keyboard_mouse:
-		should_emit_virtual_mouse_events = true
-
-	if not should_emit_virtual_mouse_events:
-		return
-
-	if player.primary_just_pressed:
-		camera_pan_controller.emit_virtual_mouse_button(MOUSE_BUTTON_LEFT, true)
-
-	if player.primary_just_released:
-		camera_pan_controller.emit_virtual_mouse_button(MOUSE_BUTTON_LEFT, false)
-
-	if player.secondary_just_pressed:
-		camera_pan_controller.emit_virtual_mouse_button(MOUSE_BUTTON_RIGHT, true)
-
-	if player.secondary_just_released:
-		camera_pan_controller.emit_virtual_mouse_button(MOUSE_BUTTON_RIGHT, false)
-
-func _build_pointer(player) -> VirtualPointerState:
-	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	var screen_pos: Vector2 = player.pointer_screen
-
-	if player.is_keyboard_mouse:
-		camera_pan_controller.clear_virtual_pointer_override()
-	else:
 		camera_pan_controller.set_virtual_pointer_screen(screen_pos)
+	else:
+		if player.is_keyboard_mouse:
+			camera_pan_controller.clear_virtual_pointer_override()
+		else:
+			camera_pan_controller.set_virtual_pointer_screen(screen_pos)
 
 	var world_pos: Vector2 = camera_pan_controller.screen_to_world(screen_pos)
 
 	var pointer := VirtualPointerState.new()
 	pointer.setup_from_player(player, screen_pos, screen_pos, world_pos)
 
+	if player.is_keyboard_mouse and not emit_virtual_mouse_events_for_keyboard_mouse:
+		pointer.primary_just_pressed = false
+		pointer.primary_just_released = false
+		pointer.secondary_just_pressed = false
+		pointer.secondary_just_released = false
+
 	return pointer
 
 
 func _apply_camera(pointer: VirtualPointerState) -> void:
+	if camera_pan_controller == null:
+		return
+
 	camera_pan_controller.external_camera_pan = pointer.camera_pan
 	camera_pan_controller.external_zoom_delta = pointer.zoom_delta
 
@@ -145,6 +131,18 @@ func _apply_direct_pause_fallback() -> bool:
 
 	elif not pressed_now:
 		_direct_pause_latch = false
+
+	return false
+
+
+func _apply_any_player_pause_fallback() -> bool:
+	for player in InputHub.get_players():
+		if player == null:
+			continue
+
+		if player.pause_just_pressed:
+			_toggle_pause_menu()
+			return true
 
 	return false
 
