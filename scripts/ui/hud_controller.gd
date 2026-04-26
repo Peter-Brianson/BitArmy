@@ -60,6 +60,8 @@ extends Control
 @export_group("Minimap")
 @export var rough_intel_map: RoughIntelMap
 
+@export var virtual_pointer_owner_player_index: int = -1
+
 var credits: int = 999
 var match_time_seconds: float = 0.0
 
@@ -73,8 +75,6 @@ var _last_virtual_pointer_player_index: int = -1
 var _active_build_category: String = ""
 var _controller_category_left_down_last: bool = false
 var _controller_category_right_down_last: bool = false
-
-@export var virtual_pointer_owner_player_index: int = -1
 
 
 func _ready() -> void:
@@ -100,6 +100,7 @@ func _process(delta: float) -> void:
 	_update_camera_ui_block_rect()
 	_refresh_all()
 
+
 func _wire_child_widgets() -> void:
 	if rough_intel_map == null:
 		rough_intel_map = get_node_or_null("RoughIntelMap") as RoughIntelMap
@@ -113,6 +114,7 @@ func _wire_child_widgets() -> void:
 
 		if selection_controller != null:
 			rough_intel_map.viewer_team_id = selection_controller.player_team_id
+
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
@@ -128,21 +130,18 @@ func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
 	if not visible:
 		return false
 
+	if virtual_pointer_owner_player_index != -1:
+		if pointer.player_index != virtual_pointer_owner_player_index:
+			return false
+
 	if rough_intel_map != null:
 		if rough_intel_map.has_method("handle_virtual_pointer"):
 			if rough_intel_map.call("handle_virtual_pointer", pointer):
 				return true
 
-	if virtual_pointer_owner_player_index != -1:
-		if pointer.player_index != virtual_pointer_owner_player_index:
-			return false
-
 	_has_last_virtual_pointer_world = true
 	_last_virtual_pointer_world = pointer.world_pos
 	_last_virtual_pointer_player_index = pointer.player_index
-
-	# Do not push pointer.world_pos into StructurePlacementController here.
-	# Placement should only receive position from the active owner pointer.
 
 	var button: BaseButton = _find_button_at_global_position(self, pointer.screen_pos)
 
@@ -154,18 +153,18 @@ func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
 			button.emit_signal("pressed")
 			return true
 
-	if _is_pointer_over_blocking_hud_surface(self, pointer.screen_pos, self):
-		return (
-			pointer.primary_just_pressed
-			or pointer.primary_pressed
-			or pointer.primary_just_released
-			or pointer.secondary_just_pressed
-			or pointer.secondary_pressed
-			or pointer.secondary_just_released
-			or pointer.cancel_just_pressed
-		)
+		if _is_pointer_over_blocking_hud_surface(self, pointer.screen_pos, self):
+			return (
+				pointer.primary_just_pressed
+				or pointer.primary_pressed
+				or pointer.primary_just_released
+				or pointer.secondary_just_pressed
+				or pointer.secondary_pressed
+				or pointer.secondary_just_released
+				or pointer.cancel_just_pressed
+			)
 
-	return false
+		return false
 
 	if _is_pointer_over_blocking_hud_surface(self, pointer.screen_pos, self):
 		return (
@@ -257,7 +256,6 @@ func _is_pointer_over_blocking_hud_surface(
 		return true
 
 	return false
-
 
 
 func _refresh_all() -> void:
@@ -359,6 +357,100 @@ func _refresh_selection_panel() -> void:
 
 		return
 
+	if not selected_units.is_empty():
+		selection_panel.visible = true
+
+		if selected_units.size() == 1:
+			var unit: UnitRuntime = unit_manager.get_unit(selected_units[0])
+
+			if unit != null and unit.is_alive:
+				if selection_icon != null:
+					selection_icon.texture = unit.stats.icon_texture
+					selection_icon.visible = unit.stats.icon_texture != null
+
+				if type_label != null:
+					type_label.text = "Unit"
+
+				if name_label != null:
+					name_label.text = unit.stats.unit_name
+
+				if description_label != null:
+					description_label.text = str(unit.stats.description)
+					description_label.visible = description_label.text != ""
+
+				if health_label != null:
+					var effective_max: int = unit.get_effective_max_health(unit_manager.team_manager)
+
+					health_label.text = "HP: %d / %d" % [
+						unit.current_health,
+						effective_max
+					]
+
+				if stat_summary_label != null:
+					var attacks_per_second: float = 0.0
+
+					if unit.get_attack_cooldown() > 0.0:
+						attacks_per_second = 1.0 / unit.get_attack_cooldown()
+
+					stat_summary_label.text = "Move %.1f | Dmg %d | APS %.2f | Rng %.1f" % [
+						unit.stats.move_speed,
+						unit.get_effective_damage(unit_manager.team_manager),
+						attacks_per_second,
+						unit.stats.attack_range
+					]
+					stat_summary_label.visible = true
+
+				if unit_count_label != null:
+					unit_count_label.text = ""
+
+				if structure_count_label != null:
+					structure_count_label.text = ""
+
+				return
+
+		if selection_icon != null:
+			selection_icon.texture = null
+			selection_icon.visible = false
+
+		if type_label != null:
+			type_label.text = "Units"
+
+		if name_label != null:
+			name_label.text = "%d selected" % selected_units.size()
+
+		if description_label != null:
+			description_label.text = ""
+			description_label.visible = false
+
+		if health_label != null:
+			health_label.text = ""
+
+		if stat_summary_label != null:
+			stat_summary_label.text = ""
+			stat_summary_label.visible = false
+
+		if unit_count_label != null:
+			unit_count_label.text = ""
+
+		if structure_count_label != null:
+			structure_count_label.text = ""
+
+		return
+
+	if selection_icon != null:
+		selection_icon.texture = null
+		selection_icon.visible = false
+
+	if description_label != null:
+		description_label.text = ""
+		description_label.visible = false
+
+	if stat_summary_label != null:
+		stat_summary_label.text = ""
+		stat_summary_label.visible = false
+
+	selection_panel.visible = false
+
 
 func _refresh_production_panel() -> void:
 	if production_panel == null:
@@ -420,7 +512,10 @@ func _refresh_production_panel() -> void:
 			queue_label.visible = true
 
 			if eligible.size() > 1:
-				queue_label.text = "Queues: %d across %d" % [queue_count, eligible.size()]
+				queue_label.text = "Queues: %d across %d" % [
+					queue_count,
+					eligible.size()
+				]
 			else:
 				queue_label.text = "Queue: %d" % queue_count
 		else:
@@ -527,7 +622,10 @@ func _update_production_buttons(structure: StructureRuntime) -> void:
 			button.visible = count > 0
 
 			if count <= 1:
-				button.text = "%s (%d)" % [trained_unit.unit_name, trained_unit.cost]
+				button.text = "%s (%d)" % [
+					trained_unit.unit_name,
+					trained_unit.cost
+				]
 			else:
 				button.text = "%s (%d) x%d" % [
 					trained_unit.unit_name,
@@ -567,7 +665,10 @@ func _update_production_buttons(structure: StructureRuntime) -> void:
 				continue
 
 			button.visible = true
-			button.text = "%s (%d)" % [build_stats.structure_name, build_stats.cost]
+			button.text = "%s (%d)" % [
+				build_stats.structure_name,
+				build_stats.cost
+			]
 			button.icon = build_stats.icon_texture
 
 			if build_stats.description != "":
@@ -579,6 +680,7 @@ func _update_production_buttons(structure: StructureRuntime) -> void:
 				can_afford_structure = game_manager.can_afford(structure.owner_team_id, build_stats.cost)
 
 			button.disabled = not can_afford_structure
+
 
 func _clear_production_buttons_if_needed() -> void:
 	if _last_production_selection_key == "":
@@ -644,6 +746,7 @@ func _on_train_current_structure_pressed() -> void:
 
 		structure_manager.queue_unit_production(structure.id, trained_unit)
 
+
 func _on_build_structure_option_pressed(category_name: String, category_index: int) -> void:
 	if selection_controller == null:
 		return
@@ -666,12 +769,7 @@ func _on_build_structure_option_pressed(category_name: String, category_index: i
 	if build_stats == null or build_scene == null:
 		return
 
-	var selected_structure_id: int = selection_controller.selected_structure_id
-
-	if selected_structure_id == -1:
-		return
-
-	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+	var structure: StructureRuntime = _get_primary_selected_structure()
 
 	if structure == null:
 		return
@@ -690,10 +788,7 @@ func _on_build_structure_option_pressed(category_name: String, category_index: i
 		if structure_placement_controller.has_method("set_external_pointer_world"):
 			structure_placement_controller.call("set_external_pointer_world", _last_virtual_pointer_world)
 
-	var builder_structure_id: int = -1
-
-	if selection_controller != null:
-		builder_structure_id = selection_controller.selected_structure_id
+	var builder_structure_id: int = structure.id
 
 	structure_placement_controller.begin_placement(
 		structure.owner_team_id,
@@ -703,18 +798,14 @@ func _on_build_structure_option_pressed(category_name: String, category_index: i
 		_last_virtual_pointer_player_index
 	)
 
+
 func _on_production_category_pressed(category_name: String) -> void:
 	_active_build_category = _normalize_build_category(category_name)
 
 	if selection_controller == null or structure_manager == null:
 		return
 
-	var selected_structure_id: int = selection_controller.selected_structure_id
-
-	if selected_structure_id == -1:
-		return
-
-	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+	var structure: StructureRuntime = _get_primary_selected_structure()
 
 	if structure == null:
 		return
@@ -812,6 +903,102 @@ func _normalize_build_category(category_name: String) -> String:
 
 	return key
 
+
+func _get_selected_structure_ids() -> Array[int]:
+	var ids: Array[int] = []
+
+	if selection_controller == null:
+		return ids
+
+	var selected_ids_variant: Variant = selection_controller.get("selected_structure_ids")
+
+	if selected_ids_variant is Array:
+		for structure_id_variant in selected_ids_variant:
+			var structure_id: int = int(structure_id_variant)
+
+			if ids.has(structure_id):
+				continue
+
+			ids.append(structure_id)
+
+	if ids.is_empty() and selection_controller.selected_structure_id != -1:
+		ids.append(selection_controller.selected_structure_id)
+
+	return ids
+
+
+func _get_selected_structures() -> Array[StructureRuntime]:
+	var results: Array[StructureRuntime] = []
+
+	if structure_manager == null:
+		return results
+
+	for structure_id in _get_selected_structure_ids():
+		var structure: StructureRuntime = structure_manager.get_structure(structure_id)
+
+		if structure == null:
+			continue
+
+		if not structure.is_alive:
+			continue
+
+		results.append(structure)
+
+	return results
+
+
+func _get_primary_selected_structure() -> StructureRuntime:
+	var structures: Array[StructureRuntime] = _get_selected_structures()
+
+	if structures.is_empty():
+		return null
+
+	return structures[0]
+
+
+func _get_production_selection_key(structures: Array[StructureRuntime]) -> String:
+	if structures.is_empty():
+		return ""
+
+	var ids: Array[int] = []
+
+	for structure in structures:
+		ids.append(structure.id)
+
+	ids.sort()
+
+	var parts: Array[String] = []
+
+	for id in ids:
+		parts.append(str(id))
+
+	return ",".join(parts)
+
+
+func _get_train_eligible_structures(unit_stats: UnitStats) -> Array[StructureRuntime]:
+	var results: Array[StructureRuntime] = []
+
+	if unit_stats == null:
+		return results
+
+	for structure in _get_selected_structures():
+		if structure == null:
+			continue
+
+		if not structure.is_alive:
+			continue
+
+		if not structure.can_train_units():
+			continue
+
+		if structure.get_trained_unit_stats() != unit_stats:
+			continue
+
+		results.append(structure)
+
+	return results
+
+
 func _refresh_resource_panel() -> void:
 	if resource_panel != null:
 		resource_panel.visible = true
@@ -868,9 +1055,13 @@ func _refresh_status_panel() -> void:
 			var alive: int = match_controller.get_alive_runtime_team_count()
 			var total: int = match_controller.get_total_runtime_team_count()
 
-			teams_alive_label.text = "Teams: %d / %d" % [alive, total]
+			teams_alive_label.text = "Teams: %d / %d" % [
+				alive,
+				total
+			]
 		else:
 			teams_alive_label.text = "Teams: 0 / 0"
+
 
 func handle_player_ui_navigation(player, delta: float) -> bool:
 	if player == null:
@@ -925,12 +1116,16 @@ func handle_player_ui_navigation(player, delta: float) -> bool:
 
 	return used
 
+
 func _format_match_time(seconds: float) -> String:
 	var total_seconds: int = int(floor(seconds))
 	var mins: int = total_seconds / 60
 	var secs: int = total_seconds % 60
 
-	return "%02d:%02d" % [mins, secs]
+	return "%02d:%02d" % [
+		mins,
+		secs
+	]
 
 
 func _count_alive_units_for_team(team_id: int) -> int:
