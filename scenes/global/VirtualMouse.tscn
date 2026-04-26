@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ca186gvq0sdrf"]
+
+[ext_resource type="Script" path="res://scripts/global/virtual_mouse_controller.gd" id="1_n0gtb"]
+
+[node name="VirtualMouse" type="CanvasLayer"]
+script = ExtResource("1_n0gtb")

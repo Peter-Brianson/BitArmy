@@ -48,6 +48,7 @@ load_path = "res://.godot/imported/unit_white_rect_8x16.png-0c232b06cf29c5acdbd7
 script = ExtResource("1_m2t5q")
 camera = NodePath("Camera2D")
 virtual_cursor_visual = NodePath("VirtualCursor")
+draw_virtual_cursor_visual = true
 
 [node name="Camera2D" type="Camera2D" parent="MatchRoot/CameraRig" groups=["map_cull_camera"]]
 limit_left = -10000
