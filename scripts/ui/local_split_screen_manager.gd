@@ -56,6 +56,8 @@ var _pause_down_last: Dictionary = {}
 var _select_all_down_last: Dictionary = {}
 var _center_hq_down_last: Dictionary = {}
 
+const WORLD_LAYER_MASK: int = 1
+const SPLIT_UNDERLAY_LAYER_START: int = 1
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -86,6 +88,8 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		_apply_layout()
 
+func _get_split_underlay_layer(view_index: int) -> int:
+	return 1 << (SPLIT_UNDERLAY_LAYER_START + view_index)
 
 func _process(delta: float) -> void:
 	if not _split_active:
@@ -480,7 +484,7 @@ func _create_view(view_index: int, player) -> void:
 	viewport.add_child(view_root)
 
 	var selection_underlay: SelectionUnderlay = _create_selection_underlay_for_view(view_index)
-	view_root.add_child(selection_underlay)
+	_attach_selection_underlay_to_world(selection_underlay, view_index)
 
 	var camera_rig := CameraPanController.new()
 	camera_rig.name = "CameraRig_P%d" % (view_index + 1)
@@ -508,6 +512,9 @@ func _create_view(view_index: int, player) -> void:
 	camera.name = "Camera2D"
 	camera.enabled = true
 	camera.add_to_group("map_cull_camera")
+
+	var underlay_layer: int = _get_split_underlay_layer(view_index)
+	camera.cull_mask = WORLD_LAYER_MASK | underlay_layer
 
 	if main_camera_rig != null and main_camera_rig.camera != null:
 		camera.zoom = main_camera_rig.camera.zoom
@@ -550,6 +557,39 @@ func _create_view(view_index: int, player) -> void:
 		"hud": player_hud
 	})
 
+func _attach_selection_underlay_to_world(underlay: SelectionUnderlay, view_index: int) -> void:
+	if underlay == null:
+		return
+
+	var world_parent: Node = null
+	var insert_index: int = -1
+
+	if main_selection_underlay != null and main_selection_underlay.get_parent() != null:
+		world_parent = main_selection_underlay.get_parent()
+		insert_index = main_selection_underlay.get_index() + 1 + view_index
+	elif main_selection_controller != null and main_selection_controller.get_parent() != null:
+		world_parent = main_selection_controller.get_parent()
+
+	if world_parent == null:
+		return
+
+	world_parent.add_child(underlay)
+
+	if insert_index >= 0:
+		world_parent.move_child(
+			underlay,
+			clamp(insert_index, 0, world_parent.get_child_count() - 1)
+		)
+
+	underlay.visibility_layer = _get_split_underlay_layer(view_index)
+
+	# Match the normal world underlay behavior.
+	underlay.z_as_relative = true
+	underlay.z_index = 0
+	underlay.y_sort_enabled = false
+	underlay.visible = true
+	underlay.set_process(true)
+	underlay.queue_redraw()
 
 func _create_selection_underlay_for_view(view_index: int) -> SelectionUnderlay:
 	var underlay: SelectionUnderlay = null
@@ -695,8 +735,11 @@ func _create_virtual_cursor_control() -> Control:
 
 func _clear_views() -> void:
 	for view in _views:
-		var container: SubViewportContainer = view.get("container", null)
+		var selection_underlay: SelectionUnderlay = view.get("selection_underlay", null)
+		if selection_underlay != null and is_instance_valid(selection_underlay):
+			selection_underlay.queue_free()
 
+		var container: SubViewportContainer = view.get("container", null)
 		if container != null and is_instance_valid(container):
 			container.queue_free()
 
