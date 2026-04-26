@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://ca186gvq0sdrf"]
+[gd_scene load_steps=3 format=3 uid="uid://ca186gvq0sdrf"]
 
 [ext_resource type="Script" path="res://scripts/global/virtual_mouse_controller.gd" id="1_n0gtb"]
+[ext_resource type="Texture2D" uid="uid://iw1e0qbkgs10" path="res://sprites/Effects/virtual curser.png" id="2_ctosp"]
 
 [node name="VirtualMouse" type="CanvasLayer"]
 script = ExtResource("1_n0gtb")
+cursor_texture = ExtResource("2_ctosp")
