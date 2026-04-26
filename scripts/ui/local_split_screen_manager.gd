@@ -40,6 +40,9 @@ extends Control
 @export var show_per_player_hud: bool = true
 @export var split_hud_scale: float = 0.72
 
+@export_group("Split Screen Performance")
+@export_range(0.25, 1.0, 0.05) var split_render_scale: float = 0.65
+@export var disable_optional_unit_batch_renderer_during_split: bool = true
 
 
 var _views: Array[Dictionary] = []
@@ -445,6 +448,12 @@ func _set_split_active(active: bool) -> void:
 			null if active else _saved_unit_batch_camera_controller
 		)
 
+	if disable_optional_unit_batch_renderer_during_split:
+		unit_batch_renderer.set_process(not active)
+
+		if unit_batch_renderer is CanvasItem:
+			(unit_batch_renderer as CanvasItem).visible = not active
+
 
 func _set_all_match_input_bridges_enabled(enabled: bool) -> void:
 	for node in get_tree().get_nodes_in_group("match_input_bridge"):
@@ -474,6 +483,7 @@ func _create_view(view_index: int, player) -> void:
 	container.clip_contents = true
 	container.stretch = true
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(container)
 
 	var viewport := SubViewport.new()
@@ -483,11 +493,10 @@ func _create_view(view_index: int, player) -> void:
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	viewport.handle_input_locally = false
 	viewport.world_2d = get_viewport().world_2d
+	viewport.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 
 	var underlay_layer: int = _get_split_underlay_layer(view_index)
 	viewport.canvas_cull_mask = WORLD_LAYER_MASK | underlay_layer
-	viewport.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
-
 	container.add_child(viewport)
 
 	var view_root := Node2D.new()
@@ -786,10 +795,12 @@ func _apply_layout() -> void:
 		container.position = r.position
 		container.size = r.size
 
-		viewport.size = Vector2i(
-			max(1, int(r.size.x)),
-			max(1, int(r.size.y))
+		var scaled_view_size := Vector2i(
+			max(1, int(r.size.x * split_render_scale)),
+			max(1, int(r.size.y * split_render_scale))
 		)
+
+		viewport.size = scaled_view_size
 
 		var player_index: int = int(view.get("player_index", -1))
 

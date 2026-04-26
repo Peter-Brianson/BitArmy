@@ -25,7 +25,7 @@ extends Control
 
 @export_group("Roughness")
 @export var enemy_estimate_grid_pixels: float = 450.0
-@export var update_interval: float = 0.25
+@export var update_interval: float = 0.75
 
 var _timer: float = 0.0
 var _friendly_unit_points: Array[Dictionary] = []
@@ -37,12 +37,21 @@ var _camera_position: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_timer = randf() * update_interval
 	_refresh_points()
 
 
 func _process(delta: float) -> void:
-	_timer -= delta
+	if not visible:
+		return
 
+	if not is_visible_in_tree():
+		return
+
+	if size.x <= 1.0 or size.y <= 1.0:
+		return
+
+	_timer -= delta
 	if _timer > 0.0:
 		return
 

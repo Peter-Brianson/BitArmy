@@ -383,14 +383,6 @@ func _update_structure_combat(structure: StructureRuntime, delta: float) -> void
 		if AudioHub != null:
 			AudioHub.play_unit_shoot(structure.position, self)
 
-		# Kept from the current pushed behavior.
-		notify_attack_flash(structure.id)
-		unit_manager.notify_hit_flash(target.id)
-
-		if AudioHub != null:
-			AudioHub.play_unit_shoot(structure.position, self)
-
-
 func _is_valid_structure_target(structure: StructureRuntime, target: UnitRuntime) -> bool:
 	if structure == null:
 		return false

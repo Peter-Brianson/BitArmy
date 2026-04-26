@@ -26,6 +26,11 @@ extends Node
 @export var formation_spacing: float = 18.0
 @export var formation_row_width: int = 6
 
+@export_group("Performance")
+@export var simulation_tick_rate: float = 30.0
+@export var spatial_rebuild_interval: float = 0.05
+@export var max_separation_neighbors: int = 8
+
 var units: Dictionary = {}
 var unit_views: Dictionary = {}
 var unit_death_flash_played: Dictionary = {}
@@ -40,17 +45,34 @@ var _fog_player_team_ids: Array[int] = []
 
 var spatial_hash: SpatialHash2D = SpatialHash2D.new()
 
+var _simulation_accumulator: float = 0.0
+var _spatial_rebuild_timer: float = 0.0
 
 func _ready() -> void:
 	spatial_hash.cell_size = spatial_hash_cell_size
 
-
 func _physics_process(delta: float) -> void:
+	var step: float = 1.0 / max(simulation_tick_rate, 1.0)
+
+	_simulation_accumulator += delta
+
+	if _simulation_accumulator < step:
+		return
+
+	var sim_delta: float = min(_simulation_accumulator, step * 2.0)
+	_simulation_accumulator = 0.0
+
+	_run_unit_simulation_tick(sim_delta)
+
+func _run_unit_simulation_tick(delta: float) -> void:
 	spatial_hash.cell_size = spatial_hash_cell_size
-	_rebuild_spatial_hash()
+
+	_spatial_rebuild_timer -= delta
+	if _spatial_rebuild_timer <= 0.0:
+		_rebuild_spatial_hash()
+		_spatial_rebuild_timer = spatial_rebuild_interval
 
 	_cull_timer -= delta
-
 	if _cull_timer <= 0.0:
 		_update_cull_rect()
 		_cull_timer = cull_update_interval
@@ -528,14 +550,19 @@ func _face_current_target(unit: UnitRuntime) -> void:
 func _get_separation_vector(unit: UnitRuntime) -> Vector2:
 	var push: Vector2 = Vector2.ZERO
 	var check_radius: float = unit.stats.radius * 2.2
+	var check_radius_sq: float = check_radius * check_radius
 	var nearby_ids: Array[int] = spatial_hash.query_unit_ids_in_radius(unit.position, check_radius)
 
+	var checked: int = 0
+
 	for other_id in nearby_ids:
+		if checked >= max_separation_neighbors:
+			break
+
 		if other_id == unit.id:
 			continue
 
 		var other: UnitRuntime = get_unit(other_id)
-
 		if other == null:
 			continue
 
@@ -543,17 +570,19 @@ func _get_separation_vector(unit: UnitRuntime) -> Vector2:
 			continue
 
 		var offset: Vector2 = unit.position - other.position
-		var distance: float = offset.length()
+		var distance_sq: float = offset.length_squared()
 
-		if distance <= 0.001:
+		if distance_sq <= 0.001:
 			continue
 
-		if distance > check_radius:
+		if distance_sq > check_radius_sq:
 			continue
 
+		var distance: float = sqrt(distance_sq)
 		var strength: float = (check_radius - distance) / check_radius
+		push += (offset / distance) * strength * unit.stats.move_speed * 0.35
 
-		push += offset.normalized() * strength * unit.stats.move_speed * 0.35
+		checked += 1
 
 	return push
 
