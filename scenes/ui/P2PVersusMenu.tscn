@@ -1,7 +1,7 @@
 [gd_scene load_steps=5 format=3 uid="uid://bv52lyexw1yts"]
 
 [ext_resource type="Script" path="res://scripts/ui/p2p_versus_menu.gd" id="1_ov1cc"]
-[ext_resource type="PackedScene" uid="uid://ca0h8ftleut5e" path="res://Maps/Ready Maps/generated_grass_map.tscn" id="2_nkopl"]
+[ext_resource type="PackedScene" uid="uid://ca0h8ftleut5e" path="res://Maps/Ready Maps/Grassland.tscn" id="2_nkopl"]
 [ext_resource type="PackedScene" uid="uid://bnl5otydrtl4m" path="res://Maps/Ready Maps/Desert.tscn" id="3_lfjff"]
 [ext_resource type="Script" path="res://scenes/ui/main_menu_background.gd" id="4_djyqa"]
 

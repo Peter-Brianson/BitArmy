@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://ca0h8ftleut5e"]
+
+[ext_resource type="Script" path="res://scripts/maps/chunked_generated_tile_map.gd" id="1_64nye"]
+[ext_resource type="Resource" uid="uid://b1ceb3gu8ffv5" path="res://scripts/maps/GrassGenerationSet.tres" id="2_4l7d6"]
+
+[node name="GeneratedGrassMap" type="Node2D"]
+script = ExtResource("1_64nye")
+generation_set = ExtResource("2_4l7d6")
+
+[node name="Chunks" type="Node2D" parent="."]
+
+[node name="TeamSpawnPoints" type="Node2D" parent="."]
