@@ -271,7 +271,7 @@ match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 game_manager = NodePath("../../MatchRoot/Simulation/GameManager")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
 unit_batch_renderer = NodePath("../../MatchRoot/World/UnitBatchRoot")
-cursor_size = Vector2(16, 16)
+cursor_size = Vector2(12, 12)
 cursor_texture = ExtResource("2_xed8e")
 debug_split_input = true
 hud_scene = ExtResource("15_mksec")
@@ -286,8 +286,6 @@ match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 camera_pan_controller = NodePath("../../MatchRoot/CameraRig")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
 structure_catalog = NodePath("../../MatchRoot/Simulation/StructureBuildCatalog")
-buildable_structure_stats = Array[ExtResource("29_4b20o")]([])
-buildable_structure_scenes = Array[ExtResource("29_4b20o")]([])
 
 [node name="DebugOverlay" type="Control" parent="UI"]
 layout_mode = 3

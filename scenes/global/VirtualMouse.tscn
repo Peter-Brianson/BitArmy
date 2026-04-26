@@ -6,3 +6,4 @@
 [node name="VirtualMouse" type="CanvasLayer"]
 script = ExtResource("1_n0gtb")
 cursor_texture = ExtResource("2_ctosp")
+cursor_size = Vector2(12, 12)
