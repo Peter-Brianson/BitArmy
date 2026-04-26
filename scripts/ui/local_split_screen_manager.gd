@@ -477,6 +477,9 @@ func _create_view(view_index: int, player) -> void:
 	viewport.handle_input_locally = false
 	viewport.world_2d = get_viewport().world_2d
 
+	var underlay_layer: int = _get_split_underlay_layer(view_index)
+	viewport.canvas_cull_mask = WORLD_LAYER_MASK | underlay_layer
+
 	container.add_child(viewport)
 
 	var view_root := Node2D.new()
@@ -513,9 +516,6 @@ func _create_view(view_index: int, player) -> void:
 	camera.enabled = true
 	camera.add_to_group("map_cull_camera")
 
-	var underlay_layer: int = _get_split_underlay_layer(view_index)
-	camera.cull_mask = WORLD_LAYER_MASK | underlay_layer
-
 	if main_camera_rig != null and main_camera_rig.camera != null:
 		camera.zoom = main_camera_rig.camera.zoom
 	else:
@@ -523,6 +523,7 @@ func _create_view(view_index: int, player) -> void:
 
 	camera_rig.camera = camera
 	camera_rig.add_child(camera)
+
 
 	var cursor: Control = _create_virtual_cursor_control()
 	container.add_child(cursor)
