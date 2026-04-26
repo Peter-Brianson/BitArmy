@@ -14,7 +14,8 @@ extends Node
 @export var keep_virtual_cursor_world_anchored_while_panning: bool = true
 
 var _direct_pause_latch: bool = false
-
+var _select_all_down_last: bool = false
+var _center_hq_down_last: bool = false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -103,19 +104,44 @@ func _toggle_pause_menu() -> void:
 
 
 func _apply_qol_actions(player) -> void:
-	var center_pressed: bool = false
-	var select_all_pressed: bool = false
+	var select_all_now: bool = _is_select_all_pressed_for_player(player)
+	var center_hq_now: bool = _is_center_hq_pressed_for_player(player)
 
-	if player.is_keyboard_mouse:
-		center_pressed = Input.is_action_just_pressed("center_hq")
-		select_all_pressed = Input.is_action_just_pressed("select_all_units")
-	else:
-		center_pressed = Input.is_joy_button_pressed(int(player.device_id), JOY_BUTTON_Y)
+	if select_all_now and not _select_all_down_last:
+		if selection_controller != null:
+			selection_controller.select_all_player_units()
 
-	if center_pressed:
+	if center_hq_now and not _center_hq_down_last:
 		if match_controller != null:
 			match_controller.center_camera_on_local_hq()
 
-	if select_all_pressed:
-		if selection_controller != null:
-			selection_controller.select_all_player_units()
+	_select_all_down_last = select_all_now
+	_center_hq_down_last = center_hq_now
+
+
+func _is_select_all_pressed_for_player(player) -> bool:
+	if player == null:
+		return false
+
+	if player.is_keyboard_mouse:
+		return Input.is_action_pressed("select_all_units")
+
+	if player.is_touch:
+		return false
+
+	var device_id: int = int(player.device_id)
+	return Input.is_joy_button_pressed(device_id, JOY_BUTTON_Y)
+
+
+func _is_center_hq_pressed_for_player(player) -> bool:
+	if player == null:
+		return false
+
+	if player.is_keyboard_mouse:
+		return Input.is_action_pressed("center_hq")
+
+	if player.is_touch:
+		return false
+
+	var device_id: int = int(player.device_id)
+	return Input.get_joy_axis(device_id, JOY_AXIS_TRIGGER_LEFT) > 0.55
