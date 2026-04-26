@@ -69,6 +69,7 @@ bus = &"SFX"
 [node name="World" type="Node2D" parent="MatchRoot"]
 
 [node name="Ground" type="Node2D" parent="MatchRoot/World"]
+z_index = -100
 
 [node name="MapHost" type="Node2D" parent="MatchRoot/World/Ground"]
 

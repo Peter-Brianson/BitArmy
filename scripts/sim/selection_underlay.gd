@@ -44,7 +44,7 @@ extends Node2D
 
 func _ready() -> void:
 	z_as_relative = true
-	z_index = 0
+	z_index = -1
 
 
 func _process(_delta: float) -> void:
