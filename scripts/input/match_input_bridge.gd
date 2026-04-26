@@ -103,13 +103,19 @@ func _toggle_pause_menu() -> void:
 
 
 func _apply_qol_actions(player) -> void:
-	if not player.is_keyboard_mouse:
-		return
+	var center_pressed: bool = false
+	var select_all_pressed: bool = false
 
-	if Input.is_action_just_pressed("center_hq"):
+	if player.is_keyboard_mouse:
+		center_pressed = Input.is_action_just_pressed("center_hq")
+		select_all_pressed = Input.is_action_just_pressed("select_all_units")
+	else:
+		center_pressed = Input.is_joy_button_pressed(int(player.device_id), JOY_BUTTON_Y)
+
+	if center_pressed:
 		if match_controller != null:
 			match_controller.center_camera_on_local_hq()
 
-	if Input.is_action_just_pressed("select_all_units"):
+	if select_all_pressed:
 		if selection_controller != null:
 			selection_controller.select_all_player_units()

@@ -33,6 +33,9 @@ extends Control
 @export_group("Controller Cursor")
 @export var controller_cursor_speed: float = 360.0
 @export var controller_cursor_deadzone: float = 0.18
+@export var controller_center_hq_axis: int = JOY_AXIS_TRIGGER_RIGHT
+@export var controller_center_hq_axis_threshold: float = 0.45
+@export var controller_center_hq_button: int = -1
 
 @export_group("Per Player HUD")
 @export var hud_scene: PackedScene
@@ -51,6 +54,8 @@ var _primary_down_last: Dictionary = {}
 var _secondary_down_last: Dictionary = {}
 var _cancel_down_last: Dictionary = {}
 var _pause_down_last: Dictionary = {}
+var _center_hq_down_last: Dictionary = {}
+var _select_all_down_last: Dictionary = {}
 
 
 
@@ -87,6 +92,7 @@ func _notification(what: int) -> void:
 func _process(delta: float) -> void:
 	if not _split_active:
 		return
+
 
 	var players: Array = InputHub.get_split_screen_players()
 	var count: int = min(players.size(), _views.size())
@@ -126,6 +132,8 @@ func _process(delta: float) -> void:
 		var pointer := VirtualPointerState.new()
 		pointer.setup_from_player(player, local_screen_pos, global_screen_pos, world_pos)
 		_apply_runtime_button_poll(pointer, player, container)
+		_poll_center_hq_for_player(player, camera_rig)
+
 
 		if debug_split_input:
 			if pointer.primary_just_pressed or pointer.primary_just_released or pointer.secondary_just_pressed or pointer.pause_just_pressed:
@@ -161,8 +169,34 @@ func _process(delta: float) -> void:
 		if pointer.pause_just_pressed:
 			_toggle_pause_menu()
 
+		_poll_controller_qol_for_player(player, camera_rig, selection)
+
 	InputHub.begin_frame()
 
+
+func _poll_center_hq_for_player(player, camera_rig: CameraPanController) -> void:
+	if camera_rig == null:
+		return
+
+	var player_index: int = int(player.player_index)
+
+	var center_now: bool = false
+
+	if player.is_keyboard_mouse:
+		center_now = Input.is_action_pressed("center_hq")
+	else:
+		var device_id: int = int(player.device_id)
+
+		# Y button. Godot's Y button is button index 3.
+		center_now = Input.is_joy_button_pressed(device_id, JOY_BUTTON_Y)
+
+	var center_last: bool = bool(_center_hq_down_last.get(player_index, false))
+
+	if center_now and not center_last:
+		var session_member_id: int = int(player.team_id)
+		_center_camera_on_player_member(camera_rig, session_member_id)
+
+	_center_hq_down_last[player_index] = center_now
 
 func _apply_runtime_button_poll(
 	pointer: VirtualPointerState,
@@ -207,7 +241,10 @@ func _apply_runtime_button_poll(
 
 	var primary_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_A)
 	var secondary_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_B)
+
+	# Back/View is cancel. B is not cancel.
 	var cancel_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_BACK)
+
 	var pause_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_START)
 
 	var primary_controller_last: bool = bool(_primary_down_last.get(player_index, false))
@@ -630,6 +667,52 @@ func _clear_views() -> void:
 	_secondary_down_last.clear()
 	_cancel_down_last.clear()
 	_pause_down_last.clear()
+	_center_hq_down_last.clear()
+	_select_all_down_last.clear()
+
+func _poll_controller_qol_for_player(
+	player,
+	camera_rig: CameraPanController,
+	selection: SelectionController
+) -> void:
+	var player_index: int = int(player.player_index)
+
+	var center_now: bool = false
+	var select_all_now: bool = false
+
+	if player.is_keyboard_mouse or player.is_touch:
+		center_now = Input.is_action_pressed("center_hq")
+		select_all_now = Input.is_action_pressed("select_all_units")
+	else:
+		var device_id: int = int(player.device_id)
+
+		center_now = _is_controller_center_hq_pressed(device_id)
+
+		# Y = select all units.
+		select_all_now = Input.is_joy_button_pressed(device_id, JOY_BUTTON_Y)
+
+	var center_last: bool = bool(_center_hq_down_last.get(player_index, false))
+	var select_all_last: bool = bool(_select_all_down_last.get(player_index, false))
+
+	if center_now and not center_last:
+		var session_member_id: int = int(player.team_id)
+		_center_camera_on_player_member(camera_rig, session_member_id)
+
+	if select_all_now and not select_all_last:
+		if selection != null:
+			selection.select_all_player_units()
+
+	_center_hq_down_last[player_index] = center_now
+	_select_all_down_last[player_index] = select_all_now
+
+
+func _is_controller_center_hq_pressed(device_id: int) -> bool:
+	if controller_center_hq_button >= 0:
+		if Input.is_joy_button_pressed(device_id, controller_center_hq_button):
+			return true
+
+	var axis_value: float = Input.get_joy_axis(device_id, controller_center_hq_axis)
+	return axis_value >= controller_center_hq_axis_threshold
 
 
 func _apply_layout() -> void:

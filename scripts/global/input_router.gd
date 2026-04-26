@@ -329,7 +329,6 @@ func _poll_controller_buttons(player: PlayerState) -> void:
 	var pause_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_START)
 
 	var primary_was_pressed: bool = player._primary_down_last
-	var secondary_was_pressed: bool = player._secondary_down_last
 	var cancel_was_pressed: bool = player._cancel_down_last
 	var pause_was_pressed: bool = player._pause_down_last
 
@@ -338,12 +337,12 @@ func _poll_controller_buttons(player: PlayerState) -> void:
 	if primary_now and not primary_was_pressed:
 		player.join_just_pressed = true
 
+	# Important:
 	# B is secondary/right-click only.
-	# Do NOT also set cancel_just_pressed here.
-	if secondary_now and not secondary_was_pressed:
-		pass
+	# Do NOT set cancel_just_pressed from B.
+	# _poll_hold_button_edges already sets secondary_just_pressed.
 
-	# Back/View button is cancel/back.
+	# Back/View is cancel/back.
 	if cancel_now and not cancel_was_pressed:
 		player.cancel_just_pressed = true
 
