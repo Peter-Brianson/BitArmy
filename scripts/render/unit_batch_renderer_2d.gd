@@ -15,6 +15,7 @@ extends Node2D
 @export var render_dead_units_until_removed: bool = true
 @export var use_nearest_filter: bool = true
 @export var batch_z_index: int = 0
+@export var flip_quad_texture_y: bool = true
 
 @export_group("Walk Animation")
 @export var stagger_walk_animation: bool = true
@@ -263,18 +264,20 @@ func _get_walk_frame_for_unit(unit: UnitRuntime) -> int:
 func _get_transform_for_unit(unit: UnitRuntime, texture: Texture2D) -> Transform2D:
 	var flip_x: bool = unit.facing_dir.x < 0.0
 	var x_scale: float = -1.0 if flip_x else 1.0
+	var y_scale: float = -1.0 if flip_quad_texture_y else 1.0
 
 	if use_body_size_as_sprite_size:
 		var size: Vector2 = unit.stats.body_size
+
 		return Transform2D(
 			Vector2(size.x * x_scale, 0.0),
-			Vector2(0.0, size.y),
+			Vector2(0.0, size.y * y_scale),
 			unit.position
 		)
 
 	return Transform2D(
 		Vector2(x_scale, 0.0),
-		Vector2(0.0, 1.0),
+		Vector2(0.0, y_scale),
 		unit.position
 	)
 
