@@ -1,4 +1,4 @@
-[gd_scene load_steps=37 format=3 uid="uid://cqum0hu0tuqy0"]
+[gd_scene load_steps=38 format=3 uid="uid://cqum0hu0tuqy0"]
 
 [ext_resource type="Script" path="res://scripts/input/CameraPanController.gd" id="1_m2t5q"]
 [ext_resource type="Script" path="res://data/structures/structure_placement_controller.gd" id="2_723eq"]
@@ -13,6 +13,7 @@
 [ext_resource type="Resource" uid="uid://c8ehm6364nus1" path="res://data/units/basic_soldier.tres" id="6_71p1s"]
 [ext_resource type="Resource" uid="uid://i01u6sx8dsme" path="res://data/structures/hq_basic.tres" id="7_hn723"]
 [ext_resource type="Script" path="res://scripts/ai/ai_team_manager.gd" id="9_levw5"]
+[ext_resource type="Script" path="res://scripts/sim/structure_build_catalog.gd" id="9_m0h72"]
 [ext_resource type="Script" path="res://scripts/sim/team_manager.gd" id="9_witlm"]
 [ext_resource type="Script" path="res://scripts/sim/unit_simulation_manager.gd" id="10_gvb8p"]
 [ext_resource type="PackedScene" uid="uid://drdqas7wvyya7" path="res://scenes/buildings/structure_preview.tscn" id="10_jwsqd"]
@@ -145,6 +146,24 @@ selection_controller = NodePath("../SelectionRoot")
 
 [node name="Simulation" type="Node" parent="MatchRoot"]
 
+[node name="StructureBuildCatalog" type="Node" parent="MatchRoot/Simulation"]
+script = ExtResource("9_m0h72")
+default_structure_scene = ExtResource("10_jwsqd")
+trainer_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("20_abcjn"), ExtResource("19_1wux7"), ExtResource("17_u6d7c"), ExtResource("31_g4nnb"), ExtResource("29_3e5xs"), ExtResource("30_a4aip")])
+economy_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("30_lju2h")])
+support_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("31_t21mw")])
+defense_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("32_nc4th")])
+
+[node name="legacy" type="Node" parent="MatchRoot/Simulation/StructureBuildCatalog"]
+
+[node name="trainers" type="Node" parent="MatchRoot/Simulation/StructureBuildCatalog"]
+
+[node name="economy" type="Node" parent="MatchRoot/Simulation/StructureBuildCatalog"]
+
+[node name="support" type="Node" parent="MatchRoot/Simulation/StructureBuildCatalog"]
+
+[node name="defense" type="Node" parent="MatchRoot/Simulation/StructureBuildCatalog"]
+
 [node name="GameManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("team_manager")]
 script = ExtResource("5_w68uw")
 team_manager = NodePath("../TeamManager")
@@ -166,12 +185,13 @@ team_spawn_markers = Array[NodePath]([NodePath("../../World/Ground/TeamSpawnPoin
 match_end_controller = NodePath("../../../UI/MatchEndMenu")
 map_host = NodePath("../../World/Ground/MapHost")
 
-[node name="AITeamManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("structure_manager", "unit_manager", "team_manager", "game_manager")]
+[node name="AITeamManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("structure_manager", "unit_manager", "team_manager", "game_manager", "structure_catalog")]
 script = ExtResource("9_levw5")
 structure_manager = NodePath("../StructureSimulationManager")
 unit_manager = NodePath("../UnitSimulationManager")
 team_manager = NodePath("../TeamManager")
 game_manager = NodePath("../GameManager")
+structure_catalog = NodePath("../StructureBuildCatalog")
 default_structure_scene = ExtResource("10_jwsqd")
 trainer_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("20_abcjn"), ExtResource("31_g4nnb"), ExtResource("17_u6d7c"), ExtResource("19_1wux7")])
 economy_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("30_lju2h")])
@@ -255,7 +275,7 @@ cursor_texture = ExtResource("2_xed8e")
 debug_split_input = true
 hud_scene = ExtResource("15_mksec")
 
-[node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "match_controller", "match_net_controller", "camera_pan_controller", "structure_placement_controller") instance=ExtResource("15_mksec")]
+[node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "match_controller", "match_net_controller", "camera_pan_controller", "structure_placement_controller", "structure_catalog") instance=ExtResource("15_mksec")]
 selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")
 unit_manager = NodePath("../../MatchRoot/Simulation/UnitSimulationManager")
 structure_manager = NodePath("../../MatchRoot/Simulation/StructureSimulationManager")
@@ -264,8 +284,9 @@ match_controller = NodePath("../../MatchRoot/Simulation/MatchController")
 match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 camera_pan_controller = NodePath("../../MatchRoot/CameraRig")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
-buildable_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("19_1wux7"), ExtResource("17_u6d7c"), ExtResource("20_abcjn"), ExtResource("30_lju2h"), ExtResource("31_t21mw"), ExtResource("31_g4nnb"), ExtResource("32_nc4th"), ExtResource("29_3e5xs"), ExtResource("30_a4aip")])
-buildable_structure_scenes = Array[PackedScene]([ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd"), ExtResource("10_jwsqd")])
+structure_catalog = NodePath("../../MatchRoot/Simulation/StructureBuildCatalog")
+buildable_structure_stats = Array[ExtResource("29_4b20o")]([])
+buildable_structure_scenes = Array[ExtResource("29_4b20o")]([])
 
 [node name="DebugOverlay" type="Control" parent="UI"]
 layout_mode = 3

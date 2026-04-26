@@ -1,71 +1,9 @@
-[gd_scene load_steps=19 format=3 uid="uid://kcnvorweio0v"]
+[gd_scene load_steps=5 format=3 uid="uid://kcnvorweio0v"]
 
 [ext_resource type="Script" path="res://scripts/ui/hud_controller.gd" id="1_0plnf"]
-[ext_resource type="Script" path="res://data/structures/structure_stats.gd" id="3_bacd1"]
-[ext_resource type="Resource" uid="uid://ciuh15hld7ewv" path="res://data/structures/Heavy Trainer.tres" id="4_fca3t"]
-[ext_resource type="Resource" uid="uid://hw1baduh04jk" path="res://data/structures/Sniper Trainer.tres" id="5_7otwa"]
-[ext_resource type="Script" path="res://scripts/sim/structure_preview.gd" id="6_6emfb"]
-[ext_resource type="Resource" uid="uid://dp5ffj6e6myue" path="res://data/structures/Soldier Trainer.tres" id="6_lrmow"]
 [ext_resource type="Script" path="res://scripts/ui/rough_intel_map.gd" id="8_roooa"]
 [ext_resource type="Texture2D" uid="uid://d0e0ovfl0wcsp" path="res://Maps/Grass_pixel.png" id="9_kaxag"]
 [ext_resource type="Texture2D" uid="uid://cnqf3oft7i7fy" path="res://scripts/maps/16x16 grass tile.png" id="9_nrtl6"]
-
-[sub_resource type="Gradient" id="Gradient_lytao"]
-colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_opo1d"]
-gradient = SubResource("Gradient_lytao")
-
-[sub_resource type="PackedScene" id="PackedScene_5m52q"]
-_bundled = {
-"conn_count": 0,
-"conns": PackedInt32Array(),
-"editable_instances": [],
-"names": PackedStringArray("Soldier Trainer", "Node2D", "script", "Visuals2", "Sprite2D", "visible", "texture", "SpawnPoint", "Marker2D", "RallyPoint", "Marker2D"),
-"node_count": 4,
-"node_paths": [NodePath("."), NodePath("."), NodePath(".")],
-"nodes": PackedInt32Array(-1, -1, 1, 0, -1, 1, 2, 0, 0, 1073741824, 0, 4, 3, -1, 2, 5, 1, 6, 2, 0, 1073741825, 0, 8, 7, -1, 0, 0, 1073741826, 0, 10, 9, -1, 0, 0),
-"variants": [ExtResource("6_6emfb"), false, SubResource("GradientTexture2D_opo1d")],
-"version": 3
-}
-
-[sub_resource type="Gradient" id="Gradient_8dm3j"]
-colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_b5rr4"]
-gradient = SubResource("Gradient_8dm3j")
-
-[sub_resource type="PackedScene" id="PackedScene_etjsr"]
-_bundled = {
-"conn_count": 0,
-"conns": PackedInt32Array(),
-"editable_instances": [],
-"names": PackedStringArray("Soldier Trainer", "Node2D", "script", "Visuals2", "Sprite2D", "visible", "texture", "SpawnPoint", "Marker2D", "RallyPoint", "Marker2D"),
-"node_count": 4,
-"node_paths": [NodePath("."), NodePath("."), NodePath(".")],
-"nodes": PackedInt32Array(-1, -1, 1, 0, -1, 1, 2, 0, 0, 1073741824, 0, 4, 3, -1, 2, 5, 1, 6, 2, 0, 1073741825, 0, 8, 7, -1, 0, 0, 1073741826, 0, 10, 9, -1, 0, 0),
-"variants": [ExtResource("6_6emfb"), false, SubResource("GradientTexture2D_b5rr4")],
-"version": 3
-}
-
-[sub_resource type="Gradient" id="Gradient_sac38"]
-colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_woex5"]
-gradient = SubResource("Gradient_sac38")
-
-[sub_resource type="PackedScene" id="PackedScene_6ygpn"]
-_bundled = {
-"conn_count": 0,
-"conns": PackedInt32Array(),
-"editable_instances": [],
-"names": PackedStringArray("Soldier Trainer", "Node2D", "script", "Visuals2", "Sprite2D", "visible", "texture", "SpawnPoint", "Marker2D", "RallyPoint", "Marker2D"),
-"node_count": 4,
-"node_paths": [NodePath("."), NodePath("."), NodePath(".")],
-"nodes": PackedInt32Array(-1, -1, 1, 0, -1, 1, 2, 0, 0, 1073741824, 0, 4, 3, -1, 2, 5, 1, 6, 2, 0, 1073741825, 0, 8, 7, -1, 0, 0, 1073741826, 0, 10, 9, -1, 0, 0),
-"variants": [ExtResource("6_6emfb"), false, SubResource("GradientTexture2D_woex5")],
-"version": 3
-}
 
 [node name="HUD" type="Control" node_paths=PackedStringArray("selection_panel", "production_panel", "resource_panel", "status_panel", "selection_icon", "type_label", "name_label", "description_label", "health_label", "stat_summary_label", "unit_count_label", "structure_count_label", "production_scroll", "production_grid", "queue_label", "progress_label", "credits_label", "income_label", "location_label", "match_timer_label", "fps_label", "teams_alive_label", "rough_intel_map")]
 layout_mode = 3
@@ -102,8 +40,6 @@ location_label = NodePath("ResourcePanel/VBoxContainer/LocationLabel")
 match_timer_label = NodePath("StatusPanel/VBoxContainer/MatchTimerLabel")
 fps_label = NodePath("StatusPanel/VBoxContainer/FPSLabel")
 teams_alive_label = NodePath("StatusPanel/VBoxContainer/TeamsAliveLabel")
-buildable_structure_stats = Array[ExtResource("3_bacd1")]([ExtResource("4_fca3t"), ExtResource("5_7otwa"), ExtResource("6_lrmow")])
-buildable_structure_scenes = Array[PackedScene]([SubResource("PackedScene_5m52q"), SubResource("PackedScene_etjsr"), SubResource("PackedScene_6ygpn")])
 rough_intel_map = NodePath("RoughIntelMap")
 
 [node name="SelectionPanel" type="PanelContainer" parent="."]

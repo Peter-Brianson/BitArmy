@@ -13,6 +13,7 @@ enum AiStrategy {
 @export var unit_manager: UnitSimulationManager
 @export var team_manager: TeamManager
 @export var game_manager: GameManager
+@export var structure_catalog: StructureBuildCatalog
 
 @export_group("Structure Scene Fallback")
 @export var default_structure_scene: PackedScene
@@ -379,19 +380,28 @@ func _get_strategy_profile(strategy: int, total_units: int, base_under_attack: b
 func _get_structure_category_order_for_strategy(strategy: int) -> Array:
 	match strategy:
 		AiStrategy.RUSH:
-			return ["trainers", "economy", "support", "defense"]
+			return ["legacy", "trainers", "economy", "support", "defense"]
+
 		AiStrategy.TURTLE:
-			return ["economy", "defense", "trainers", "support"]
+			return ["legacy", "economy", "defense", "trainers", "support"]
+
 		AiStrategy.MACRO:
-			return ["economy", "trainers", "support", "defense"]
+			return ["legacy", "economy", "trainers", "support", "defense"]
+
 		AiStrategy.TECH:
-			return ["trainers", "support", "economy", "defense"]
+			return ["legacy", "trainers", "support", "economy", "defense"]
+
 		_:
-			return ["trainers", "economy", "support", "defense"]
+			return ["legacy", "trainers", "economy", "support", "defense"]
 
 
 func _get_entries_for_category_name(category_name: String) -> Array:
+	if structure_catalog != null:
+		return structure_catalog.get_entries_for_category_name(category_name)
+
 	match category_name:
+		"legacy":
+			return []
 		"trainers":
 			return _get_category_entries(trainer_structure_stats, trainer_structure_scenes)
 		"economy":

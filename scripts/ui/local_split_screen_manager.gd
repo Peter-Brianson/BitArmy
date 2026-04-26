@@ -167,6 +167,10 @@ func _process(delta: float) -> void:
 			if hud.call("handle_virtual_pointer", pointer):
 				pointer.handled_by_ui = true
 
+		if hud != null and hud.has_method("handle_player_ui_navigation"):
+			if hud.call("handle_player_ui_navigation", player, delta):
+				pointer.handled_by_ui = true
+
 		if not pointer.is_consumed() and structure_placement_controller != null:
 			if structure_placement_controller.has_method("handle_virtual_pointer"):
 				if structure_placement_controller.call("handle_virtual_pointer", pointer):
@@ -698,7 +702,16 @@ func _create_player_hud(
 
 
 func _copy_main_hud_build_options(hud: HUDController) -> void:
-	if hud == null or main_hud_controller == null:
+	if hud == null:
+		return
+
+	if main_hud_controller == null:
+		return
+
+	var catalog_variant: Variant = main_hud_controller.get("structure_catalog")
+
+	if catalog_variant is StructureBuildCatalog:
+		hud.set("structure_catalog", catalog_variant)
 		return
 
 	var stats_variant: Variant = main_hud_controller.get("buildable_structure_stats")
@@ -709,16 +722,6 @@ func _copy_main_hud_build_options(hud: HUDController) -> void:
 
 	if scenes_variant is Array:
 		hud.set("buildable_structure_scenes", (scenes_variant as Array).duplicate())
-
-
-func _disable_real_gui_input_for_split_hud(hud: HUDController) -> void:
-	if hud == null:
-		return
-
-	if not is_instance_valid(hud):
-		return
-
-	_disable_real_gui_input_recursive(hud)
 
 
 func _disable_real_gui_input_recursive(node: Node) -> void:

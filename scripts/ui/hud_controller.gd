@@ -48,7 +48,12 @@ extends Control
 @export var fps_label: Label
 @export var teams_alive_label: Label
 
-@export_group("Build Options")
+@export_group("Build Catalog")
+@export var structure_catalog: StructureBuildCatalog
+@export var show_build_category_buttons: bool = true
+@export var controller_production_scroll_speed: float = 520.0
+
+@export_group("Legacy Build Options")
 @export var buildable_structure_stats: Array[StructureStats] = []
 @export var buildable_structure_scenes: Array[PackedScene] = []
 
@@ -64,6 +69,10 @@ var _dynamic_production_buttons: Array = []
 var _has_last_virtual_pointer_world: bool = false
 var _last_virtual_pointer_world: Vector2 = Vector2.ZERO
 var _last_virtual_pointer_player_index: int = -1
+
+var _active_build_category: String = ""
+var _controller_category_left_down_last: bool = false
+var _controller_category_right_down_last: bool = false
 
 @export var virtual_pointer_owner_player_index: int = -1
 
@@ -480,27 +489,46 @@ func _rebuild_production_buttons(structure: StructureRuntime) -> void:
 
 		_dynamic_production_buttons.append({
 			"kind": "train",
-			"button": train_button
+			"button": train_button,
 		})
 
 	if structure.can_place_structures():
-		var count: int = min(buildable_structure_stats.size(), buildable_structure_scenes.size())
+		_ensure_active_build_category()
 
-		for i in range(count):
-			var stats: StructureStats = buildable_structure_stats[i]
-			var scene: PackedScene = buildable_structure_scenes[i]
+		var categories: Array[String] = _get_available_build_categories()
+
+		if show_build_category_buttons and categories.size() > 1:
+			for category_name in categories:
+				var category_button := Button.new()
+				category_button.pressed.connect(_on_production_category_pressed.bind(category_name))
+				production_grid.add_child(category_button)
+
+				_dynamic_production_buttons.append({
+					"kind": "category",
+					"category": category_name,
+					"button": category_button,
+				})
+
+		var entries: Array = _get_build_entries_for_category(_active_build_category)
+
+		for i in range(entries.size()):
+			var entry: Dictionary = entries[i]
+			var stats: StructureStats = entry.get("stats", null)
+			var scene: PackedScene = entry.get("scene", null)
 
 			if stats == null or scene == null:
 				continue
 
 			var build_button := Button.new()
-			build_button.pressed.connect(_on_build_structure_option_pressed.bind(i))
+			build_button.pressed.connect(_on_build_structure_option_pressed.bind(_active_build_category, i))
 			production_grid.add_child(build_button)
 
 			_dynamic_production_buttons.append({
 				"kind": "build",
-				"index": i,
-				"button": build_button
+				"category": _active_build_category,
+				"category_index": i,
+				"entry": entry,
+				"button": build_button,
 			})
 
 	_apply_dynamic_button_sizes()
@@ -533,14 +561,22 @@ func _update_production_buttons(structure: StructureRuntime) -> void:
 
 			button.disabled = not can_afford_unit
 
+		elif kind == "category":
+			var category_name: String = str(entry.get("category", ""))
+			var label: String = _get_build_category_label(category_name)
+
+			button.visible = true
+			button.icon = null
+			button.disabled = false
+
+			if category_name == _active_build_category:
+				button.text = "▶ %s" % label
+			else:
+				button.text = label
+
 		elif kind == "build":
-			var structure_index: int = int(entry["index"])
-
-			if structure_index < 0 or structure_index >= buildable_structure_stats.size():
-				button.visible = false
-				continue
-
-			var build_stats: StructureStats = buildable_structure_stats[structure_index]
+			var build_entry: Dictionary = entry.get("entry", {})
+			var build_stats: StructureStats = build_entry.get("stats", null)
 
 			if build_stats == null:
 				button.visible = false
@@ -549,6 +585,9 @@ func _update_production_buttons(structure: StructureRuntime) -> void:
 			button.visible = true
 			button.text = "%s (%d)" % [build_stats.structure_name, build_stats.cost]
 			button.icon = build_stats.icon_texture
+
+			if build_stats.description != "":
+				button.tooltip_text = build_stats.description
 
 			var can_afford_structure: bool = true
 
@@ -609,7 +648,7 @@ func _on_train_current_structure_pressed() -> void:
 	structure_manager.queue_unit_production(selected_structure_id, trained_unit)
 
 
-func _on_build_structure_option_pressed(structure_index: int) -> void:
+func _on_build_structure_option_pressed(category_name: String, category_index: int) -> void:
 	if selection_controller == null:
 		return
 
@@ -619,14 +658,14 @@ func _on_build_structure_option_pressed(structure_index: int) -> void:
 	if structure_placement_controller == null:
 		return
 
-	if structure_index < 0 or structure_index >= buildable_structure_stats.size():
+	var entries: Array = _get_build_entries_for_category(category_name)
+
+	if category_index < 0 or category_index >= entries.size():
 		return
 
-	if structure_index >= buildable_structure_scenes.size():
-		return
-
-	var build_stats: StructureStats = buildable_structure_stats[structure_index]
-	var build_scene: PackedScene = buildable_structure_scenes[structure_index]
+	var entry: Dictionary = entries[category_index]
+	var build_stats: StructureStats = entry.get("stats", null)
+	var build_scene: PackedScene = entry.get("scene", null)
 
 	if build_stats == null or build_scene == null:
 		return
@@ -651,22 +690,131 @@ func _on_build_structure_option_pressed(structure_index: int) -> void:
 		if not game_manager.can_afford(structure.owner_team_id, build_stats.cost):
 			return
 
-		if _has_last_virtual_pointer_world:
-			if structure_placement_controller.has_method("set_external_pointer_world"):
-				structure_placement_controller.call("set_external_pointer_world", _last_virtual_pointer_world)
+	if _has_last_virtual_pointer_world:
+		if structure_placement_controller.has_method("set_external_pointer_world"):
+			structure_placement_controller.call("set_external_pointer_world", _last_virtual_pointer_world)
 
-		var builder_structure_id: int = -1
+	var builder_structure_id: int = -1
 
-		if selection_controller != null:
-			builder_structure_id = selection_controller.selected_structure_id
+	if selection_controller != null:
+		builder_structure_id = selection_controller.selected_structure_id
 
-		structure_placement_controller.begin_placement(
-			structure.owner_team_id,
-			build_stats,
-			build_scene,
-			builder_structure_id,
-			_last_virtual_pointer_player_index
-		)
+	structure_placement_controller.begin_placement(
+		structure.owner_team_id,
+		build_stats,
+		build_scene,
+		builder_structure_id,
+		_last_virtual_pointer_player_index
+	)
+
+func _on_production_category_pressed(category_name: String) -> void:
+	_active_build_category = _normalize_build_category(category_name)
+
+	if selection_controller == null or structure_manager == null:
+		return
+
+	var selected_structure_id: int = selection_controller.selected_structure_id
+
+	if selected_structure_id == -1:
+		return
+
+	var structure: StructureRuntime = structure_manager.get_structure(selected_structure_id)
+
+	if structure == null:
+		return
+
+	_rebuild_production_buttons(structure)
+	_update_production_buttons(structure)
+
+
+func _ensure_active_build_category() -> void:
+	var categories: Array[String] = _get_available_build_categories()
+
+	if categories.is_empty():
+		_active_build_category = ""
+		return
+
+	if _active_build_category == "" or not categories.has(_active_build_category):
+		_active_build_category = categories[0]
+
+
+func _step_active_build_category(direction: int) -> void:
+	var categories: Array[String] = _get_available_build_categories()
+
+	if categories.size() <= 1:
+		return
+
+	_ensure_active_build_category()
+
+	var current_index: int = categories.find(_active_build_category)
+
+	if current_index < 0:
+		current_index = 0
+
+	var next_index: int = wrapi(current_index + direction, 0, categories.size())
+
+	_on_production_category_pressed(categories[next_index])
+
+
+func _get_available_build_categories() -> Array[String]:
+	var results: Array[String] = []
+
+	if structure_catalog != null:
+		return structure_catalog.get_non_empty_category_names()
+
+	if not buildable_structure_stats.is_empty():
+		results.append("legacy")
+
+	return results
+
+
+func _get_build_entries_for_category(category_name: String) -> Array:
+	if structure_catalog != null:
+		return structure_catalog.get_entries_for_category_name(category_name)
+
+	var normalized: String = _normalize_build_category(category_name)
+
+	if normalized != "legacy":
+		return []
+
+	var results: Array = []
+	var count: int = min(buildable_structure_stats.size(), buildable_structure_scenes.size())
+
+	for i in range(count):
+		var stats: StructureStats = buildable_structure_stats[i]
+		var scene: PackedScene = buildable_structure_scenes[i]
+
+		if stats == null or scene == null:
+			continue
+
+		results.append({
+			"category": "legacy",
+			"category_label": "Legacy",
+			"category_index": i,
+			"stats": stats,
+			"scene": scene,
+		})
+
+	return results
+
+
+func _get_build_category_label(category_name: String) -> String:
+	if structure_catalog != null:
+		return structure_catalog.get_category_label(category_name)
+
+	return _normalize_build_category(category_name).capitalize()
+
+
+func _normalize_build_category(category_name: String) -> String:
+	if structure_catalog != null:
+		return structure_catalog.normalize_category_name(category_name)
+
+	var key: String = category_name.strip_edges().to_lower()
+
+	if key == "":
+		return "legacy"
+
+	return key
 
 func _refresh_resource_panel() -> void:
 	if resource_panel != null:
@@ -728,6 +876,58 @@ func _refresh_status_panel() -> void:
 		else:
 			teams_alive_label.text = "Teams: 0 / 0"
 
+func handle_player_ui_navigation(player, delta: float) -> bool:
+	if player == null:
+		return false
+
+	if not visible:
+		return false
+
+	if production_panel == null or not production_panel.visible:
+		_controller_category_left_down_last = false
+		_controller_category_right_down_last = false
+		return false
+
+	if virtual_pointer_owner_player_index != -1:
+		if int(player.player_index) != virtual_pointer_owner_player_index:
+			return false
+
+	if player.is_keyboard_mouse or player.is_touch:
+		return false
+
+	var device_id: int = int(player.device_id)
+	var used: bool = false
+
+	var up_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_DPAD_UP)
+	var down_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_DPAD_DOWN)
+
+	if production_scroll != null:
+		if up_now:
+			production_scroll.scroll_vertical = max(
+				0,
+				production_scroll.scroll_vertical - int(controller_production_scroll_speed * delta)
+			)
+			used = true
+
+		elif down_now:
+			production_scroll.scroll_vertical += int(controller_production_scroll_speed * delta)
+			used = true
+
+	var left_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_DPAD_LEFT)
+	var right_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_DPAD_RIGHT)
+
+	if left_now and not _controller_category_left_down_last:
+		_step_active_build_category(-1)
+		used = true
+
+	if right_now and not _controller_category_right_down_last:
+		_step_active_build_category(1)
+		used = true
+
+	_controller_category_left_down_last = left_now
+	_controller_category_right_down_last = right_now
+
+	return used
 
 func _format_match_time(seconds: float) -> String:
 	var total_seconds: int = int(floor(seconds))
