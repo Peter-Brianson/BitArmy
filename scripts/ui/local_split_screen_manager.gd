@@ -584,9 +584,9 @@ func _attach_selection_underlay_to_world(underlay: SelectionUnderlay, view_index
 
 	underlay.visibility_layer = _get_split_underlay_layer(view_index)
 
-	# Match the normal world underlay behavior.
+	# Match the real world underlay: behind structures/units, but above ground.
 	underlay.z_as_relative = true
-	underlay.z_index = 0
+	underlay.z_index = -1
 	underlay.y_sort_enabled = false
 	underlay.visible = true
 	underlay.set_process(true)
@@ -604,14 +604,10 @@ func _create_selection_underlay_for_view(view_index: int) -> SelectionUnderlay:
 	underlay.name = "SelectionUnderlay_P%d" % (view_index + 1)
 	underlay.visible = true
 	underlay.set_process(true)
-
-	if main_selection_underlay != null:
-		underlay.z_as_relative = main_selection_underlay.z_as_relative
-		underlay.z_index = main_selection_underlay.z_index
-		underlay.y_sort_enabled = main_selection_underlay.y_sort_enabled
-	else:
-		underlay.z_as_relative = false
-		underlay.z_index = -10
+	underlay.z_as_relative = true
+	underlay.z_index = -1
+	underlay.y_sort_enabled = false
+	underlay.visibility_layer = _get_split_underlay_layer(view_index)
 
 	return underlay
 
