@@ -59,6 +59,16 @@ var _center_hq_down_last: Dictionary = {}
 const WORLD_LAYER_MASK: int = 1
 const SPLIT_UNDERLAY_LAYER_START: int = 1
 
+func _get_split_underlay_layer(view_index: int) -> int:
+	return 1 << (SPLIT_UNDERLAY_LAYER_START + view_index)
+
+
+func _get_all_split_underlay_layers() -> int:
+	var mask: int = 0
+	for i in range(max_views):
+		mask |= _get_split_underlay_layer(i)
+	return mask
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -87,9 +97,6 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		_apply_layout()
-
-func _get_split_underlay_layer(view_index: int) -> int:
-	return 1 << (SPLIT_UNDERLAY_LAYER_START + view_index)
 
 func _process(delta: float) -> void:
 	if not _split_active:
@@ -574,6 +581,8 @@ func _attach_selection_underlay_to_world(underlay: SelectionUnderlay, view_index
 	if world_parent == null:
 		return
 
+	_ensure_canvas_parent_layers(world_parent, WORLD_LAYER_MASK | _get_all_split_underlay_layers())
+
 	world_parent.add_child(underlay)
 
 	if insert_index >= 0:
@@ -583,14 +592,22 @@ func _attach_selection_underlay_to_world(underlay: SelectionUnderlay, view_index
 		)
 
 	underlay.visibility_layer = _get_split_underlay_layer(view_index)
-
-	# Match the real world underlay: behind structures/units, but above ground.
 	underlay.z_as_relative = true
-	underlay.z_index = -1
+	underlay.z_index = main_selection_underlay.z_index if main_selection_underlay != null else 0
 	underlay.y_sort_enabled = false
 	underlay.visible = true
 	underlay.set_process(true)
 	underlay.queue_redraw()
+
+func _ensure_canvas_parent_layers(from_node: Node, layer_mask: int) -> void:
+	var current: Node = from_node
+
+	while current != null:
+		if current is CanvasItem:
+			var item := current as CanvasItem
+			item.visibility_layer = item.visibility_layer | layer_mask
+
+		current = current.get_parent()
 
 func _create_selection_underlay_for_view(view_index: int) -> SelectionUnderlay:
 	var underlay: SelectionUnderlay = null
