@@ -27,6 +27,10 @@ extends Control
 @export var enemy_estimate_grid_pixels: float = 450.0
 @export var update_interval: float = 0.75
 
+@export_group("Input")
+@export var click_to_move_camera: bool = true
+@export var allow_drag_to_move_camera: bool = true
+
 var _timer: float = 0.0
 var _friendly_unit_points: Array[Dictionary] = []
 var _friendly_structure_points: Array[Dictionary] = []
@@ -36,8 +40,8 @@ var _camera_position: Vector2 = Vector2.ZERO
 @export var viewer_team_id: int = -1
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_timer = randf() * update_interval
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	gui_input.connect(_on_gui_input)
 	_refresh_points()
 
 
@@ -253,4 +257,78 @@ func _world_to_minimap(world_position: Vector2) -> Vector2:
 	return Vector2(
 		clamp(local_x, 0.0, 1.0) * size.x,
 		clamp(local_y, 0.0, 1.0) * size.y
+	)
+
+func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
+	if not click_to_move_camera:
+		return false
+
+	if pointer == null:
+		return false
+
+	if not visible or not is_visible_in_tree():
+		return false
+
+	if not get_global_rect().has_point(pointer.screen_pos):
+		return false
+
+	if pointer.primary_just_pressed:
+		_center_camera_from_screen_position(pointer.screen_pos)
+		return true
+
+	if allow_drag_to_move_camera and pointer.primary_pressed:
+		_center_camera_from_screen_position(pointer.screen_pos)
+		return true
+
+	return pointer.primary_pressed or pointer.primary_just_released
+
+
+func _on_gui_input(event: InputEvent) -> void:
+	if not click_to_move_camera:
+		return
+
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+
+		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed:
+			_center_camera_from_local_position(mouse_event.position)
+			accept_event()
+
+	elif allow_drag_to_move_camera and event is InputEventMouseMotion:
+		var motion_event := event as InputEventMouseMotion
+
+		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			_center_camera_from_local_position(motion_event.position)
+			accept_event()
+
+
+func _center_camera_from_screen_position(screen_pos: Vector2) -> void:
+	var local_pos: Vector2 = screen_pos - get_global_rect().position
+	_center_camera_from_local_position(local_pos)
+
+
+func _center_camera_from_local_position(local_pos: Vector2) -> void:
+	if camera_pan_controller == null:
+		return
+
+	if size.x <= 1.0 or size.y <= 1.0:
+		return
+
+	local_pos.x = clamp(local_pos.x, 0.0, size.x)
+	local_pos.y = clamp(local_pos.y, 0.0, size.y)
+
+	var world_pos: Vector2 = _minimap_to_world(local_pos)
+	camera_pan_controller.center_on_world(world_pos)
+
+	_camera_position = camera_pan_controller.global_position
+	queue_redraw()
+
+
+func _minimap_to_world(local_pos: Vector2) -> Vector2:
+	var normalized_x: float = clamp(local_pos.x / max(size.x, 1.0), 0.0, 1.0)
+	var normalized_y: float = clamp(local_pos.y / max(size.y, 1.0), 0.0, 1.0)
+
+	return Vector2(
+		lerp(world_rect.position.x, world_rect.position.x + world_rect.size.x, normalized_x),
+		lerp(world_rect.position.y, world_rect.position.y + world_rect.size.y, normalized_y)
 	)

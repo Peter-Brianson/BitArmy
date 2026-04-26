@@ -128,6 +128,11 @@ func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
 	if not visible:
 		return false
 
+	if rough_intel_map != null:
+		if rough_intel_map.has_method("handle_virtual_pointer"):
+			if rough_intel_map.call("handle_virtual_pointer", pointer):
+				return true
+
 	if virtual_pointer_owner_player_index != -1:
 		if pointer.player_index != virtual_pointer_owner_player_index:
 			return false
