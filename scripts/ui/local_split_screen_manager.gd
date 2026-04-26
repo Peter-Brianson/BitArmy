@@ -486,6 +486,7 @@ func _create_view(view_index: int, player) -> void:
 
 	var underlay_layer: int = _get_split_underlay_layer(view_index)
 	viewport.canvas_cull_mask = WORLD_LAYER_MASK | underlay_layer
+	viewport.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 
 	container.add_child(viewport)
 
@@ -625,7 +626,7 @@ func _create_selection_underlay_for_view(view_index: int) -> SelectionUnderlay:
 	underlay.z_index = -1
 	underlay.y_sort_enabled = false
 	underlay.visibility_layer = _get_split_underlay_layer(view_index)
-
+	underlay.fallback_unit_inner_color = Color(1, 0, 0, 0.9) if view_index == 0 else Color(0, 1, 0, 0.9)
 	return underlay
 
 
@@ -677,7 +678,7 @@ func _create_player_hud(
 		hud.call("_wire_child_widgets")
 
 	_copy_main_hud_build_options(hud)
-
+	container.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	container.add_child(hud)
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.visible = true

@@ -264,7 +264,7 @@ layout_mode = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="RoughIntelMap" type="Control" parent="." node_paths=PackedStringArray("unit_manager", "structure_manager", "match_controller", "team_manager", "camera_pan_controller")]
+[node name="RoughIntelMap" type="Control" parent="."]
 custom_minimum_size = Vector2(160, 160)
 layout_mode = 1
 anchors_preset = 3
@@ -279,9 +279,4 @@ offset_bottom = -24.0
 grow_horizontal = 0
 grow_vertical = 0
 script = ExtResource("8_roooa")
-unit_manager = NodePath("")
-structure_manager = NodePath("")
-match_controller = NodePath("")
-team_manager = NodePath("")
-camera_pan_controller = NodePath("")
 map_texture = ExtResource("9_nrtl6")
