@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://scenes/main/match_controller.gd" id="5_xvb1v"]
 [ext_resource type="Resource" uid="uid://c8ehm6364nus1" path="res://data/units/basic_soldier.tres" id="6_71p1s"]
 [ext_resource type="Resource" uid="uid://i01u6sx8dsme" path="res://data/structures/hq_basic.tres" id="7_hn723"]
+[ext_resource type="Texture2D" uid="uid://oa2im3qvsleh" path="res://data/units/debug/unit_white_rect_8x16.png" id="7_l48hc"]
 [ext_resource type="Script" path="res://scripts/ai/ai_team_manager.gd" id="9_levw5"]
 [ext_resource type="Script" path="res://scripts/sim/structure_build_catalog.gd" id="9_m0h72"]
 [ext_resource type="Script" path="res://scripts/sim/team_manager.gd" id="9_witlm"]
@@ -36,9 +37,6 @@
 [ext_resource type="Resource" uid="uid://jardanqrg5kq" path="res://data/structures/Canine Trainer.tres" id="31_g4nnb"]
 [ext_resource type="Resource" uid="uid://bfqn0ko6j2nkn" path="res://data/structures/Basic War Shrine.tres" id="31_t21mw"]
 [ext_resource type="Resource" uid="uid://c47ffjbt3l26j" path="res://data/structures/Turret Tower.tres" id="32_nc4th"]
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_cw01p"]
-load_path = "res://.godot/imported/unit_white_rect_8x16.png-0c232b06cf29c5acdbd79437206c3e7b.ctex"
 
 [node name="Main" type="Node2D"]
 
@@ -125,12 +123,11 @@ rally_marker_texture = ExtResource("4_k8g1g")
 [node name="UnitRenderRoot" type="Node2D" parent="MatchRoot/World"]
 
 [node name="UnitBatchRoot" type="Node2D" parent="MatchRoot/World" node_paths=PackedStringArray("team_manager", "camera_pan_controller", "unit_manager")]
-visible = false
 script = ExtResource("3_f6jbf")
 team_manager = NodePath("../../Simulation/TeamManager")
 camera_pan_controller = NodePath("../../CameraRig")
 unit_manager = NodePath("../../Simulation/UnitSimulationManager")
-unit_texture = SubResource("CompressedTexture2D_cw01p")
+fallback_unit_texture = ExtResource("7_l48hc")
 
 [node name="EffectsRoot" type="Node2D" parent="MatchRoot/World"]
 
@@ -203,7 +200,7 @@ defense_structure_stats = Array[ExtResource("29_4b20o")]([ExtResource("32_nc4th"
 script = ExtResource("9_witlm")
 structure_manager = NodePath("../StructureSimulationManager")
 
-[node name="UnitSimulationManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("render_root", "combat_resolver", "structure_manager", "camera_pan_controller", "team_manager")]
+[node name="UnitSimulationManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("render_root", "combat_resolver", "structure_manager", "camera_pan_controller", "team_manager", "unit_batch_renderer")]
 script = ExtResource("10_gvb8p")
 render_root = NodePath("../../World/UnitRenderRoot")
 unit_preview_scene = ExtResource("11_50y2w")
@@ -211,6 +208,7 @@ combat_resolver = NodePath("../CombatResolver")
 structure_manager = NodePath("../StructureSimulationManager")
 camera_pan_controller = NodePath("../../CameraRig")
 team_manager = NodePath("../TeamManager")
+unit_batch_renderer = NodePath("../../World/UnitBatchRoot")
 
 [node name="StructureSimulationManager" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("structure_root", "match_net_controller", "unit_manager", "camera_pan_controller", "team_manager", "ai_team_manager")]
 script = ExtResource("12_e1kf6")

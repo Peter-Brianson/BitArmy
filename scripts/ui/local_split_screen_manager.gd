@@ -456,12 +456,10 @@ func _set_split_active(active: bool) -> void:
 			null if active else _saved_unit_batch_camera_controller
 		)
 
-	if disable_optional_unit_batch_renderer_during_split:
-		unit_batch_renderer.set_process(not active)
+		unit_batch_renderer.set_process(true)
 
 		if unit_batch_renderer is CanvasItem:
-			(unit_batch_renderer as CanvasItem).visible = not active
-
+			(unit_batch_renderer as CanvasItem).visible = true
 
 func _set_all_match_input_bridges_enabled(enabled: bool) -> void:
 	for node in get_tree().get_nodes_in_group("match_input_bridge"):

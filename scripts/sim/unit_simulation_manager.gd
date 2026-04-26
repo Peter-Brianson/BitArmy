@@ -26,6 +26,11 @@ extends Node
 @export var formation_spacing: float = 18.0
 @export var formation_row_width: int = 6
 
+@export_group("Rendering")
+@export var use_batch_unit_renderer: bool = true
+@export var keep_preview_nodes_for_debug: bool = false
+@export var unit_batch_renderer: UnitBatchRenderer2D
+
 @export_group("Performance")
 @export var simulation_tick_rate: float = 30.0
 @export var spatial_rebuild_interval: float = 0.05
@@ -50,6 +55,13 @@ var _spatial_rebuild_timer: float = 0.0
 
 func _ready() -> void:
 	spatial_hash.cell_size = spatial_hash_cell_size
+
+	if unit_batch_renderer != null:
+		unit_batch_renderer.unit_manager = self
+		unit_batch_renderer.team_manager = team_manager
+		unit_batch_renderer.camera_pan_controller = camera_pan_controller
+		unit_batch_renderer.visible = use_batch_unit_renderer
+		unit_batch_renderer.set_process(use_batch_unit_renderer)
 
 func _physics_process(delta: float) -> void:
 	var step: float = 1.0 / max(simulation_tick_rate, 1.0)
@@ -122,7 +134,8 @@ func spawn_unit(stats: UnitStats, team_id: int, spawn_position: Vector2) -> int:
 	units[unit_id] = unit
 	unit_death_flash_played[unit_id] = false
 
-	_create_view(unit)
+	if not use_batch_unit_renderer or keep_preview_nodes_for_debug:
+		_create_view(unit)
 
 	return unit_id
 
@@ -287,10 +300,15 @@ func clear_all_units() -> void:
 	units.clear()
 	unit_views.clear()
 	unit_death_flash_played.clear()
+	if unit_batch_renderer != null:
+		unit_batch_renderer.clear_flash_state()
 	next_unit_id = 1
 
 
 func notify_attack_flash(unit_id: int) -> void:
+	if unit_batch_renderer != null and use_batch_unit_renderer:
+		unit_batch_renderer.notify_attack_flash(unit_id)
+
 	if not unit_views.has(unit_id):
 		return
 
@@ -301,6 +319,9 @@ func notify_attack_flash(unit_id: int) -> void:
 
 
 func notify_hit_flash(unit_id: int) -> void:
+	if unit_batch_renderer != null and use_batch_unit_renderer:
+		unit_batch_renderer.notify_hit_flash(unit_id)
+
 	if not unit_views.has(unit_id):
 		return
 
@@ -311,6 +332,9 @@ func notify_hit_flash(unit_id: int) -> void:
 
 
 func notify_death_flash(unit_id: int) -> void:
+	if unit_batch_renderer != null and use_batch_unit_renderer:
+		unit_batch_renderer.notify_death_flash(unit_id)
+
 	if not unit_views.has(unit_id):
 		return
 
@@ -736,6 +760,23 @@ func _passes_fog_visibility(owner_team_id: int, world_position: Vector2, extra_r
 
 	return false
 
+func is_unit_visible_for_batch_render(unit: UnitRuntime, cull_rect: Rect2) -> bool:
+	if unit == null:
+		return false
+
+	if unit.stats == null:
+		return false
+
+	var camera_visible: bool = cull_rect.has_point(unit.position)
+
+	if not camera_visible:
+		return false
+
+	return _passes_fog_visibility(
+		unit.owner_team_id,
+		unit.position,
+		unit.get_radius()
+	)
 
 func _is_owner_friendly_to_fog_player(owner_team_id: int) -> bool:
 	for player_team_id in _fog_player_team_ids:
@@ -771,6 +812,9 @@ func _remove_unit(unit_id: int) -> void:
 			view.queue_free()
 
 		unit_views.erase(unit_id)
+
+	if unit_batch_renderer != null:
+		unit_batch_renderer.forget_unit(unit_id)
 
 	if unit_death_flash_played.has(unit_id):
 		unit_death_flash_played.erase(unit_id)
