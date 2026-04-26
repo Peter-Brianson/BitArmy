@@ -10,6 +10,7 @@ extends Node2D
 @export var edge_margin: float = 24.0
 @export var edge_scroll_speed: float = 650.0
 @export var keyboard_scroll_speed: float = 650.0
+@export var keyboard_pan_enabled: bool = true
 @export var mouse_edge_pan_enabled: bool = false
 @export var edge_pan_with_virtual_pointer: bool = false
 
@@ -17,15 +18,13 @@ extends Node2D
 @export var zoom_step: float = 0.08
 @export var min_zoom: float = 0.5
 @export var max_zoom: float = 2.0
+@export var keyboard_zoom_enabled: bool = true
 @export var mouse_wheel_zoom_enabled: bool = false
 
 @export_group("Virtual Cursor")
 @export var enable_virtual_cursor: bool = true
 @export var virtual_cursor_visual: Control
 @export var warp_os_mouse_for_virtual_pointer: bool = true
-
-# For an arrow cursor with the tip at top-left, use Vector2.ZERO.
-# For an 8x8 square/crosshair cursor centered on the click point, use Vector2(4, 4).
 @export var virtual_cursor_hotspot: Vector2 = Vector2.ZERO
 
 const SETTINGS_PATH := "user://settings.cfg"
@@ -176,16 +175,6 @@ func clear_virtual_pointer_override() -> void:
 	_update_virtual_cursor_visual()
 
 
-func emit_virtual_mouse_button(button_index: int, pressed: bool) -> void:
-	var ev := InputEventMouseButton.new()
-	ev.button_index = button_index
-	ev.pressed = pressed
-	ev.position = _external_pointer_screen
-	ev.global_position = _external_pointer_screen
-
-	Input.parse_input_event(ev)
-
-
 func center_on_world(world_pos: Vector2) -> void:
 	position = _get_clamped_camera_position(world_pos, get_viewport_rect().size)
 
@@ -196,7 +185,6 @@ func screen_to_world(screen_pos: Vector2) -> Vector2:
 
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var screen_delta: Vector2 = screen_pos - viewport_size * 0.5
-
 	var safe_zoom: Vector2 = camera.zoom
 
 	if safe_zoom.x <= 0.0:
@@ -242,11 +230,12 @@ func _apply_zoom() -> void:
 	if mouse_wheel_zoom_enabled and not block_mouse_zoom:
 		zoom_delta += _queued_mouse_wheel_zoom
 
-	if Input.is_action_just_pressed("zoom_in"):
-		zoom_delta += 1.0
+	if keyboard_zoom_enabled:
+		if Input.is_action_just_pressed("zoom_in"):
+			zoom_delta += 1.0
 
-	if Input.is_action_just_pressed("zoom_out"):
-		zoom_delta -= 1.0
+		if Input.is_action_just_pressed("zoom_out"):
+			zoom_delta -= 1.0
 
 	_queued_mouse_wheel_zoom = 0.0
 
@@ -274,6 +263,9 @@ func _get_active_screen_pointer(viewport_size: Vector2) -> Vector2:
 
 
 func _get_keyboard_pan_vector() -> Vector2:
+	if not keyboard_pan_enabled:
+		return Vector2.ZERO
+
 	return Input.get_vector("cam_left", "cam_right", "cam_up", "cam_down")
 
 

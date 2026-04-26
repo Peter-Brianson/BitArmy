@@ -5,7 +5,7 @@ extends Control
 @export var main_camera_rig: CameraPanController
 @export var original_match_input_bridge: MatchInputBridge
 @export var main_selection_controller: SelectionController
-@export var main_selection_underlay: Node2D
+@export var main_selection_underlay: SelectionUnderlay
 @export var main_hud_controller: HUDController
 
 @export_group("Match Managers")
@@ -33,9 +33,7 @@ extends Control
 @export_group("Controller Cursor")
 @export var controller_cursor_speed: float = 360.0
 @export var controller_cursor_deadzone: float = 0.18
-@export var controller_center_hq_axis: int = JOY_AXIS_TRIGGER_RIGHT
-@export var controller_center_hq_axis_threshold: float = 0.45
-@export var controller_center_hq_button: int = -1
+@export var controller_camera_pan_scale: float = 0.45
 
 @export_group("Per Player HUD")
 @export var hud_scene: PackedScene
@@ -52,11 +50,7 @@ var _saved_unit_batch_camera_controller: CameraPanController
 
 var _primary_down_last: Dictionary = {}
 var _secondary_down_last: Dictionary = {}
-var _cancel_down_last: Dictionary = {}
 var _pause_down_last: Dictionary = {}
-var _center_hq_down_last: Dictionary = {}
-var _select_all_down_last: Dictionary = {}
-
 
 
 func _ready() -> void:
@@ -93,7 +87,6 @@ func _process(delta: float) -> void:
 	if not _split_active:
 		return
 
-
 	var players: Array = InputHub.get_split_screen_players()
 	var count: int = min(players.size(), _views.size())
 
@@ -111,13 +104,15 @@ func _process(delta: float) -> void:
 
 		var local_screen_pos: Vector2 = _get_local_pointer_screen(player, container, delta)
 
+		var camera_pan: Vector2 = _get_camera_pan_for_player(player)
 		var cursor_world_before_pan: Vector2 = camera_rig.screen_to_world(local_screen_pos)
+
 		var should_anchor_cursor: bool = keep_cursor_world_anchored_while_panning
-		should_anchor_cursor = should_anchor_cursor and player.camera_pan.length_squared() > 0.001
+		should_anchor_cursor = should_anchor_cursor and camera_pan.length_squared() > 0.001
 		should_anchor_cursor = should_anchor_cursor and _get_controller_cursor_vector(player).length_squared() <= 0.001
 
-		camera_rig.external_camera_pan = player.camera_pan
-		camera_rig.external_zoom_delta = player.zoom_delta
+		camera_rig.external_camera_pan = camera_pan
+		camera_rig.external_zoom_delta = _get_zoom_delta_for_player(player)
 
 		if should_anchor_cursor and camera_rig.has_method("world_to_screen"):
 			local_screen_pos = camera_rig.world_to_screen(cursor_world_before_pan)
@@ -132,8 +127,6 @@ func _process(delta: float) -> void:
 		var pointer := VirtualPointerState.new()
 		pointer.setup_from_player(player, local_screen_pos, global_screen_pos, world_pos)
 		_apply_runtime_button_poll(pointer, player, container)
-		_poll_center_hq_for_player(player, camera_rig)
-
 
 		if debug_split_input:
 			if pointer.primary_just_pressed or pointer.primary_just_released or pointer.secondary_just_pressed or pointer.pause_just_pressed:
@@ -169,34 +162,8 @@ func _process(delta: float) -> void:
 		if pointer.pause_just_pressed:
 			_toggle_pause_menu()
 
-		_poll_controller_qol_for_player(player, camera_rig, selection)
-
 	InputHub.begin_frame()
 
-
-func _poll_center_hq_for_player(player, camera_rig: CameraPanController) -> void:
-	if camera_rig == null:
-		return
-
-	var player_index: int = int(player.player_index)
-
-	var center_now: bool = false
-
-	if player.is_keyboard_mouse:
-		center_now = Input.is_action_pressed("center_hq")
-	else:
-		var device_id: int = int(player.device_id)
-
-		# Y button. Godot's Y button is button index 3.
-		center_now = Input.is_joy_button_pressed(device_id, JOY_BUTTON_Y)
-
-	var center_last: bool = bool(_center_hq_down_last.get(player_index, false))
-
-	if center_now and not center_last:
-		var session_member_id: int = int(player.team_id)
-		_center_camera_on_player_member(camera_rig, session_member_id)
-
-	_center_hq_down_last[player_index] = center_now
 
 func _apply_runtime_button_poll(
 	pointer: VirtualPointerState,
@@ -210,12 +177,10 @@ func _apply_runtime_button_poll(
 
 		var primary_now: bool = mouse_inside_view and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 		var secondary_now: bool = mouse_inside_view and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
-		var cancel_now: bool = Input.is_action_pressed("cancel_back")
 		var pause_now: bool = Input.is_action_pressed("pause_game")
 
 		var primary_last: bool = bool(_primary_down_last.get(player_index, false))
 		var secondary_last: bool = bool(_secondary_down_last.get(player_index, false))
-		var cancel_last: bool = bool(_cancel_down_last.get(player_index, false))
 		var pause_last: bool = bool(_pause_down_last.get(player_index, false))
 
 		pointer.setup_runtime_buttons(
@@ -223,8 +188,8 @@ func _apply_runtime_button_poll(
 			primary_last,
 			secondary_now,
 			secondary_last,
-			cancel_now,
-			cancel_last,
+			false,
+			false,
 			pause_now,
 			pause_last,
 			false
@@ -232,7 +197,6 @@ func _apply_runtime_button_poll(
 
 		_primary_down_last[player_index] = primary_now
 		_secondary_down_last[player_index] = secondary_now
-		_cancel_down_last[player_index] = cancel_now
 		_pause_down_last[player_index] = pause_now
 
 		return
@@ -241,25 +205,22 @@ func _apply_runtime_button_poll(
 
 	var primary_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_A)
 	var secondary_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_B)
-
-	# Back/View is cancel. B is not cancel.
-	var cancel_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_BACK)
-
 	var pause_controller_now: bool = Input.is_joy_button_pressed(device_id, JOY_BUTTON_START)
 
 	var primary_controller_last: bool = bool(_primary_down_last.get(player_index, false))
 	var secondary_controller_last: bool = bool(_secondary_down_last.get(player_index, false))
-	var cancel_controller_last: bool = bool(_cancel_down_last.get(player_index, false))
 	var pause_controller_last: bool = bool(_pause_down_last.get(player_index, false))
 
-	# Controller A must be holdable so drag-select works.
+	# Controller A is holdable for drag-select.
+	# Controller B is secondary/right-click only.
+	# Runtime split-screen cancel is intentionally disabled here so B/back cannot close every HUD.
 	pointer.setup_runtime_buttons(
 		primary_controller_now,
 		primary_controller_last,
 		secondary_controller_now,
 		secondary_controller_last,
-		cancel_controller_now,
-		cancel_controller_last,
+		false,
+		false,
 		pause_controller_now,
 		pause_controller_last,
 		false
@@ -267,8 +228,55 @@ func _apply_runtime_button_poll(
 
 	_primary_down_last[player_index] = primary_controller_now
 	_secondary_down_last[player_index] = secondary_controller_now
-	_cancel_down_last[player_index] = cancel_controller_now
 	_pause_down_last[player_index] = pause_controller_now
+
+
+func _get_camera_pan_for_player(player) -> Vector2:
+	if player.is_keyboard_mouse:
+		return Input.get_vector("cam_left", "cam_right", "cam_up", "cam_down")
+
+	if player.is_touch:
+		return player.camera_pan
+
+	var device_id: int = int(player.device_id)
+	var pan := Vector2(
+		Input.get_joy_axis(device_id, JOY_AXIS_LEFT_X),
+		Input.get_joy_axis(device_id, JOY_AXIS_LEFT_Y)
+	)
+
+	var pan_length: float = pan.length()
+
+	if pan_length < controller_cursor_deadzone:
+		return Vector2.ZERO
+
+	return pan.normalized() * min(pan_length, 1.0) * controller_camera_pan_scale
+
+
+func _get_zoom_delta_for_player(player) -> float:
+	if player.is_keyboard_mouse:
+		var result: float = 0.0
+
+		if Input.is_action_just_pressed("zoom_in"):
+			result += 1.0
+
+		if Input.is_action_just_pressed("zoom_out"):
+			result -= 1.0
+
+		return result
+
+	if player.is_touch:
+		return player.zoom_delta
+
+	var device_id: int = int(player.device_id)
+	var result: float = 0.0
+
+	if Input.is_joy_button_pressed(device_id, JOY_BUTTON_RIGHT_SHOULDER):
+		result += 1.0
+
+	if Input.is_joy_button_pressed(device_id, JOY_BUTTON_LEFT_SHOULDER):
+		result -= 1.0
+
+	return result
 
 
 func _get_controller_cursor_vector(player) -> Vector2:
@@ -390,8 +398,8 @@ func _create_view(view_index: int, player) -> void:
 	var runtime_member_id: int = _get_runtime_member_for_session_member(session_member_id)
 
 	var container := SubViewportContainer.new()
-	container.clip_contents = true
 	container.name = "PlayerView%d" % (view_index + 1)
+	container.clip_contents = true
 	container.stretch = true
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(container)
@@ -404,8 +412,6 @@ func _create_view(view_index: int, player) -> void:
 	viewport.handle_input_locally = false
 	viewport.world_2d = get_viewport().world_2d
 
-	
-
 	container.add_child(viewport)
 
 	var view_root := Node2D.new()
@@ -413,12 +419,15 @@ func _create_view(view_index: int, player) -> void:
 	viewport.add_child(view_root)
 
 	var selection_underlay: SelectionUnderlay = _create_selection_underlay_for_view(view_index)
+	view_root.add_child(selection_underlay)
 
 	var camera_rig := CameraPanController.new()
 	camera_rig.name = "CameraRig_P%d" % (view_index + 1)
 	camera_rig.enable_virtual_cursor = true
 	camera_rig.warp_os_mouse_for_virtual_pointer = false
 	camera_rig.suppress_mouse_camera_input = true
+	camera_rig.keyboard_pan_enabled = false
+	camera_rig.keyboard_zoom_enabled = false
 	camera_rig.mouse_edge_pan_enabled = false
 	camera_rig.mouse_wheel_zoom_enabled = false
 	camera_rig.virtual_cursor_hotspot = cursor_hotspot
@@ -467,6 +476,7 @@ func _create_view(view_index: int, player) -> void:
 	_wire_selection_underlay(selection_underlay, selection)
 
 	var player_hud: HUDController = _create_player_hud(container, selection, camera_rig, player)
+
 	_views.append({
 		"player_index": int(player.player_index),
 		"session_member_id": session_member_id,
@@ -478,6 +488,7 @@ func _create_view(view_index: int, player) -> void:
 		"selection_underlay": selection_underlay,
 		"hud": player_hud
 	})
+
 
 func _create_selection_underlay_for_view(view_index: int) -> SelectionUnderlay:
 	var underlay: SelectionUnderlay = null
@@ -492,36 +503,6 @@ func _create_selection_underlay_for_view(view_index: int) -> SelectionUnderlay:
 	underlay.visible = true
 	underlay.set_process(true)
 
-	_configure_selection_underlay_layer(underlay)
-
-	var parent_node: Node = _get_selection_underlay_world_parent()
-
-	if parent_node != null:
-		parent_node.add_child(underlay)
-
-		if main_selection_underlay != null and main_selection_underlay.get_parent() == parent_node:
-			var target_index: int = main_selection_underlay.get_index() + 1 + view_index
-			target_index = clamp(target_index, 0, parent_node.get_child_count() - 1)
-			parent_node.move_child(underlay, target_index)
-	else:
-		add_child(underlay)
-
-	return underlay
-
-func _get_selection_underlay_world_parent() -> Node:
-	if main_selection_underlay != null and main_selection_underlay.get_parent() != null:
-		return main_selection_underlay.get_parent()
-
-	if main_selection_controller != null and main_selection_controller.get_parent() != null:
-		return main_selection_controller.get_parent()
-
-	return null
-
-
-func _configure_selection_underlay_layer(underlay: Node2D) -> void:
-	if underlay == null:
-		return
-
 	if main_selection_underlay != null:
 		underlay.z_as_relative = main_selection_underlay.z_as_relative
 		underlay.z_index = main_selection_underlay.z_index
@@ -530,22 +511,19 @@ func _configure_selection_underlay_layer(underlay: Node2D) -> void:
 		underlay.z_as_relative = false
 		underlay.z_index = -10
 
+	return underlay
 
 
-func _wire_selection_underlay(
-	underlay: Node2D,
-	selection: SelectionController
-) -> void:
+func _wire_selection_underlay(underlay: SelectionUnderlay, selection: SelectionController) -> void:
 	if underlay == null:
 		return
 
-	underlay.set("selection_controller", selection)
-	underlay.set("unit_manager", unit_manager)
-	underlay.set("structure_manager", structure_manager)
+	underlay.selection_controller = selection
+	underlay.unit_manager = unit_manager
+	underlay.structure_manager = structure_manager
 	underlay.visible = true
 	underlay.set_process(true)
 	underlay.queue_redraw()
-
 
 
 func _create_player_hud(
@@ -558,6 +536,7 @@ func _create_player_hud(
 		return null
 
 	var hud: HUDController = null
+
 	if hud_scene != null:
 		hud = hud_scene.instantiate() as HUDController
 	elif main_hud_controller != null:
@@ -583,15 +562,14 @@ func _create_player_hud(
 	container.add_child(hud)
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.visible = true
+
 	call_deferred("_disable_real_gui_input_for_split_hud", hud)
 
 	return hud
 
-func _copy_main_hud_build_options(hud: HUDController) -> void:
-	if hud == null:
-		return
 
-	if main_hud_controller == null:
+func _copy_main_hud_build_options(hud: HUDController) -> void:
+	if hud == null or main_hud_controller == null:
 		return
 
 	var stats_variant: Variant = main_hud_controller.get("buildable_structure_stats")
@@ -619,6 +597,7 @@ func _disable_real_gui_input_recursive(node: Node) -> void:
 		var control := node as Control
 		control.focus_mode = Control.FOCUS_NONE
 		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		control.release_focus()
 
 	for child in node.get_children():
 		_disable_real_gui_input_recursive(child)
@@ -656,63 +635,11 @@ func _clear_views() -> void:
 		if container != null and is_instance_valid(container):
 			container.queue_free()
 
-		var selection_underlay: Node2D = view.get("selection_underlay", null)
-
-		if selection_underlay != null and is_instance_valid(selection_underlay):
-			selection_underlay.queue_free()
-
 	_views.clear()
 	_local_pointers.clear()
 	_primary_down_last.clear()
 	_secondary_down_last.clear()
-	_cancel_down_last.clear()
 	_pause_down_last.clear()
-	_center_hq_down_last.clear()
-	_select_all_down_last.clear()
-
-func _poll_controller_qol_for_player(
-	player,
-	camera_rig: CameraPanController,
-	selection: SelectionController
-) -> void:
-	var player_index: int = int(player.player_index)
-
-	var center_now: bool = false
-	var select_all_now: bool = false
-
-	if player.is_keyboard_mouse or player.is_touch:
-		center_now = Input.is_action_pressed("center_hq")
-		select_all_now = Input.is_action_pressed("select_all_units")
-	else:
-		var device_id: int = int(player.device_id)
-
-		center_now = _is_controller_center_hq_pressed(device_id)
-
-		# Y = select all units.
-		select_all_now = Input.is_joy_button_pressed(device_id, JOY_BUTTON_Y)
-
-	var center_last: bool = bool(_center_hq_down_last.get(player_index, false))
-	var select_all_last: bool = bool(_select_all_down_last.get(player_index, false))
-
-	if center_now and not center_last:
-		var session_member_id: int = int(player.team_id)
-		_center_camera_on_player_member(camera_rig, session_member_id)
-
-	if select_all_now and not select_all_last:
-		if selection != null:
-			selection.select_all_player_units()
-
-	_center_hq_down_last[player_index] = center_now
-	_select_all_down_last[player_index] = select_all_now
-
-
-func _is_controller_center_hq_pressed(device_id: int) -> bool:
-	if controller_center_hq_button >= 0:
-		if Input.is_joy_button_pressed(device_id, controller_center_hq_button):
-			return true
-
-	var axis_value: float = Input.get_joy_axis(device_id, controller_center_hq_axis)
-	return axis_value >= controller_center_hq_axis_threshold
 
 
 func _apply_layout() -> void:
@@ -747,10 +674,7 @@ func _apply_layout() -> void:
 		if not _local_pointers.has(player_index):
 			_local_pointers[player_index] = r.size * 0.5
 		else:
-			_local_pointers[player_index] = _clamp_screen_pos(
-				_local_pointers[player_index],
-				r.size
-			)
+			_local_pointers[player_index] = _clamp_screen_pos(_local_pointers[player_index], r.size)
 
 
 func _get_split_rects(count: int, total_size: Vector2) -> Array[Rect2]:

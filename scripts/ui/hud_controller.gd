@@ -110,6 +110,9 @@ func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
 	_last_virtual_pointer_world = pointer.world_pos
 	_last_virtual_pointer_player_index = pointer.player_index
 
+	# Do not push pointer.world_pos into StructurePlacementController here.
+	# Placement should only receive position from the active owner pointer.
+
 	var button: BaseButton = _find_button_at_global_position(self, pointer.screen_pos)
 
 	if button != null:
@@ -118,8 +121,20 @@ func handle_virtual_pointer(pointer: VirtualPointerState) -> bool:
 
 		if pointer.primary_just_pressed:
 			button.emit_signal("pressed")
+			return true
 
-		return true
+	if _is_pointer_over_blocking_hud_surface(self, pointer.screen_pos, self):
+		return (
+			pointer.primary_just_pressed
+			or pointer.primary_pressed
+			or pointer.primary_just_released
+			or pointer.secondary_just_pressed
+			or pointer.secondary_pressed
+			or pointer.secondary_just_released
+			or pointer.cancel_just_pressed
+		)
+
+	return false
 
 	if _is_pointer_over_blocking_hud_surface(self, pointer.screen_pos, self):
 		return (
