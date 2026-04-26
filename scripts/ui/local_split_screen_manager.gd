@@ -73,9 +73,11 @@ func _get_all_split_underlay_layers() -> int:
 	return mask
 
 func _ready() -> void:
+	add_to_group("local_split_screen_manager")
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	
 
 	if unit_manager != null:
 		_saved_unit_camera_controller = unit_manager.camera_pan_controller
@@ -96,6 +98,8 @@ func _ready() -> void:
 
 	call_deferred("_rebuild_views")
 
+func is_split_screen_active() -> bool:
+	return _split_active
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
@@ -513,6 +517,8 @@ func _create_view(view_index: int, player) -> void:
 	var camera_rig := CameraPanController.new()
 	camera_rig.name = "CameraRig_P%d" % (view_index + 1)
 	camera_rig.enable_virtual_cursor = true
+	camera_rig.virtual_pointer_is_primary = true
+	camera_rig.draw_virtual_cursor_visual = true
 	camera_rig.virtual_pointer_is_primary = true
 	camera_rig.warp_os_mouse_for_virtual_pointer = false
 	camera_rig.suppress_mouse_camera_input = true

@@ -250,7 +250,6 @@ func assign_team(player_index: int, team_id: int) -> void:
 	player.team_id = team_id
 	player_team_changed.emit(player_index, team_id)
 
-
 func _poll_desktop_and_controller_axes(delta: float) -> void:
 	var viewport := get_viewport()
 
@@ -263,8 +262,8 @@ func _poll_desktop_and_controller_axes(delta: float) -> void:
 		if player.is_keyboard_mouse:
 			player.camera_pan = Input.get_vector("cam_left", "cam_right", "cam_up", "cam_down")
 			player.pointer_screen = viewport.get_mouse_position()
-			player.cursor_velocity = Vector2.ZERO
 			player.pointer_delta = Vector2.ZERO
+			player.cursor_velocity = Vector2.ZERO
 			_poll_keyboard_mouse_buttons(player)
 			continue
 
@@ -287,10 +286,17 @@ func _poll_desktop_and_controller_axes(delta: float) -> void:
 			Input.get_joy_axis(device_id, JOY_AXIS_RIGHT_Y)
 		)
 
-		if cursor_stick.length() < stick_deadzone:
+		var cursor_length: float = cursor_stick.length()
+
+		if cursor_length < stick_deadzone:
 			cursor_stick = Vector2.ZERO
 		else:
-			var adjusted_length: float = inverse_lerp(stick_deadzone, 1.0, min(cursor_stick.length(), 1.0))
+			var adjusted_length: float = inverse_lerp(
+				stick_deadzone,
+				1.0,
+				min(cursor_length, 1.0)
+			)
+
 			cursor_stick = cursor_stick.normalized() * adjusted_length
 
 		player.cursor_velocity = cursor_stick
@@ -301,7 +307,6 @@ func _poll_desktop_and_controller_axes(delta: float) -> void:
 		player.pointer_screen.y = clamp(player.pointer_screen.y, 0.0, viewport_size.y)
 
 		_poll_controller_buttons(player)
-
 
 func _poll_keyboard_mouse_buttons(player: PlayerState) -> void:
 	var primary_now: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)

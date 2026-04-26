@@ -26,11 +26,12 @@ extends Node2D
 @export var virtual_cursor_visual: Control
 @export var warp_os_mouse_for_virtual_pointer: bool = true
 @export var virtual_cursor_hotspot: Vector2 = Vector2.ZERO
-@export var virtual_pointer_is_primary: bool = true
 @export var auto_create_virtual_cursor_visual: bool = true
 @export var generated_virtual_cursor_size: Vector2 = Vector2(8.0, 8.0)
 @export var generated_virtual_cursor_color: Color = Color(1.0, 1.0, 1.0, 0.95)
 @export var generated_virtual_cursor_z_index: int = 4096
+@export var virtual_pointer_is_primary: bool = true
+@export var draw_virtual_cursor_visual: bool = false
 
 const SETTINGS_PATH := "user://settings.cfg"
 const SETTINGS_SECTION := "camera_input"
@@ -287,7 +288,10 @@ func _apply_zoom() -> void:
 
 
 func _get_active_screen_pointer(viewport_size: Vector2) -> Vector2:
-	if enable_virtual_cursor and (virtual_pointer_is_primary or _has_external_pointer):
+	if enable_virtual_cursor and virtual_pointer_is_primary and _has_external_pointer:
+		return _external_pointer_screen
+
+	if enable_virtual_cursor and _has_external_pointer:
 		return _external_pointer_screen
 
 	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
@@ -323,7 +327,12 @@ func _update_virtual_cursor_visual() -> void:
 	if virtual_cursor_visual == null:
 		return
 
-	virtual_cursor_visual.visible = enable_virtual_cursor and (virtual_pointer_is_primary or _has_external_pointer)
+	virtual_cursor_visual.visible = (
+		draw_virtual_cursor_visual
+		and enable_virtual_cursor
+		and _has_external_pointer
+	)
+
 	virtual_cursor_visual.position = _external_pointer_screen - virtual_cursor_hotspot
 
 func _get_clamped_camera_position(target_pos: Vector2, viewport_size: Vector2) -> Vector2:

@@ -30,6 +30,7 @@ InputHub="*res://scripts/global/input_router.gd"
 GameSession="*res://scripts/global/GameSession.gd"
 AudioHub="*res://scenes/global/audio_manager.tscn"
 NetworkHub="*res://scripts/global/NetworkSession.gd"
+VirtualMouse="*res://scripts/global/virtual_mouse_controller.gd"
 
 [display]
 

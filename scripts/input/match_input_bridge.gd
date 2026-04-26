@@ -15,6 +15,7 @@ extends Node
 @export var virtual_pointer_primary: bool = true
 @export var emit_virtual_mouse_events_for_keyboard_mouse: bool = false
 
+
 @export_group("Pause")
 @export var allow_any_local_player_pause: bool = true
 @export var direct_pause_fallback_enabled: bool = true
@@ -30,13 +31,8 @@ func _ready() -> void:
 
 	if camera_pan_controller != null:
 		camera_pan_controller.enable_virtual_cursor = true
-
-		if "virtual_pointer_is_primary" in camera_pan_controller:
-			camera_pan_controller.set("virtual_pointer_is_primary", virtual_pointer_primary)
-
-		if camera_pan_controller.has_method("_ensure_virtual_cursor_visual"):
-			camera_pan_controller.call("_ensure_virtual_cursor_visual")
-
+		camera_pan_controller.virtual_pointer_is_primary = virtual_pointer_primary
+		camera_pan_controller.draw_virtual_cursor_visual = false
 
 func _process(_delta: float) -> void:
 	var pause_handled: bool = false
@@ -90,8 +86,12 @@ func _process(_delta: float) -> void:
 func _build_pointer(player) -> VirtualPointerState:
 	var screen_pos: Vector2 = player.pointer_screen
 
+	if player.is_keyboard_mouse:
+		screen_pos = get_viewport().get_mouse_position()
+
 	if virtual_pointer_primary:
 		camera_pan_controller.enable_virtual_cursor = true
+		camera_pan_controller.virtual_pointer_is_primary = true
 		camera_pan_controller.set_virtual_pointer_screen(screen_pos)
 	else:
 		if player.is_keyboard_mouse:
@@ -104,14 +104,7 @@ func _build_pointer(player) -> VirtualPointerState:
 	var pointer := VirtualPointerState.new()
 	pointer.setup_from_player(player, screen_pos, screen_pos, world_pos)
 
-	if player.is_keyboard_mouse and not emit_virtual_mouse_events_for_keyboard_mouse:
-		pointer.primary_just_pressed = false
-		pointer.primary_just_released = false
-		pointer.secondary_just_pressed = false
-		pointer.secondary_just_released = false
-
 	return pointer
-
 
 func _apply_camera(pointer: VirtualPointerState) -> void:
 	if camera_pan_controller == null:
