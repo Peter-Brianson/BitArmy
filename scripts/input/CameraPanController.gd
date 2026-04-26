@@ -26,6 +26,11 @@ extends Node2D
 @export var virtual_cursor_visual: Control
 @export var warp_os_mouse_for_virtual_pointer: bool = true
 @export var virtual_cursor_hotspot: Vector2 = Vector2.ZERO
+@export var virtual_pointer_is_primary: bool = true
+@export var auto_create_virtual_cursor_visual: bool = true
+@export var generated_virtual_cursor_size: Vector2 = Vector2(8.0, 8.0)
+@export var generated_virtual_cursor_color: Color = Color(1.0, 1.0, 1.0, 0.95)
+@export var generated_virtual_cursor_z_index: int = 4096
 
 const SETTINGS_PATH := "user://settings.cfg"
 const SETTINGS_SECTION := "camera_input"
@@ -59,6 +64,10 @@ func _ready() -> void:
 
 	var viewport_size: Vector2 = get_viewport_rect().size
 	_external_pointer_screen = viewport_size * 0.5
+
+	if auto_create_virtual_cursor_visual:
+		_ensure_virtual_cursor_visual()
+
 	_update_virtual_cursor_visual()
 
 
@@ -93,6 +102,32 @@ func _process(delta: float) -> void:
 	external_camera_pan = Vector2.ZERO
 	external_zoom_delta = 0.0
 
+func _ensure_virtual_cursor_visual() -> void:
+	if virtual_cursor_visual != null:
+		return
+
+	var layer := CanvasLayer.new()
+	layer.name = "VirtualCursorCanvasLayer"
+	layer.layer = generated_virtual_cursor_z_index
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(layer)
+
+	var cursor := ColorRect.new()
+	cursor.name = "VirtualCursor"
+	cursor.size = generated_virtual_cursor_size
+	cursor.custom_minimum_size = generated_virtual_cursor_size
+	cursor.color = generated_virtual_cursor_color
+	cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cursor.z_index = generated_virtual_cursor_z_index
+	cursor.visible = false
+	cursor.set_anchors_preset(Control.PRESET_TOP_LEFT)
+
+	layer.add_child(cursor)
+
+	virtual_cursor_visual = cursor
+
+	if virtual_cursor_hotspot == Vector2.ZERO:
+		virtual_cursor_hotspot = generated_virtual_cursor_size * 0.5
 
 func set_mouse_camera_options(enable_wheel_zoom: bool, enable_edge_pan: bool) -> void:
 	mouse_wheel_zoom_enabled = enable_wheel_zoom
@@ -252,7 +287,7 @@ func _apply_zoom() -> void:
 
 
 func _get_active_screen_pointer(viewport_size: Vector2) -> Vector2:
-	if enable_virtual_cursor and _has_external_pointer:
+	if enable_virtual_cursor and (virtual_pointer_is_primary or _has_external_pointer):
 		return _external_pointer_screen
 
 	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
@@ -284,14 +319,12 @@ func _get_edge_pan_vector(pointer: Vector2, viewport_size: Vector2) -> Vector2:
 
 	return dir
 
-
 func _update_virtual_cursor_visual() -> void:
 	if virtual_cursor_visual == null:
 		return
 
-	virtual_cursor_visual.visible = enable_virtual_cursor and _has_external_pointer
+	virtual_cursor_visual.visible = enable_virtual_cursor and (virtual_pointer_is_primary or _has_external_pointer)
 	virtual_cursor_visual.position = _external_pointer_screen - virtual_cursor_hotspot
-
 
 func _get_clamped_camera_position(target_pos: Vector2, viewport_size: Vector2) -> Vector2:
 	if camera == null:

@@ -513,6 +513,7 @@ func _create_view(view_index: int, player) -> void:
 	var camera_rig := CameraPanController.new()
 	camera_rig.name = "CameraRig_P%d" % (view_index + 1)
 	camera_rig.enable_virtual_cursor = true
+	camera_rig.virtual_pointer_is_primary = true
 	camera_rig.warp_os_mouse_for_virtual_pointer = false
 	camera_rig.suppress_mouse_camera_input = true
 	camera_rig.keyboard_pan_enabled = false
@@ -549,6 +550,7 @@ func _create_view(view_index: int, player) -> void:
 	var cursor: Control = _create_virtual_cursor_control()
 	container.add_child(cursor)
 	camera_rig.virtual_cursor_visual = cursor
+	camera_rig.virtual_cursor_hotspot = cursor_hotspot
 
 	var selection := SelectionController.new()
 	selection.name = "SelectionRoot_P%d" % (view_index + 1)

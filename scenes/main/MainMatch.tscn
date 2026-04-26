@@ -235,6 +235,14 @@ match_controller = NodePath("../MatchController")
 selection_controller = NodePath("../../World/SelectionRoot")
 hud_controller = NodePath("../../../UI/HUD")
 structure_placement_controller = NodePath("../../World/StructurePlacementController")
+primary_player_index = null
+pause_menu_group_name = null
+consume_router_transients = null
+virtual_pointer_primary = null
+emit_virtual_mouse_events_for_keyboard_mouse = null
+keep_virtual_cursor_world_anchored_while_panning = null
+allow_any_local_player_pause = null
+direct_pause_fallback_enabled = null
 
 [node name="MatchNetController" type="Node" parent="MatchRoot/Simulation" node_paths=PackedStringArray("match_controller", "team_manager", "game_manager", "unit_manager", "structure_manager", "ai_team_manager")]
 script = ExtResource("24_0r7dn")
@@ -270,10 +278,22 @@ match_net_controller = NodePath("../../MatchRoot/Simulation/MatchNetController")
 game_manager = NodePath("../../MatchRoot/Simulation/GameManager")
 structure_placement_controller = NodePath("../../MatchRoot/World/StructurePlacementController")
 unit_batch_renderer = NodePath("../../MatchRoot/World/UnitBatchRoot")
+max_views = null
+split_only_in_skirmish = null
+show_split_when_player_count_at_least = null
 cursor_size = Vector2(16, 16)
 cursor_texture = ExtResource("2_xed8e")
+cursor_hotspot = null
+keep_cursor_world_anchored_while_panning = null
 debug_split_input = true
+controller_cursor_speed = null
+controller_cursor_deadzone = null
+controller_camera_pan_scale = null
 hud_scene = ExtResource("15_mksec")
+show_per_player_hud = null
+split_hud_scale = null
+split_render_scale = null
+disable_optional_unit_batch_renderer_during_split = null
 
 [node name="HUD" parent="UI" node_paths=PackedStringArray("selection_controller", "unit_manager", "structure_manager", "game_manager", "match_controller", "match_net_controller", "camera_pan_controller", "structure_placement_controller", "structure_catalog") instance=ExtResource("15_mksec")]
 selection_controller = NodePath("../../MatchRoot/World/SelectionRoot")

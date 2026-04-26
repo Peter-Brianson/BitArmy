@@ -257,37 +257,45 @@ func _poll_desktop_and_controller_axes(delta: float) -> void:
 	if viewport == null:
 		return
 
+	var viewport_size: Vector2 = viewport.get_visible_rect().size
+
 	for player in _players:
 		if player.is_keyboard_mouse:
 			player.camera_pan = Input.get_vector("cam_left", "cam_right", "cam_up", "cam_down")
 			player.pointer_screen = viewport.get_mouse_position()
+			player.cursor_velocity = Vector2.ZERO
+			player.pointer_delta = Vector2.ZERO
 			_poll_keyboard_mouse_buttons(player)
 			continue
 
 		var device_id: int = player.device_id
 
-		player.camera_pan = Vector2(
+		var camera_stick := Vector2(
 			Input.get_joy_axis(device_id, JOY_AXIS_LEFT_X),
 			Input.get_joy_axis(device_id, JOY_AXIS_LEFT_Y)
 		)
 
-		if player.camera_pan.length() < stick_deadzone:
-			player.camera_pan = Vector2.ZERO
-
-		player.camera_pan = Vector2(
-			Input.get_joy_axis(device_id, JOY_AXIS_LEFT_X),
-			Input.get_joy_axis(device_id, JOY_AXIS_LEFT_Y)
-		)
-
-		if player.camera_pan.length() < stick_deadzone:
-			player.camera_pan = Vector2.ZERO
+		if camera_stick.length() < stick_deadzone:
+			camera_stick = Vector2.ZERO
 		else:
-			player.camera_pan *= controller_camera_pan_scale
+			camera_stick *= controller_camera_pan_scale
 
+		player.camera_pan = camera_stick
+
+		var cursor_stick := Vector2(
+			Input.get_joy_axis(device_id, JOY_AXIS_RIGHT_X),
+			Input.get_joy_axis(device_id, JOY_AXIS_RIGHT_Y)
+		)
+
+		if cursor_stick.length() < stick_deadzone:
+			cursor_stick = Vector2.ZERO
+		else:
+			var adjusted_length: float = inverse_lerp(stick_deadzone, 1.0, min(cursor_stick.length(), 1.0))
+			cursor_stick = cursor_stick.normalized() * adjusted_length
+
+		player.cursor_velocity = cursor_stick
 		player.pointer_delta = player.cursor_velocity * controller_cursor_speed * delta
 		player.pointer_screen += player.pointer_delta
-
-		var viewport_size: Vector2 = viewport.get_visible_rect().size
 
 		player.pointer_screen.x = clamp(player.pointer_screen.x, 0.0, viewport_size.x)
 		player.pointer_screen.y = clamp(player.pointer_screen.y, 0.0, viewport_size.y)
